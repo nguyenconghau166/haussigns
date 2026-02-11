@@ -617,53 +617,50 @@ export default function SettingsPage() {
             </Card>
 
             {/* OpenAI Config */}
-            {settings.ai_provider !== 'gemini' && (
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Key className="h-5 w-5 text-emerald-500" /> OpenAI API
-                  </CardTitle>
-                  <CardDescription>API key được cấu hình qua biến môi trường (.env.local)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <CheckCircle className="h-5 w-5 text-emerald-500" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-800">OpenAI đã kết nối</p>
-                      <p className="text-xs text-emerald-600">API Key được cấu hình qua OPENAI_API_KEY trong .env.local</p>
-                    </div>
+            {/* OpenAI Config */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Key className="h-5 w-5 text-emerald-500" /> OpenAI API
+                </CardTitle>
+                <CardDescription>API key được cấu hình qua biến môi trường (.env.local)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <CheckCircle className="h-5 w-5 text-emerald-500" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-800">OpenAI đã kết nối</p>
+                    <p className="text-xs text-emerald-600">API Key được cấu hình qua OPENAI_API_KEY trong .env.local</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Gemini Config */}
-            {(settings.ai_provider === 'gemini' || !settings.ai_provider) && (
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-blue-500" /> Google Gemini API
-                  </CardTitle>
-                  <CardDescription>Cấu hình API Key của Google Gemini</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <InputField
-                    label="Gemini API Key"
-                    value={settings.GEMINI_API_KEY}
-                    onChange={(v) => handleChange('GEMINI_API_KEY', v)}
-                    type="password"
-                    placeholder="AIzaSy..."
-                    hint="Lấy key tại: aistudio.google.com"
-                  />
-                  {!settings.GEMINI_API_KEY && (
-                    <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
-                      <AlertCircle className="h-4 w-4" />
-                      Cần nhập API Key để sử dụng Gemini.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-blue-500" /> Google Gemini API
+                </CardTitle>
+                <CardDescription>Cấu hình API Key của Google Gemini</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <InputField
+                  label="Gemini API Key"
+                  value={settings.GEMINI_API_KEY}
+                  onChange={(v) => handleChange('GEMINI_API_KEY', v)}
+                  type="password"
+                  placeholder="AIzaSy..."
+                  hint="Lấy key tại: aistudio.google.com"
+                />
+                {!settings.GEMINI_API_KEY && (
+                  <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    Cần nhập API Key để sử dụng Gemini.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Custom Image API */}
             <Card className="border-0 shadow-md">

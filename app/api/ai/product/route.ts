@@ -75,8 +75,8 @@ Write a description that positions this ${isMaterial ? 'material as a premium ch
 
         if (provider === 'gemini') {
             const apiKey = config.GEMINI_API_KEY;
-            if (!apiKey) throw new Error('Gemini API Key missing');
-            responseText = await generateContentGemini(apiKey, systemPrompt, userPrompt, 'gemini-3-pro') || "";
+            // Let the service handle missing key (it checks env vars too)
+            responseText = await generateContentGemini(systemPrompt, userPrompt, 'gemini-1.5-pro', apiKey) || "";
         } else {
             // Fallback or OpenAI implementation
             const result = await generateContentOpenAI(systemPrompt, userPrompt, 'gpt-5.2');

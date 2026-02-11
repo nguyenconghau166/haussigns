@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateContent } from '@/lib/openai';
+import { generateSmartContent } from '@/lib/ai/service';
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     const userPrompt = `Write a comprehensive article about: "${topic}". Focus on durability, price, and visual appeal. Mention locations like Makati, BGC, Quezon City naturally.`;
 
-    const content = await generateContent(systemPrompt, userPrompt);
+    const content = await generateSmartContent(systemPrompt, userPrompt);
 
     return NextResponse.json({ content });
   } catch (error) {

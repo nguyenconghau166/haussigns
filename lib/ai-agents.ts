@@ -16,14 +16,12 @@ async function generateContentResolved(
 
   if (provider === 'gemini') {
     const apiKey = config.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('Gemini API Key is missing in settings');
-    // Map OpenAI model names to Gemini equivelants if needed, or use selected
-    // For now assuming configModel is passed correctly as 'gemini-1.5-flash' etc if selected
-    // But if it's 'gpt-4o' (default fallback), mappings:
+    // Map OpenAI model names to Gemini equivalents
     let model = configModel || 'gemini-1.5-flash';
     if (model.includes('gpt')) model = 'gemini-1.5-flash';
 
-    return await generateContentGemini(apiKey, systemPrompt, userPrompt, model);
+    // Let the service handle missing key (it checks env vars too)
+    return await generateContentGemini(systemPrompt, userPrompt, model, apiKey);
   } else {
     // Default OpenAI
     return await generateContentOpenAI(systemPrompt, userPrompt, configModel);
