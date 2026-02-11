@@ -3,15 +3,15 @@
 import { motion } from 'framer-motion';
 import { Star, Quote } from 'lucide-react';
 
-const TESTIMONIALS: {
+interface Testimonial {
     name: string;
     role: string;
     content: string;
     rating: number;
-}[] = [];
+}
 
-export default function Testimonials() {
-    if (TESTIMONIALS.length === 0) return null;
+export default function Testimonials({ testimonials = [] }: { testimonials?: Testimonial[] }) {
+    if (!testimonials || testimonials.length === 0) return null;
 
     return (
         <section className="py-20 md:py-28 bg-slate-50 relative overflow-hidden">
@@ -41,7 +41,7 @@ export default function Testimonials() {
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                    {TESTIMONIALS.map((testimonial, index) => (
+                    {testimonials.map((testimonial, index) => (
                         <motion.div
                             key={testimonial.name}
                             initial={{ opacity: 0, y: 30 }}

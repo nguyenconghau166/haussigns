@@ -11,6 +11,8 @@ import ProductShowcase from '@/components/ProductShowcase';
 import Link from 'next/link';
 import { ArrowRight, Shield, Clock, Eye, Ruler } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getProducts, getServices, getProjects, getTestimonials } from '@/lib/dataService';
+import { use, useEffect, useState } from 'react';
 
 const LATEST_POSTS = [
   {
@@ -86,14 +88,39 @@ const WHY_CHOOSE = [
   },
 ];
 
+import Testimonials from '@/components/Testimonials';
+
 export default function Home() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      const [prodData, servData, projData, testData] = await Promise.all([
+        getProducts(),
+        getServices(),
+        getProjects(),
+        getTestimonials()
+      ]);
+      setProducts(prodData);
+      setServices(servData);
+      setProjects(projData);
+      setTestimonials(testData);
+    }
+    loadData();
+  }, []);
+
   return (
     <main className="flex min-h-screen flex-col bg-white">
       <Navbar />
       <Hero />
-      <ServiceGrid />
-      <ProjectGallery />
-      <ProductShowcase />
+      <ServiceGrid services={services} />
+      <ProjectGallery projects={projects} />
+      <ProductShowcase products={products} />
+      <Testimonials testimonials={testimonials} />
+
 
       {/* Why Choose Us */}
       <section className="py-20 md:py-28 bg-white relative overflow-hidden">

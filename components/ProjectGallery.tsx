@@ -3,17 +3,16 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 
-const PROJECTS: {
-  id: number;
+interface Project {
+  id: number | string;
   title: string;
   category: string;
   image: string;
   size: string;
-}[] = [];
+}
 
-export default function ProjectGallery() {
-  if (PROJECTS.length === 0) return null;
-  if (PROJECTS.length === 0) return null;
+export default function ProjectGallery({ projects = [] }: { projects?: Project[] }) {
+  if (!projects || projects.length === 0) return null;
 
   return (
     <section className="py-20 bg-white">
@@ -32,7 +31,7 @@ export default function ProjectGallery() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-[800px] md:h-[600px]">
-          {PROJECTS.map((project, index) => (
+          {projects.map((project, index) => (
             <motion.div
               key={project.id}
               initial={{ opacity: 0, y: 20 }}

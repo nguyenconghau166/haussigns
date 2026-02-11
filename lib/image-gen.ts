@@ -1,4 +1,4 @@
-import { openai } from './openai';
+import { generateImage } from './openai'; // Use the wrapper function
 import { supabaseAdmin } from './supabase';
 
 // Định nghĩa kiểu dữ liệu cho kết quả tạo ảnh
@@ -67,15 +67,8 @@ function extractImageFromResponse(data: unknown): string | null {
 // --- ENGINE 1: OPENAI DALL-E 3 ---
 async function generateWithDallE(prompt: string): Promise<ImageGenResult> {
   try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: prompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'hd',
-      style: 'vivid',
-    });
-    return { success: true, url: response.data?.[0]?.url };
+    const url = await generateImage(prompt);
+    return { success: !!url, url: url || undefined };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('DALL-E Error:', error);

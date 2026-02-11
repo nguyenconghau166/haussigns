@@ -4,47 +4,18 @@ import Image from 'next/image';
 import { ArrowRight, Star } from 'lucide-react';
 import Link from 'next/link';
 
-const PRODUCTS = [
-  {
-    id: 1,
-    name: 'Acrylic Build-Up',
-    description: '3D letters with smooth finish. Best for logos and brand names.',
-    price: 'From ₱3,500',
-    rating: 5,
-    image: 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=2674&auto=format&fit=crop',
-    tag: 'Best Seller',
-  },
-  {
-    id: 2,
-    name: 'Stainless Steel',
-    description: 'Gold or hairline finish. Rust-proof and elegant for outdoor use.',
-    price: 'From ₱4,500',
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1616400619175-5beda3a17896?q=80&w=2574&auto=format&fit=crop',
-    tag: 'Premium',
-  },
-  {
-    id: 3,
-    name: 'Neon LED Signs',
-    description: 'Vibrant custom shapes and colors. Perfect for cafes and bars.',
-    price: 'From ₱2,800',
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1563291074-2bf8677ac0e5?q=80&w=2548&auto=format&fit=crop',
-    tag: 'Trending',
-  },
-  {
-    id: 4,
-    name: 'Panaflex Lightbox',
-    description: 'Cost-effective illuminated signage for large formats.',
-    price: 'From ₱1,500',
-    rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2670&auto=format&fit=crop',
-    tag: 'Economy',
-  },
-];
+interface Product {
+  id: number | string;
+  name: string;
+  description: string;
+  price: string;
+  rating: number;
+  image: string;
+  tag: string;
+}
 
-export default function ProductShowcase() {
-  if (PRODUCTS.length === 0) return null;
+export default function ProductShowcase({ products = [] }: { products?: Product[] }) {
+  if (!products || products.length === 0) return null;
 
   return (
     <section className="py-20 bg-slate-50">
@@ -60,7 +31,7 @@ export default function ProductShowcase() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {PRODUCTS.map((product) => (
+          {products.map((product) => (
             <div key={product.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100">
               <div className="relative h-64 w-full bg-slate-200">
                 <Image
