@@ -6,10 +6,11 @@ import StickyContact from '@/components/StickyContact';
 import { formatDate } from '@/lib/utils';
 import { ArrowLeft } from 'lucide-react';
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   // In a real app, fetch post data based on params.slug
+  const { slug } = await params;
   const post = {
-    title: params.slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+    title: slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
     date: '2024-02-15',
     category: 'Materials',
     author: 'SignsHaus Team',

@@ -4,9 +4,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 // GET: Fetch page by slug
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = params;
+  const { slug } = await params;
   const { data, error } = await supabaseAdmin.from('site_pages').select('*').eq('slug', slug).single();
   
   if (error || !data) return NextResponse.json({ error: 'Page not found' }, { status: 404 });
@@ -16,10 +16,10 @@ export async function GET(
 // PUT: Update page
 export async function PUT(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = params;
+    const { slug } = await params;
     const body = await request.json();
     
     const { error } = await supabaseAdmin
