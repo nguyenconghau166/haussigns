@@ -5,8 +5,20 @@ import Footer from '@/components/Footer';
 import StickyContact from '@/components/StickyContact';
 import ServiceGrid from '@/components/ServiceGrid';
 import { motion } from 'framer-motion';
+import { getServices } from '@/lib/dataService';
+import { useEffect, useState } from 'react';
 
 export default function SignTypesPage() {
+  const [services, setServices] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await getServices();
+      setServices(data);
+    }
+    loadData();
+  }, []);
+
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <Navbar />
@@ -22,7 +34,7 @@ export default function SignTypesPage() {
         </div>
       </section>
 
-      <ServiceGrid />
+      <ServiceGrid services={services} />
 
       <section className="py-20 bg-slate-50">
         <div className="container px-4">

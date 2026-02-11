@@ -6,61 +6,29 @@ import StickyContact from '@/components/StickyContact';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
-
-const PROJECTS = [
-  {
-    id: 1,
-    title: 'High-Rise Building Logo',
-    category: 'Corporate',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2670&auto=format&fit=crop',
-    location: 'BGC, Taguig',
-  },
-  {
-    id: 2,
-    title: 'Neon Cafe Signage',
-    category: 'Retail',
-    image: 'https://images.unsplash.com/photo-1563291074-2bf8677ac0e5?q=80&w=2548&auto=format&fit=crop',
-    location: 'Quezon City',
-  },
-  {
-    id: 3,
-    title: 'Luxury Spa Branding',
-    category: 'Health',
-    image: 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=2674&auto=format&fit=crop',
-    location: 'Makati City',
-  },
-  {
-    id: 4,
-    title: 'Mall Wayfinding',
-    category: 'Public',
-    image: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=2670&auto=format&fit=crop',
-    location: 'Pasay City',
-  },
-  {
-    id: 5,
-    title: 'Office Reception Logo',
-    category: 'Interior',
-    image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2301&auto=format&fit=crop',
-    location: 'Ortigas Center',
-  },
-  {
-    id: 6,
-    title: 'Restaurant Facade',
-    category: 'Retail',
-    image: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?q=80&w=2670&auto=format&fit=crop',
-    location: 'Greenhills',
-  },
-];
-
-const CATEGORIES = ['All', 'Corporate', 'Retail', 'Health', 'Public', 'Interior'];
+import { useState, useEffect } from 'react';
+import { getProjects } from '@/lib/dataService';
 
 export default function PortfolioPage() {
   const [filter, setFilter] = useState('All');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
+
+  useEffect(() => {
+    async function loadProjects() {
+      const data = await getProjects();
+      setProjects(data);
+
+      // Extract unique categories
+      const uniqueCats = Array.from(new Set(data.map((p: any) => p.category))).filter(Boolean) as string[];
+      setCategories(['All', ...uniqueCats]);
+    }
+    loadProjects();
+  }, []);
 
   const filteredProjects = filter === 'All' 
-    ? PROJECTS 
-    : PROJECTS.filter(project => project.category === filter);
+    ? projects 
+    : projects.filter(project => project.category === filter);
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
@@ -81,7 +49,7 @@ export default function PortfolioPage() {
         <div className="container px-4">
           {/* Filters */}
           <div className="flex flex-wrap justify-center gap-3 mb-12">
-            {CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setFilter(category)}

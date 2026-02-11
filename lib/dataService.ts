@@ -26,3 +26,14 @@ export const getProducts = async () => fetchData<any>('products');
 export const getTestimonials = async () => fetchData<any>('testimonials');
 export const getProjects = async () => fetchData<any>('projects');
 export const getServices = async () => fetchData<any>('services');
+export const getPosts = async () => fetchData<any>('posts');
+
+export const getServiceBySlug = async (slug: string) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('services').select('*').eq('slug', slug).single();
+    if (error) {
+        console.error(`Error fetching service ${slug}:`, error);
+        return null;
+    }
+    return data;
+};

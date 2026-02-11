@@ -6,7 +6,8 @@ import StickyContact from '@/components/StickyContact';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Paintbrush, Wrench, Truck, ClipboardCheck } from 'lucide-react';
-import { use } from 'react';
+import { use, useEffect, useState } from 'react';
+import { getServiceBySlug, getServices } from '@/lib/dataService';
 
 const PROCESS_STEPS = [
   {
@@ -40,20 +41,39 @@ const FEATURES = [
   '1-year warranty on all work',
 ];
 
-const RELATED_SERVICES = [
-  { title: 'Acrylic Build-Up', slug: 'acrylic-signage' },
-  { title: 'Stainless Steel', slug: 'stainless-steel' },
-  { title: 'LED Neon Lights', slug: 'neon-lights' },
-  { title: 'Panaflex Lightbox', slug: 'panaflex' },
-  { title: 'Building Identity', slug: 'building-identity' },
-  { title: 'Wall Murals', slug: 'wall-murals' },
-];
-
 export default function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
-  const title = resolvedParams.slug.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+  const [service, setService] = useState<any>(null);
+  const [otherServices, setOtherServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const otherServices = RELATED_SERVICES.filter((s) => s.slug !== resolvedParams.slug);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [serviceData, allServices] = await Promise.all([
+          getServiceBySlug(resolvedParams.slug),
+          getServices()
+        ]);
+        
+        setService(serviceData);
+        if (allServices && serviceData) {
+            setOtherServices(allServices.filter((s: any) => s.slug !== resolvedParams.slug));
+        } else if (allServices) {
+             setOtherServices(allServices.filter((s: any) => s.slug !== resolvedParams.slug));
+        }
+      } catch (e) {
+        console.error("Failed to load service data", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [resolvedParams.slug]);
+
+  // Fallback title if service not found yet (loading or error)
+  const fallbackTitle = resolvedParams.slug.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+  const displayTitle = service ? service.title : fallbackTitle;
+  const displayDescription = service ? service.description : `Professional ${fallbackTitle} fabrication and installation services.`;
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
@@ -81,11 +101,10 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
               Our Services
             </span>
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
-              {title} <span className="gradient-text">Service</span>
+              {displayTitle} <span className="gradient-text">Service</span>
             </h1>
             <p className="text-lg text-slate-300/90 max-w-xl leading-relaxed">
-              Professional {title.toLowerCase()} fabrication and installation services in Metro Manila.
-              Enhance your business visibility with our premium quality materials.
+              {displayDescription}
             </p>
             <Link href="/contact" className="btn-primary text-base !px-8 !py-3.5 group inline-flex">
               Request Quote
@@ -109,10 +128,10 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
                 Why Choose
               </span>
               <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl mb-5">
-                Why Choose {title}?
+                Why Choose {displayTitle}?
               </h2>
               <p className="text-slate-500 leading-relaxed mb-8">
-                Our {title.toLowerCase()} signage is crafted with precision using only premium materials.
+                Our {displayTitle.toLowerCase()} signage is crafted with precision using only premium materials.
                 Whether for indoor malls, outdoor storefronts, or corporate offices, we deliver
                 signage that makes your brand stand out.
               </p>
@@ -136,7 +155,7 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
             >
               <img
                 src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=2670&auto=format&fit=crop"
-                alt={`${title} fabrication`}
+                alt={`${displayTitle} fabrication`}
                 className="w-full h-[300px] md:h-[400px] object-cover"
               />
             </motion.div>
