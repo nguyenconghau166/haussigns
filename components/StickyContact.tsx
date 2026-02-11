@@ -4,30 +4,38 @@ import { useState } from 'react';
 import { Phone, MessageCircle, Send, X, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSiteSettings } from '@/lib/useSiteSettings';
 
 export default function StickyContact() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { phone, viber, messenger } = useSiteSettings();
 
   const contactMethods = [
     {
       label: 'Call',
       icon: Phone,
-      href: 'tel:+639171234567',
+      href: phone ? `tel:${phone}` : undefined,
       bg: 'bg-green-500',
+      show: !!phone,
     },
     {
       label: 'Viber',
       icon: MessageCircle,
-      href: 'viber://chat?number=+639171234567',
+      href: viber,
       bg: 'bg-purple-500',
+      show: !!viber && viber !== '#',
     },
     {
       label: 'Messenger',
       icon: Send,
-      href: 'https://m.me/signshaus',
+      href: messenger,
       bg: 'bg-blue-500',
+      show: !!messenger && messenger !== '#',
     },
   ];
+
+  // If no contact methods are available, don't render anything
+  if (!contactMethods.some(m => m.show)) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
@@ -35,10 +43,12 @@ export default function StickyContact() {
       <AnimatePresence>
         {isExpanded && (
           <>
-            {contactMethods.map((method, index) => (
+            {contactMethods.filter(m => m.show).map((method, index) => (
               <motion.a
                 key={method.label}
                 href={method.href}
+                target={method.label === 'Call' ? undefined : '_blank'}
+                rel="noopener noreferrer"
                 initial={{ opacity: 0, scale: 0.5, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.5, y: 10 }}

@@ -19,6 +19,7 @@ import { useState } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Quản lý Trang', href: '/admin/pages', icon: FileText },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
   { label: 'Viết mô tả SP', href: '/admin/product-writer', icon: PenTool },
   { label: 'Quản lý bài viết', href: '/admin/posts', icon: FileText },

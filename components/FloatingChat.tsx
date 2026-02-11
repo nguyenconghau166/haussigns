@@ -49,10 +49,9 @@ export default function FloatingChat() {
 
         // Load SDK Script
         (function (d, s, id) {
-            let js;
             const fjs = d.getElementsByTagName(s)[0] as HTMLElement;
             if (d.getElementById(id)) return;
-            js = d.createElement(s) as HTMLScriptElement;
+            const js = d.createElement(s) as HTMLScriptElement;
             js.id = id;
             js.src = 'https://connect.facebook.net/en_US/sdk/xfbml.customerchat.js';
             fjs.parentNode?.insertBefore(js, fjs);

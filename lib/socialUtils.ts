@@ -1,5 +1,5 @@
 export const getViberLink = (phone: string | undefined) => {
-    if (!phone) return '#';
+    if (!phone) return undefined;
     // Remove spaces, dashes, parentheses
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     // Ensure it starts with correct format if needed, but often viber just needs the number
@@ -19,17 +19,17 @@ export const getViberLink = (phone: string | undefined) => {
 };
 
 export const getMessengerLink = (username: string | undefined) => {
-    if (!username) return '#';
+    if (!username) return undefined;
     // m.me links are universal and handle opening the app or web
     return `https://m.me/${username}`;
 };
 
 export const getFacebookLink = (url: string | undefined) => {
-    if (!url) return '#';
+    if (!url) return undefined;
     return url;
 };
 
 export const getInstagramLink = (url: string | undefined) => {
-    if (!url) return '#';
+    if (!url) return undefined;
     return url;
 };
