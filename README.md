@@ -2,7 +2,21 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment Setup
+
+This project requires Supabase and OpenAI credentials to function correctly.
+
+1.  Copy the example environment file:
+    ```bash
+    cp .env.example .env.local
+    ```
+2.  Open `.env.local` and fill in your credentials:
+    -   `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL.
+    -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous public key.
+    -   `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (keep this secret!).
+    -   `OPENAI_API_KEY`: Your OpenAI API key for AI features.
+
+### 2. Run the Development Server
 
 ```bash
 npm run dev
