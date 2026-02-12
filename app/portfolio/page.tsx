@@ -2,7 +2,6 @@
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import StickyContact from '@/components/StickyContact';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -113,7 +112,6 @@ export default function PortfolioPage() {
       </section>
 
       <Footer />
-      <StickyContact />
     </main>
   );
 }

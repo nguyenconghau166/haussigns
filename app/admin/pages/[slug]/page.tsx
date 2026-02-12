@@ -3,9 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Save, Eye, Loader2, ArrowLeft } from 'lucide-react';
+import { Save, Eye, Loader2, ArrowLeft, Wand2, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+
+import RichEditor from '@/components/RichEditor';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -22,6 +25,13 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
   const [featuredImage, setFeaturedImage] = useState('');
   const [isPublished, setIsPublished] = useState(true);
 
+  // AI State
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiLang, setAiLang] = useState('en');
+  const [aiTone, setAiTone] = useState('professional');
+  const [aiImagePrompt, setAiImagePrompt] = useState('');
+
   useEffect(() => {
     fetch(`/api/admin/pages/${slug}`)
       .then(res => res.json())
@@ -34,10 +44,56 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           setMetaDescription(data.page.meta_description || '');
           setFeaturedImage(data.page.featured_image || '');
           setIsPublished(data.page.is_published);
+          
+          // Pre-fill AI topic if empty
+          setAiTopic(data.page.title);
         }
       })
       .finally(() => setLoading(false));
   }, [slug]);
+
+  const handleGenerateContent = async () => {
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic || title, lang: aiLang, tone: aiTone }),
+      });
+      const data = await res.json();
+      if (data.content) {
+        setContent(data.content);
+        // Suggest image prompt
+        setAiImagePrompt(`Professional photo of ${aiTopic || title}, modern style, high quality, 8k`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('AI Generation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!aiImagePrompt) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiImagePrompt }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        setFeaturedImage(data.url);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Image Generation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -111,13 +167,13 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Nội dung chính (Markdown / HTML)</label>
-                <textarea
+                <label className="block text-sm font-medium mb-1">Nội dung chính</label>
+                <RichEditor
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full h-96 p-4 border rounded-lg font-mono text-sm focus:ring-2 focus:ring-amber-500/20 outline-none"
+                  onChange={setContent}
+                  placeholder="Nhập nội dung trang tại đây..."
+                  className="w-full"
                 />
-                <p className="text-xs text-slate-400 mt-1">Hỗ trợ Markdown cơ bản (**bold**, # Header, - list)</p>
               </div>
             </CardContent>
           </Card>
@@ -125,6 +181,81 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
 
         {/* Sidebar Settings */}
         <div className="space-y-6">
+          <Card className="border-amber-100 shadow-amber-500/10 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-amber-600" />
+                AI Content Tools
+              </CardTitle>
+              <CardDescription>Tạo nội dung tự động</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-500">Chủ đề / Từ khóa</label>
+                <input 
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder={title}
+                  className="w-full mt-1 p-2 text-sm border rounded-lg"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                   <label className="text-xs font-medium text-slate-500">Ngôn ngữ</label>
+                   <select 
+                      value={aiLang}
+                      onChange={(e) => setAiLang(e.target.value)}
+                      className="w-full mt-1 p-2 text-sm border rounded-lg"
+                   >
+                      <option value="en">English</option>
+                      <option value="tl">Vietnamese</option>
+                      <option value="mix">Song ngữ</option>
+                   </select>
+                </div>
+                <div>
+                   <label className="text-xs font-medium text-slate-500">Giọng văn</label>
+                   <select 
+                      value={aiTone}
+                      onChange={(e) => setAiTone(e.target.value)}
+                      className="w-full mt-1 p-2 text-sm border rounded-lg"
+                   >
+                      <option value="professional">Chuyên nghiệp</option>
+                      <option value="friendly">Thân thiện</option>
+                      <option value="persuasive">Bán hàng</option>
+                   </select>
+                </div>
+              </div>
+              <button 
+                onClick={handleGenerateContent}
+                disabled={aiLoading}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                Viết nội dung (Draft)
+              </button>
+              
+              <hr className="border-slate-100 my-2" />
+              
+              <div>
+                <label className="text-xs font-medium text-slate-500">Prompt tạo ảnh</label>
+                <textarea 
+                  value={aiImagePrompt}
+                  onChange={(e) => setAiImagePrompt(e.target.value)}
+                  placeholder="Mô tả hình ảnh muốn tạo..."
+                  className="w-full mt-1 p-2 text-xs border rounded-lg h-16"
+                />
+              </div>
+              <button 
+                onClick={handleGenerateImage}
+                disabled={aiLoading || !aiImagePrompt}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 transition-all disabled:opacity-50"
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                Tạo ảnh minh họa
+              </button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Cấu hình SEO</CardTitle>
@@ -149,29 +280,12 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Hình ảnh đại diện (OG Image)</label>
-                <div className="flex gap-2">
-                    <input
+                <ImageUploader 
+                    label="Hình ảnh đại diện (OG Image)"
                     value={featuredImage}
-                    onChange={(e) => setFeaturedImage(e.target.value)}
-                    className="w-full p-2 border rounded-lg text-sm"
-                    placeholder="URL hình ảnh"
-                    />
-                    <button 
-                        onClick={() => {
-                            const url = prompt('Nhập URL hình ảnh:', featuredImage);
-                            if (url) setFeaturedImage(url);
-                        }}
-                        className="px-3 py-1 bg-slate-100 border rounded text-xs whitespace-nowrap"
-                    >
-                        Chọn
-                    </button>
-                </div>
-                {featuredImage && (
-                  <div className="mt-2 rounded-lg overflow-hidden border bg-slate-50 h-32 flex items-center justify-center">
-                    <img src={featuredImage} alt="Preview" className="h-full w-full object-cover" />
-                  </div>
-                )}
+                    onChange={setFeaturedImage}
+                    aspectRatio={16/9}
+                />
               </div>
             </CardContent>
           </Card>

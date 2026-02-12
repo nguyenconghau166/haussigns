@@ -2,7 +2,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import StickyContact from '@/components/StickyContact';
 import { formatDate } from '@/lib/utils';
 import { ArrowLeft } from 'lucide-react';
 
@@ -117,7 +116,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       </main>
 
       <Footer />
-      <StickyContact />
     </div>
   );
 }

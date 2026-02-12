@@ -13,13 +13,19 @@ import {
   ChevronRight,
   Zap,
   PenTool,
+  Building2,
+  Layers,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Khách hàng (Leads)', href: '/admin/leads', icon: Users },
   { label: 'Quản lý Trang', href: '/admin/pages', icon: FileText },
+  { label: 'Quản lý Ngành hàng', href: '/admin/industries', icon: Building2 },
+  { label: 'Quản lý Vật liệu', href: '/admin/materials', icon: Layers },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
   { label: 'Viết mô tả SP', href: '/admin/product-writer', icon: PenTool },
   { label: 'Quản lý bài viết', href: '/admin/posts', icon: FileText },

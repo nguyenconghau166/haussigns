@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, MessageSquare, Phone } from 'lucide-react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
@@ -17,56 +17,12 @@ declare global {
 
 export default function FloatingChat() {
     const [isOpen, setIsOpen] = useState(false);
-    const { viber, messenger, phone, facebookPageId } = useSiteSettings();
-    const [isDesktop, setIsDesktop] = useState(false);
+    const { viber, messenger, phone } = useSiteSettings();
 
-    // Initial screen check
-    useEffect(() => {
-        const checkScreen = () => setIsDesktop(window.innerWidth > 768);
-        checkScreen();
-        window.addEventListener('resize', checkScreen);
-        return () => window.removeEventListener('resize', checkScreen);
-    }, []);
-
-    // Inject Facebook SDK Logic
-    useEffect(() => {
-        if (!isDesktop || !facebookPageId) return;
-
-        // Set attributes for the chat plugin
-        const chatbox = document.getElementById('fb-customer-chat');
-        if (chatbox) {
-            chatbox.setAttribute("page_id", facebookPageId);
-            chatbox.setAttribute("attribution", "biz_inbox");
-        }
-
-        // Initialize SDK
-        window.fbAsyncInit = function () {
-            window.FB.init({
-                xfbml: true,
-                version: 'v18.0'
-            });
-        };
-
-        // Load SDK Script
-        (function (d, s, id) {
-            const fjs = d.getElementsByTagName(s)[0] as HTMLElement;
-            if (d.getElementById(id)) return;
-            const js = d.createElement(s) as HTMLScriptElement;
-            js.id = id;
-            js.src = 'https://connect.facebook.net/en_US/sdk/xfbml.customerchat.js';
-            fjs.parentNode?.insertBefore(js, fjs);
-        }(document, 'script', 'facebook-jssdk'));
-
-    }, [isDesktop, facebookPageId]);
-
-    // Show if we have any contact info OR we have the FB Page ID (for desktop popup)
-    if (!viber && !messenger && !phone && !facebookPageId) return null;
+    // Show if we have any contact info
+    if (!viber && !messenger && !phone) return null;
 
     const toggleOpen = () => setIsOpen(!isOpen);
-
-    // Determine if we should show the manual Messenger button
-    // We hide it on Desktop IF we have the FB Plugin active (to avoid redundancy)
-    const showMessengerButton = messenger && (!isDesktop || !facebookPageId);
 
     const containerVariants = {
         hidden: { opacity: 0, y: 20, scale: 0.8 },
@@ -94,20 +50,8 @@ export default function FloatingChat() {
         exit: { opacity: 0, x: 20 }
     };
 
-    // Calculate position: If desktop + FB Plugin, shift up to avoid overlap
-    const positionClass = (isDesktop && facebookPageId) ? "bottom-24" : "bottom-6";
-
     return (
-        <>
-            {/* Facebook Chat Plugin Roots */}
-            {isDesktop && facebookPageId && (
-                <>
-                    <div id="fb-root"></div>
-                    <div id="fb-customer-chat" className="fb-customerchat"></div>
-                </>
-            )}
-
-            <div className={cn("fixed right-6 z-50 flex flex-col items-end gap-4 transition-all duration-300", positionClass)}>
+        <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-4 transition-all duration-300">
                 <AnimatePresence>
                     {isOpen && (
                         <motion.div
@@ -117,7 +61,7 @@ export default function FloatingChat() {
                             exit="exit"
                             className="flex flex-col items-end gap-3 mb-2"
                         >
-                            {showMessengerButton && (
+                            {messenger && (
                                 <motion.a
                                     variants={itemVariants}
                                     href={messenger}
@@ -195,6 +139,5 @@ export default function FloatingChat() {
                     </AnimatePresence>
                 </motion.button>
             </div>
-        </>
     );
 }

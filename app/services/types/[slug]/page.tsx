@@ -2,7 +2,6 @@
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import StickyContact from '@/components/StickyContact';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Paintbrush, Wrench, Truck, ClipboardCheck } from 'lucide-react';
@@ -251,7 +250,6 @@ export default function ServicePage({ params }: { params: Promise<{ slug: string
       </section>
 
       <Footer />
-      <StickyContact />
     </main>
   );
 }

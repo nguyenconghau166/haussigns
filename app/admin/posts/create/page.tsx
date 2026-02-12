@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Wand2, Image as ImageIcon, Save, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
+import RichEditor from '@/components/RichEditor';
+
 export default function CreatePostPage() {
   const router = useRouter();
   const [topic, setTopic] = useState('');
@@ -61,7 +63,7 @@ export default function CreatePostPage() {
     setSaving(true);
     try {
       const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const excerpt = content.substring(0, 150) + '...';
+      const excerpt = content.substring(0, 150).replace(/<[^>]*>?/gm, '') + '...'; // Strip HTML tags for excerpt
       
       const res = await fetch('/api/admin/posts', {
         method: 'POST',
@@ -198,11 +200,11 @@ export default function CreatePostPage() {
             </div>
           </CardHeader>
           <CardContent className="flex-1">
-            <textarea
+            <RichEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full h-[600px] p-4 border rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+              onChange={setContent}
               placeholder="AI generated content will appear here..."
+              className="h-full"
             />
           </CardContent>
         </Card>

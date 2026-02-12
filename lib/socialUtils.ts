@@ -20,8 +20,42 @@ export const getViberLink = (phone: string | undefined) => {
 
 export const getMessengerLink = (username: string | undefined) => {
     if (!username) return undefined;
-    // m.me links are universal and handle opening the app or web
-    return `https://m.me/${username}`;
+    
+    // Clean username if user pasted a full URL
+    let cleanUser = username;
+    
+    try {
+        if (username.includes('facebook.com')) {
+            const url = new URL(username.startsWith('http') ? username : `https://${username}`);
+            // Pathname usually /username or /pages/category/page-name/id
+            const pathParts = url.pathname.split('/').filter(Boolean);
+            if (pathParts.length > 0) {
+                // If format is /pages/..., we might need the ID or the last part.
+                // Usually for business pages: /pagename-id/
+                cleanUser = pathParts[pathParts.length - 1];
+            }
+        } else if (username.includes('m.me')) {
+            const url = new URL(username.startsWith('http') ? username : `https://${username}`);
+            const pathParts = url.pathname.split('/').filter(Boolean);
+            if (pathParts.length > 0) {
+                cleanUser = pathParts[0];
+            }
+        }
+    } catch (e) {
+        // Fallback to simple split if URL parsing fails
+        if (username.includes('/')) {
+            const parts = username.split('/');
+            cleanUser = parts[parts.length - 1] || parts[parts.length - 2];
+        }
+    }
+
+    // Remove any query params or anchors if leaked in
+    cleanUser = cleanUser.split('?')[0].split('#')[0];
+
+    if (!cleanUser) return undefined;
+
+    // Use full messenger.com URL to avoid SSL/DNS issues with m.me in some regions/browsers
+    return `https://www.messenger.com/t/${cleanUser}`;
 };
 
 export const getFacebookLink = (url: string | undefined) => {

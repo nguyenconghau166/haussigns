@@ -72,41 +72,17 @@ const SelectField = ({ label, value, onChange, options, hint }: {
   </div>
 );
 
+import ImageUploader from '@/components/ImageUploader';
+
 const ImageField = ({ label, value, onChange, placeholder, hint }: {
   label: string; value: string; onChange: (val: string) => void; placeholder?: string; hint?: string;
 }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-    <div className="flex gap-2">
-      <input
-        type="text"
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 p-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
-        placeholder={placeholder}
-      />
-      <button
-        type="button"
-        className="px-4 py-2 bg-white border border-indigo-600 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-50 transition-colors whitespace-nowrap"
-        onClick={() => {
-          const url = prompt('Nhập đường dẫn hình ảnh:', value);
-          if (url !== null) onChange(url);
-        }}
-      >
-        Chọn ảnh
-      </button>
-    </div>
-    {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
-    {value ? (
-       <div className="mt-3 w-32 h-20 bg-slate-100 rounded-lg border border-slate-200 overflow-hidden relative flex items-center justify-center">
-         <img src={value} alt="Preview" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
-       </div>
-    ) : (
-       <div className="mt-3 w-32 h-20 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400">
-         <ImageIcon className="h-8 w-8 opacity-50" />
-       </div>
-    )}
-  </div>
+  <ImageUploader 
+    label={label}
+    value={value}
+    onChange={onChange}
+    aspectRatio={16/9} // Can be adjusted or prop passed
+  />
 );
 
 export default function SettingsPage() {
@@ -328,6 +304,14 @@ export default function SettingsPage() {
                   value={settings.working_hours}
                   onChange={(v) => handleChange('working_hours', v)}
                   placeholder="Mon–Sat: 8AM – 6PM"
+                />
+                <TextareaField
+                  label="Mã nhúng Google Maps (iframe)"
+                  value={settings.contact_google_map}
+                  onChange={(v) => handleChange('contact_google_map', v)}
+                  placeholder='<iframe src="https://www.google.com/maps/embed?..." width="600" height="450" ...></iframe>'
+                  hint="Copy mã nhúng từ Google Maps (Share -> Embed a map)"
+                  rows={4}
                 />
               </CardContent>
             </Card>

@@ -4,7 +4,6 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Hero from '@/components/Hero';
 import ServiceGrid from '@/components/ServiceGrid';
-import StickyContact from '@/components/StickyContact';
 import BlogCard from '@/components/BlogCard';
 import ProjectGallery from '@/components/ProjectGallery';
 import ProductShowcase from '@/components/ProductShowcase';
@@ -141,7 +140,6 @@ export default function Home() {
       </section>
 
       <Footer />
-      <StickyContact />
     </main>
   );
 }

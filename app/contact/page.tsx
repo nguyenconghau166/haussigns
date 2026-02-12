@@ -37,16 +37,52 @@ const CONTACT_INFO = [
   },
 ];
 
+import FileUploader from '@/components/FileUploader';
+import { useSiteSettings } from '@/lib/useSiteSettings';
+
 export default function ContactPage() {
+  const { phone, email, address, workingHours, viber, messenger, rawViberNumber, mapEmbedUrl } = useSiteSettings();
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
     type: '',
-    message: ''
+    message: '',
+    file_url: ''
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const contactInfo = [
+    {
+      icon: Phone,
+      title: 'Phone',
+      value: phone,
+      href: `tel:${phone?.replace(/[^0-9+]/g, '')}`,
+      description: 'Call us for immediate assistance',
+    },
+    {
+      icon: Mail,
+      title: 'Email',
+      value: email,
+      href: `mailto:${email}`,
+      description: 'We reply within 24 hours',
+    },
+    {
+      icon: MapPin,
+      title: 'Office',
+      value: address,
+      href: '#',
+      description: 'Makati City, Metro Manila',
+    },
+    {
+      icon: Clock,
+      title: 'Hours',
+      value: workingHours,
+      href: '#',
+      description: 'Sunday by appointment',
+    },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +97,7 @@ export default function ContactPage() {
 
       if (res.ok) {
         setSuccess(true);
-        setFormData({ name: '', phone: '', email: '', type: '', message: '' });
+        setFormData({ name: '', phone: '', email: '', type: '', message: '', file_url: '' });
       } else {
         alert('Something went wrong. Please try again.');
       }
@@ -116,7 +152,7 @@ export default function ContactPage() {
           <div className="max-w-6xl mx-auto">
             {/* Contact Info Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
-              {CONTACT_INFO.map((info, index) => (
+              {contactInfo.map((info, index) => (
                 <motion.a
                   key={info.title}
                   href={info.href}
@@ -130,7 +166,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{info.title}</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{info.value}</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-0.5 line-clamp-2">{info.value}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{info.description}</p>
                   </div>
                 </motion.a>
@@ -226,6 +262,12 @@ export default function ContactPage() {
                           className="input-premium min-h-[140px] resize-y"
                         />
                       </div>
+                      
+                      <FileUploader 
+                        label="Attach File (Optional)"
+                        onUploadComplete={(url) => setFormData(prev => ({ ...prev, file_url: url }))}
+                      />
+
                       <button
                         type="submit"
                         disabled={loading}
@@ -255,38 +297,54 @@ export default function ContactPage() {
                   </p>
                   <div className="space-y-3">
                     <a
-                      href="tel:+639171234567"
+                      href={`tel:${phone?.replace(/[^0-9+]/g, '')}`}
                       className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
                     >
                       <Phone className="h-4 w-4 text-green-400" />
-                      Call: +63 917 123 4567
+                      Call: {phone}
                     </a>
-                    <a
-                      href="viber://chat?number=+639171234567"
-                      className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
-                    >
-                      <MessageCircle className="h-4 w-4 text-purple-400" />
-                      Chat on Viber
-                    </a>
-                    <a
-                      href="https://m.me/signshaus"
-                      className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
-                    >
-                      <Send className="h-4 w-4 text-blue-400" />
-                      Facebook Messenger
-                    </a>
+                    {viber && viber !== '#' && (
+                      <a
+                        href={viber}
+                        className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
+                      >
+                        <MessageCircle className="h-4 w-4 text-purple-400" />
+                        Chat on Viber
+                      </a>
+                    )}
+                    {messenger && messenger !== '#' && (
+                      <a
+                        href={messenger}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
+                      >
+                        <Send className="h-4 w-4 text-blue-400" />
+                        Facebook Messenger
+                      </a>
+                    )}
                   </div>
                 </div>
 
                 {/* Map placeholder */}
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-7 text-center">
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-7 text-center overflow-hidden">
                   <MapPin className="h-8 w-8 text-amber-500 mx-auto mb-3" />
                   <h3 className="text-sm font-bold text-slate-900 mb-1">Visit Our Workshop</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Unit 123, Sample Building<br />
-                    Makati City, Metro Manila<br />
-                    <span className="text-amber-600 font-medium">Open Mon–Sat, 8AM – 6PM</span>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                    {address}<br />
+                    <span className="text-amber-600 font-medium">Open {workingHours}</span>
                   </p>
+                  
+                  {mapEmbedUrl ? (
+                    <div 
+                        className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
+                        dangerouslySetInnerHTML={{ __html: mapEmbedUrl }}
+                    />
+                  ) : (
+                    <div className="w-full h-48 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs">
+                        Map not available
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>

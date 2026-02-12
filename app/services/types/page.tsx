@@ -2,7 +2,6 @@
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import StickyContact from '@/components/StickyContact';
 import ServiceGrid from '@/components/ServiceGrid';
 import { motion } from 'framer-motion';
 import { getServices } from '@/lib/dataService';
@@ -58,7 +57,6 @@ export default function SignTypesPage() {
       </section>
 
       <Footer />
-      <StickyContact />
     </main>
   );
 }
