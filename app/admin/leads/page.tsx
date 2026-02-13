@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Mail, Phone, Calendar, FileText, Download, Trash, User, Search, MessageSquare, Paperclip } from 'lucide-react';
-import Link from 'next/link';
+import { Mail, Phone, Search, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function LeadsAdmin() {
@@ -72,97 +70,117 @@ export default function LeadsAdmin() {
                 </div>
             </div>
 
-            <div className="grid gap-4">
-                {filteredLeads.map((lead) => (
-                    <Card key={lead.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row gap-6">
-                                {/* Customer Info */}
-                                <div className="w-full md:w-1/4 space-y-3">
-                                    <div className="flex items-center gap-2 font-bold text-slate-900 text-lg">
-                                        <User className="h-5 w-5 text-amber-500" />
-                                        {lead.name}
-                                    </div>
-                                    <div className="space-y-1 text-sm text-slate-600">
-                                        {lead.email && (
-                                            <div className="flex items-center gap-2">
-                                                <Mail className="h-4 w-4 text-slate-400" />
-                                                <a href={`mailto:${lead.email}`} className="hover:text-amber-600">{lead.email}</a>
-                                            </div>
-                                        )}
-                                        {lead.phone && (
-                                            <div className="flex items-center gap-2">
-                                                <Phone className="h-4 w-4 text-slate-400" />
-                                                <a href={`tel:${lead.phone}`} className="hover:text-amber-600">{lead.phone}</a>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-2 text-xs text-slate-400 pt-2">
-                                            <Calendar className="h-3 w-3" />
-                                            {format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm')}
+            {/* Excel-like Table View */}
+            <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                <div className="overflow-x-auto max-h-[calc(100vh-220px)]">
+                    <table className="w-full text-sm text-left border-collapse">
+                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th className="px-3 py-2 border-b w-[100px]">Ngày</th>
+                                <th className="px-3 py-2 border-b w-[180px]">Khách hàng</th>
+                                <th className="px-3 py-2 border-b w-[200px]">Liên hệ</th>
+                                <th className="px-3 py-2 border-b w-[100px]">Loại</th>
+                                <th className="px-3 py-2 border-b min-w-[300px]">Nội dung</th>
+                                <th className="px-3 py-2 border-b w-[80px] text-center">File</th>
+                                <th className="px-3 py-2 border-b w-[140px]">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredLeads.map((lead) => (
+                                <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
+                                    <td className="px-3 py-1.5 whitespace-nowrap text-slate-500 text-xs border-r border-slate-100">
+                                        {format(new Date(lead.created_at), 'dd/MM/yy HH:mm')}
+                                    </td>
+
+                                    <td className="px-3 py-1.5 font-medium text-slate-900 border-r border-slate-100">
+                                        <div className="truncate max-w-[180px]" title={lead.name}>{lead.name}</div>
+                                    </td>
+
+                                    <td className="px-3 py-1.5 text-slate-600 border-r border-slate-100">
+                                        <div className="space-y-0.5">
+                                            {lead.phone && (
+                                                <div className="flex items-center gap-1.5 text-xs">
+                                                    <Phone className="h-3 w-3 text-slate-400" />
+                                                    <span className="font-mono">{lead.phone}</span>
+                                                </div>
+                                            )}
+                                            {lead.email && (
+                                                <div className="flex items-center gap-1.5 text-xs truncate max-w-[190px]" title={lead.email}>
+                                                    <Mail className="h-3 w-3 text-slate-400" />
+                                                    <span>{lead.email}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                </div>
+                                    </td>
 
-                                {/* Request Details */}
-                                <div className="flex-1 space-y-3 border-l md:border-l-slate-100 md:pl-6">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="px-2 py-1 bg-amber-50 text-amber-700 text-xs font-bold uppercase rounded-md border border-amber-100">
-                                            {lead.type || 'General Inquiry'}
+                                    <td className="px-3 py-1.5 border-r border-slate-100">
+                                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] uppercase font-bold rounded border border-slate-200 whitespace-nowrap">
+                                            {lead.type || 'General'}
                                         </span>
+                                    </td>
 
-                                        {/* Status Selector */}
+                                    <td className="px-3 py-1.5 text-slate-600 border-r border-slate-100 max-w-[300px]">
+                                        <div
+                                            className="truncate text-xs cursor-help group-hover:text-slate-900"
+                                            title={lead.message}
+                                        >
+                                            {lead.message}
+                                        </div>
+                                    </td>
+
+                                    <td className="px-3 py-1.5 text-center border-r border-slate-100">
+                                        {lead.file_url ? (
+                                            <a
+                                                href={lead.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex p-1 text-indigo-600 hover:bg-indigo-50 rounded"
+                                                title="View file"
+                                            >
+                                                <Paperclip className="h-3.5 w-3.5" />
+                                            </a>
+                                        ) : (
+                                            <span className="text-slate-300">-</span>
+                                        )}
+                                    </td>
+
+                                    <td className="px-3 py-1.5">
                                         <select
                                             value={lead.status || 'New'}
                                             onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                                             disabled={updating === lead.id}
-                                            className={`text-xs font-bold uppercase rounded-md border px-2 py-1 outline-none cursor-pointer transition-colors ${lead.status === 'New' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                    lead.status === 'Contacted' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                                                        lead.status === 'Quoted' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                                            lead.status === 'Won' ? 'bg-green-50 text-green-700 border-green-100' :
-                                                                'bg-slate-50 text-slate-600 border-slate-200'
-                                                }`}
+                                            className={`
+                                                w-full text-[11px] font-semibold uppercase rounded border-0 px-1 py-0.5 
+                                                bg-transparent focus:ring-1 focus:ring-amber-500 cursor-pointer
+                                                ${lead.status === 'New' ? 'text-blue-600' :
+                                                    lead.status === 'Contacted' ? 'text-yellow-600' :
+                                                        lead.status === 'Quoted' ? 'text-purple-600' :
+                                                            lead.status === 'Won' ? 'text-green-600' :
+                                                                'text-slate-500'}
+                                            `}
                                         >
                                             {statuses.map(status => (
                                                 <option key={status} value={status}>{status}</option>
                                             ))}
                                         </select>
-                                        {updating === lead.id && <div className="text-xs text-slate-400 animate-pulse">Save...</div>}
-                                    </div>
-
-                                    <div className="bg-slate-50 p-4 rounded-xl text-sm text-slate-700 leading-relaxed border border-slate-100">
-                                        <MessageSquare className="h-4 w-4 text-slate-400 mb-2 inline mr-2" />
-                                        {lead.message}
-                                    </div>
-
-                                    {lead.file_url && (
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <Paperclip className="h-4 w-4 text-slate-400" />
-                                            <a
-                                                href={lead.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline"
-                                            >
-                                                Xem file đính kèm <Download className="h-3 w-3" />
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {filteredLeads.length === 0 && (
-                    <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                        <p className="text-slate-500">Chưa có yêu cầu nào.</p>
-                        <p className="text-xs text-slate-400 mt-1">Hãy thử gửi một yêu cầu từ trang Liên hệ.</p>
-                        <button
-                            onClick={() => fetch('/api/admin/migrate-v11').then(() => window.location.reload())}
-                            className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm"
-                        >
-                            Khởi tạo bảng Leads (v11)
-                        </button>
+                    <div className="text-center py-12 bg-slate-50 border-t border-slate-100">
+                        <p className="text-slate-500 text-sm">Chưa có dữ liệu phù hợp.</p>
+                        {leads.length === 0 && (
+                            <button
+                                onClick={() => fetch('/api/admin/migrate-v11').then(() => window.location.reload())}
+                                className="mt-4 px-3 py-1.5 bg-amber-500 text-white rounded text-xs hover:bg-amber-600 transition-colors"
+                            >
+                                Khởi tạo dữ liệu mẫu
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
