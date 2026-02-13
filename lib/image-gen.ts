@@ -20,30 +20,40 @@ async function getConfig(key: string, defaultValue: string = '') {
 }
 
 // Helper: Tự động tìm chuỗi ảnh trong JSON bất kỳ (Smart Response Parser)
+// Supports: Google Imagen, Stability AI, Banana.dev, OpenAI, etc.
 function extractImageFromResponse(data: unknown): string | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = data as any;
   if (!d) return null;
 
-  // Case 1: Trả về trực tiếp URL (string)
+  // Case 0: Direct URL string
   if (typeof d === 'string' && d.startsWith('http')) return d;
 
-  // Case 2: Cấu trúc phổ biến của Banana.dev
+  // Case 1: Google Imagen (Vertex AI / Gemini API)
+  // Format: { predictions: [ { bytesBase64Encoded: "..." } ] }
+  if (d.predictions?.[0]?.bytesBase64Encoded) {
+    return `data:image/png;base64,${d.predictions[0].bytesBase64Encoded}`;
+  }
+  if (d.predictions?.[0]?.mimeType && d.predictions?.[0]?.bytesBase64Encoded) {
+    return `data:${d.predictions[0].mimeType};base64,${d.predictions[0].bytesBase64Encoded}`;
+  }
+
+  // Case 2: Banana.dev / Custom APIs
   if (d.modelOutputs?.[0]?.image_base64) return `data:image/png;base64,${d.modelOutputs[0].image_base64}`;
   if (d.modelOutputs?.[0]?.url) return d.modelOutputs[0].url;
 
-  // Case 3: Cấu trúc Stable Diffusion WebUI (Automatic1111) / Replicate
+  // Case 3: Stable Diffusion WebUI (Automatic1111) / Replicate
   if (d.images?.[0]) {
     const img = d.images[0];
     return img.startsWith('http') ? img : `data:image/png;base64,${img}`;
   }
 
+  // Case 4: Generic Array
   if (Array.isArray(d) && d[0]?.startsWith?.('http')) return d[0];
 
-  // Case 4: Cấu trúc chung (output: url/base64)
+  // Case 5: Generic Object with output/url/image/base64
   if (d.output) {
     if (typeof d.output === 'string') {
-      // Kiểm tra xem là URL hay Base64
       return d.output.startsWith('http') ? d.output : `data:image/png;base64,${d.output}`;
     }
     if (Array.isArray(d.output) && d.output[0]) {
@@ -54,7 +64,6 @@ function extractImageFromResponse(data: unknown): string | null {
     if (d.output.image) return d.output.image;
   }
 
-  // Case 5: Cấu trúc phẳng
   if (d.url) return d.url;
   if (d.image) return d.image;
   if (d.base64) return `data:image/png;base64,${d.base64}`;
@@ -77,29 +86,22 @@ async function generateWithDallE(prompt: string): Promise<ImageGenResult> {
   }
 }
 
-// --- ENGINE 2: NANO BANANA PRO (Smart Adapter) ---
-async function generateWithBananaPro(prompt: string): Promise<ImageGenResult> {
+// --- ENGINE 2: CUSTOM ENDPOINT (Generic / Banana.dev) ---
+async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiKey?: string): Promise<ImageGenResult> {
   try {
-    const apiKey = await getConfig('banana_api_key');
-    const endpoint = await getConfig('banana_endpoint');
     const modelKey = await getConfig('banana_model_key');
+    console.log('Calling Custom AI Endpoint:', endpoint);
 
-    if (!endpoint) return { success: false, error: 'Missing Endpoint URL' };
-
-    console.log('Calling Custom AI:', endpoint);
-
-    // Xây dựng Request Body đa năng (Universal Payload)
-    // Gửi prompt vào nhiều vị trí khác nhau để API nào cũng hiểu
     const payload = {
       apiKey: apiKey,
       modelKey: modelKey,
-      prompt: prompt, // Field phổ biến
+      prompt: prompt,
       input: {
         prompt: prompt,
         negative_prompt: "text, watermark, low quality, blurry, distorted",
         width: 1024, height: 768
       },
-      modelInputs: { prompt: prompt } // Banana default
+      modelInputs: { prompt: prompt }
     };
 
     const response = await fetch(endpoint, {
@@ -112,40 +114,120 @@ async function generateWithBananaPro(prompt: string): Promise<ImageGenResult> {
     });
 
     if (!response.ok) {
-      // Cố gắng đọc lỗi từ body
       const errText = await response.text();
       throw new Error(`API Error ${response.status}: ${errText.substring(0, 100)}`);
     }
 
     const data = await response.json();
-
-    // Dùng hàm thông minh để trích xuất ảnh
     const imageUrl = extractImageFromResponse(data);
 
     if (!imageUrl) {
-      console.error('Unknown JSON structure:', JSON.stringify(data));
       return { success: false, error: 'Could not detect image in API response.' };
+    }
+
+    return { success: true, url: imageUrl };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    // console.error('Custom AI Error:', error);
+    return { success: false, error: message };
+  }
+}
+
+// --- ENGINE 3: NANO BANANA PRO (Mapped to Google Imagen 3) ---
+async function generateWithNanoBananaPro(prompt: string): Promise<ImageGenResult> {
+  try {
+    // 1. Try to get Google API Key
+    const apiKey = await getConfig('google_api_key');
+
+    // If no Google Key, check for legacy Banana/Custom config
+    if (!apiKey) {
+      const bananaKey = await getConfig('banana_api_key');
+      const bananaEndpoint = await getConfig('banana_endpoint');
+      if (bananaEndpoint) {
+        console.log('Falling back to custom Banana Endpoint due to missing Google Key');
+        return generateWithCustomEndpoint(prompt, bananaEndpoint, bananaKey);
+      }
+      return { success: false, error: 'Missing Google API Key (google_api_key) in configuration.' };
+    }
+
+    console.log('Calling Google Nano Banana Pro (Imagen 3)...');
+
+    // Use REST API for Imagen 3 via Gemini API
+    // Note: The model name could be 'imagen-3.0-generate-001' or similar depending on availability
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+
+    const payload = {
+      instances: [
+        { prompt: prompt }
+      ],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio: "4:3",
+        personGeneration: "allow_adult"
+      }
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json' // API Key is in query param
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      // Try to parse error
+      try {
+        const errJson = JSON.parse(errText);
+        // If error is 404, maybe model name is different?
+        if (response.status === 404) {
+          throw new Error('Imagen 3 Model not found. Please ensure you have access to Imagen 3 in Google AI Studio.');
+        }
+        throw new Error(errJson.error?.message || errText);
+      } catch (e) {
+        throw new Error(`Google API Error ${response.status}: ${errText.substring(0, 100)}`);
+      }
+    }
+
+    const data = await response.json();
+    const imageUrl = extractImageFromResponse(data);
+
+    if (!imageUrl) {
+      console.error('Unknown Google JSON structure:', JSON.stringify(data));
+      return { success: false, error: 'Could not detect image in Google API response.' };
     }
 
     return { success: true, url: imageUrl };
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Custom AI Error:', error);
+    console.error('Nano Banana Pro Error:', error);
     return { success: false, error: message };
   }
 }
 
 // --- MAIN ROUTER ---
 export async function generateProjectImage(prompt: string): Promise<string | null> {
-  const provider = await getConfig('image_provider', 'dalle');
+  // Read provider preference: 'nanobanana', 'google', 'dalle'
+  let provider = await getConfig('image_provider');
+
+  // Auto-detect provider if not set
+  if (!provider) {
+    const googleKey = await getConfig('google_api_key');
+    const bananaKey = await getConfig('banana_api_key');
+
+    if (googleKey) provider = 'nanobanana';
+    else if (bananaKey) provider = 'banana';
+    else provider = 'dalle';
+  }
 
   console.log(`Generating image using provider: ${provider}`);
 
   let result: ImageGenResult;
 
-  if (provider === 'banana') {
-    result = await generateWithBananaPro(prompt);
+  if (provider === 'nanobanana' || provider === 'google' || provider === 'banana') {
+    result = await generateWithNanoBananaPro(prompt);
   } else {
     result = await generateWithDallE(prompt);
   }
@@ -164,11 +246,12 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
       }
     } catch (uploadError) {
       console.error('Error during image upload:', uploadError);
-      return result.url; // Fallback to original URL (may expire if DALL-E)
+      return result.url;
     }
     // END: Upload to Supabase Storage
   } else {
     console.error('Image Generation Failed:', result.error);
+    // Fallback placeholder
     return 'https://images.unsplash.com/photo-1563291074-2bf8677ac0e5?q=80&w=2548&auto=format&fit=crop';
   }
 }
