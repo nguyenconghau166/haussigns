@@ -17,12 +17,12 @@ export default function MaterialsAdmin() {
   }, []);
 
   const handleDelete = async (id: string) => {
-      if (!confirm('Bạn có chắc muốn xóa vật liệu này?')) return;
-      await fetch('/api/admin/materials', {
-          method: 'DELETE',
-          body: JSON.stringify({ id })
-      });
-      setItems(prev => prev.filter(i => i.id !== id));
+    if (!confirm('Bạn có chắc muốn xóa vật liệu này?')) return;
+    await fetch('/api/admin/materials', {
+      method: 'DELETE',
+      body: JSON.stringify({ id })
+    });
+    setItems(prev => prev.filter(i => i.id !== id));
   }
 
   if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
@@ -48,45 +48,54 @@ export default function MaterialsAdmin() {
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="p-2 bg-slate-100 rounded-lg">
-                    {item.image ? (
-                        <img src={item.image} alt="" className="w-10 h-10 object-cover rounded" />
-                    ) : (
-                        <Layers className="h-5 w-5 text-slate-600" />
-                    )}
+                  {item.image ? (
+                    <img src={item.image} alt="" className="w-10 h-10 object-cover rounded" />
+                  ) : (
+                    <Layers className="h-5 w-5 text-slate-600" />
+                  )}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link href={`/services/materials/${item.slug}`} target="_blank" className="p-2 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-500">
-                        <Eye className="h-4 w-4" />
-                    </Link>
-                    <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-red-50 rounded text-slate-400 hover:text-red-500">
-                        <Trash className="h-4 w-4" />
-                    </button>
+                  <Link href={`/services/materials/${item.slug}`} target="_blank" className="p-2 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-500">
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                  <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-red-50 rounded text-slate-400 hover:text-red-500">
+                    <Trash className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
               <CardTitle className="mt-3">{item.name}</CardTitle>
               <CardDescription className="line-clamp-2">{item.description || item.best_for}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link 
-                href={`/admin/materials/${item.id}`}
-                className="flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-700"
-              >
-                <Edit className="h-4 w-4" /> Chỉnh sửa chi tiết
-              </Link>
+              <div className="flex items-center justify-between">
+                <Link
+                  href={`/admin/materials/${item.id}`}
+                  className="flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-700"
+                >
+                  <Edit className="h-4 w-4" /> Chỉnh sửa
+                </Link>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  title="Xóa"
+                >
+                  <Trash className="h-4 w-4" />
+                </button>
+              </div>
             </CardContent>
           </Card>
         ))}
-        
+
         {items.length === 0 && (
-            <div className="col-span-full p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                <p className="text-slate-500">Chưa có dữ liệu. Hãy chạy migration v10 để khởi tạo dữ liệu mẫu.</p>
-                <button 
-                    onClick={() => fetch('/api/admin/migrate-v10').then(() => window.location.reload())}
-                    className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm"
-                >
-                    Khởi tạo dữ liệu mẫu (v10)
-                </button>
-            </div>
+          <div className="col-span-full p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+            <p className="text-slate-500">Chưa có dữ liệu. Hãy chạy migration v10 để khởi tạo dữ liệu mẫu.</p>
+            <button
+              onClick={() => fetch('/api/admin/migrate-v10').then(() => window.location.reload())}
+              className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm"
+            >
+              Khởi tạo dữ liệu mẫu (v10)
+            </button>
+          </div>
         )}
       </div>
     </div>

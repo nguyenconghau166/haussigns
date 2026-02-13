@@ -87,7 +87,7 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
@@ -262,8 +262,8 @@ export default function ContactPage() {
                           className="input-premium min-h-[140px] resize-y"
                         />
                       </div>
-                      
-                      <FileUploader 
+
+                      <FileUploader
                         label="Attach File (Optional)"
                         onUploadComplete={(url) => setFormData(prev => ({ ...prev, file_url: url }))}
                       />
@@ -334,15 +334,26 @@ export default function ContactPage() {
                     {address}<br />
                     <span className="text-amber-600 font-medium">Open {workingHours}</span>
                   </p>
-                  
+
                   {mapEmbedUrl ? (
-                    <div 
+                    mapEmbedUrl.startsWith('<iframe') ? (
+                      <div
                         className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
                         dangerouslySetInnerHTML={{ __html: mapEmbedUrl }}
-                    />
+                      />
+                    ) : (
+                      <iframe
+                        src={mapEmbedUrl}
+                        className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
+                        style={{ border: 0 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    )
                   ) : (
                     <div className="w-full h-48 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs">
-                        Map not available
+                      Map not available
                     </div>
                   )}
                 </div>

@@ -77,11 +77,11 @@ import ImageUploader from '@/components/ImageUploader';
 const ImageField = ({ label, value, onChange, placeholder, hint }: {
   label: string; value: string; onChange: (val: string) => void; placeholder?: string; hint?: string;
 }) => (
-  <ImageUploader 
+  <ImageUploader
     label={label}
     value={value}
     onChange={onChange}
-    aspectRatio={16/9} // Can be adjusted or prop passed
+    aspectRatio={16 / 9} // Can be adjusted or prop passed
   />
 );
 
@@ -232,6 +232,13 @@ export default function SettingsPage() {
                   hint="Sẽ được đặt cuối mỗi bài viết AI tạo"
                 />
                 <InputField label="Đối thủ cạnh tranh" value={settings.competitors} onChange={(v) => handleChange('competitors', v)} placeholder="Company A, Company B..." hint="AI sẽ phân tích đối thủ khi viết bài" />
+                <TextareaField
+                  label="Trạng thái khách hàng (Lead Statuses)"
+                  value={settings.lead_statuses}
+                  onChange={(v) => handleChange('lead_statuses', v)}
+                  placeholder="New, Contacted, Quoted, Won, Lost"
+                  hint="Các trạng thái tùy chỉnh cho quy trình bán hàng, cách nhau bằng dấu phẩy."
+                />
               </CardContent>
             </Card>
           </div>
@@ -262,12 +269,12 @@ export default function SettingsPage() {
                   placeholder="From sleek acrylic build-ups to durable stainless steel..."
                   rows={2}
                 />
-                <InputField
-                  label="Link ảnh nền (Background Image URL)"
+                <ImageField
+                  label="Ảnh nền Hero (Background Image URL)"
                   value={settings.hero_image}
                   onChange={(v) => handleChange('hero_image', v)}
                   placeholder="/images/hero-bg.jpg"
-                  hint="Để trống để dùng ảnh mặc định. Link ảnh có thể từ upload hoặc internet."
+                  hint="Upload ảnh từ máy hoặc dán link ảnh. Có thể crop 16:9."
                 />
               </CardContent>
             </Card>
@@ -797,6 +804,13 @@ export default function SettingsPage() {
                   onChange={(v) => handleChange('facebook_pixel_id', v)}
                   placeholder="123456789012345"
                   hint="ID Pixel của Facebook Ads của bạn"
+                />
+                <InputField
+                  label="Google Ads Conversion ID"
+                  value={settings.google_ads_id}
+                  onChange={(v) => handleChange('google_ads_id', v)}
+                  placeholder="AW-XXXXXXXXX"
+                  hint="ID theo dõi chuyển đổi Google Ads (bắt đầu bằng AW-)"
                 />
                 <InputField
                   label="TikTok Pixel ID"

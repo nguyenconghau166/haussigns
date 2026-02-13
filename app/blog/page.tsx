@@ -35,22 +35,40 @@ async function getPosts() {
   try {
     const { data, error } = await supabase
       .from('posts')
-      .select('*')
+      .select(`
+        *,
+        categories (
+          name,
+          slug
+        )
+      `)
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.error('Error fetching posts:', error);
       return MOCK_POSTS;
     }
 
-    return data.map(post => ({
-      slug: post.slug,
-      title: post.title,
-      excerpt: post.excerpt,
-      date: post.created_at,
-      category: 'General', // Default if no category logic yet
-      image: post.featured_image || 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd',
-    }));
+    if (!data || data.length === 0) {
+      return MOCK_POSTS;
+    }
+
+    return data.map(post => {
+      // Handle category mapping safely
+      const categoryName = Array.isArray(post.categories)
+        ? post.categories[0]?.name
+        : (post.categories as any)?.name || 'General';
+
+      return {
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt,
+        date: post.created_at,
+        category: categoryName,
+        image: post.featured_image || 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd',
+      };
+    });
   } catch (error) {
     console.error('Error fetching posts:', error);
     return MOCK_POSTS;
@@ -65,7 +83,7 @@ export default async function BlogPage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <Navbar />
-      
+
       <main className="flex-1">
         {/* Blog Header */}
         <section className="bg-slate-900 py-20 text-center text-white">
@@ -83,17 +101,16 @@ export default async function BlogPage() {
         <section className="container py-16 px-4 md:px-6">
           <div className="mb-10 flex flex-col items-center justify-between gap-4 md:flex-row">
             <h2 className="text-2xl font-bold text-slate-900">Latest Articles</h2>
-            
+
             {/* Simple Category Filter Placeholder */}
             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
               {['All', 'Materials', 'Design', 'Permits', 'Maintenance'].map((cat) => (
                 <button
                   key={cat}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    cat === 'All' 
-                      ? 'bg-slate-900 text-white' 
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${cat === 'All'
+                      ? 'bg-slate-900 text-white'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>

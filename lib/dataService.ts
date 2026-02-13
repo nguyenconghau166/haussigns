@@ -10,9 +10,15 @@ export const getSupabase = cache(() => {
 });
 
 // Generic fetch function
-async function fetchData<T>(table: string) {
+async function fetchData<T>(table: string, limit?: number) {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: true });
+    let query = supabase.from(table).select('*').order('created_at', { ascending: false }); // Changed to DESC for latest items
+
+    if (limit) {
+        query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error(`Error fetching ${table}:`, error);
@@ -22,11 +28,11 @@ async function fetchData<T>(table: string) {
     return data as T[];
 }
 
-export const getProducts = async () => fetchData<any>('products');
-export const getTestimonials = async () => fetchData<any>('testimonials');
-export const getProjects = async () => fetchData<any>('projects');
-export const getServices = async () => fetchData<any>('services');
-export const getPosts = async () => fetchData<any>('posts');
+export const getProducts = async (limit?: number) => fetchData<any>('products', limit);
+export const getTestimonials = async (limit?: number) => fetchData<any>('testimonials', limit);
+export const getProjects = async (limit?: number) => fetchData<any>('projects', limit);
+export const getServices = async (limit?: number) => fetchData<any>('services', limit);
+export const getPosts = async (limit?: number) => fetchData<any>('posts', limit);
 
 export const getServiceBySlug = async (slug: string) => {
     const supabase = getSupabase();

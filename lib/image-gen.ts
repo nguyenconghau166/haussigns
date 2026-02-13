@@ -1,5 +1,6 @@
 import { generateImage } from './openai'; // Use the wrapper function
 import { supabaseAdmin } from './supabase';
+import { uploadImageFromUrl } from './storage-upload';
 
 // Định nghĩa kiểu dữ liệu cho kết quả tạo ảnh
 interface ImageGenResult {
@@ -150,7 +151,22 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
   }
 
   if (result.success && result.url) {
-    return result.url;
+    // START: Upload to Supabase Storage
+    try {
+      console.log('Uploading generated image to Supabase Storage...');
+      const supabaseUrl = await uploadImageFromUrl(result.url);
+      if (supabaseUrl) {
+        console.log('Image uploaded successfully:', supabaseUrl);
+        return supabaseUrl;
+      } else {
+        console.error('Failed to upload image to Supabase, falling back to original URL');
+        return result.url;
+      }
+    } catch (uploadError) {
+      console.error('Error during image upload:', uploadError);
+      return result.url; // Fallback to original URL (may expire if DALL-E)
+    }
+    // END: Upload to Supabase Storage
   } else {
     console.error('Image Generation Failed:', result.error);
     return 'https://images.unsplash.com/photo-1563291074-2bf8677ac0e5?q=80&w=2548&auto=format&fit=crop';

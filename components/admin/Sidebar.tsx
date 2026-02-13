@@ -15,7 +15,10 @@ import {
   PenTool,
   Building2,
   Layers,
-  Users
+  Users,
+  TrendingUp,
+  Package,
+  Link as LinkIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -27,9 +30,12 @@ const NAV_ITEMS = [
   { label: 'Quản lý Ngành hàng', href: '/admin/industries', icon: Building2 },
   { label: 'Quản lý Vật liệu', href: '/admin/materials', icon: Layers },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
-  { label: 'Viết mô tả SP', href: '/admin/product-writer', icon: PenTool },
+  { label: 'Quản lý Sản phẩm (Mới)', href: '/admin/products', icon: Package },
+  { label: 'Quản lý Dự án', href: '/admin/projects', icon: Layers },
   { label: 'Quản lý bài viết', href: '/admin/posts', icon: FileText },
   { label: 'Nghiên cứu từ khóa', href: '/admin/keywords', icon: Search },
+  { label: 'SEO & AIO', href: '/admin/seo', icon: TrendingUp },
+  { label: 'Liên kết nội bộ', href: '/admin/seo/internal-links', icon: LinkIcon },
   { label: 'Lịch sử Pipeline', href: '/admin/pipeline-history', icon: History },
   { label: 'Cài đặt hệ thống', href: '/admin/settings', icon: Settings },
 ];

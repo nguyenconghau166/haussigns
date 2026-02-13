@@ -48,17 +48,17 @@ export default function Home() {
   useEffect(() => {
     async function loadData() {
       const [prodData, servData, projData, testData, postData] = await Promise.all([
-        getProducts(),
-        getServices(),
-        getProjects(),
-        getTestimonials(),
-        getPosts()
+        getProducts(8),      // Limit to 8 products
+        getServices(),       // Services usually specific, keep all
+        getProjects(8),      // Limit to 8 projects
+        getTestimonials(4),  // Limit to 4 testimonials
+        getPosts(3)          // Limit to 3 posts
       ]);
       setProducts(prodData);
       setServices(servData);
       setProjects(projData);
       setTestimonials(testData);
-      setPosts(postData?.slice(0, 3) || []); // Limit to 3 latest posts
+      setPosts(postData || []);
     }
     loadData();
   }, []);

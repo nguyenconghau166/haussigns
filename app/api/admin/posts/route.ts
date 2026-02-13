@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { pingSearchEngines } from '@/lib/seo';
+import { postToFacebook } from '@/lib/facebook';
 
 // GET: Fetch all posts
 export async function GET() {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { title, slug, content, excerpt, featured_image, status, lang, meta_title, meta_description } = body;
 
-    const { data, error } = await supabaseAdmin
+    const { data: post, error } = await supabaseAdmin
       .from('posts')
       .insert([
         {
@@ -49,9 +50,18 @@ export async function POST(request: Request) {
     if (status === 'published') {
       // Fire and forget - don't await strictly to slow down response
       pingSearchEngines().catch(err => console.error('Ping error:', err));
+
+      // Auto-post to Facebook
+      const fbResult = await postToFacebook(post);
+      if (fbResult.success && fbResult.id) {
+        await supabaseAdmin
+          .from('posts')
+          .update({ facebook_post_id: fbResult.id })
+          .eq('id', post.id);
+      }
     }
 
-    return NextResponse.json({ post: data });
+    return NextResponse.json({ post });
   } catch (error) {
     console.error('Server Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -68,7 +78,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data: post, error } = await supabaseAdmin
       .from('posts')
       .update(updates)
       .eq('id', id)
@@ -83,9 +93,20 @@ export async function PATCH(request: Request) {
     if (updates.status === 'published') {
       // Fire and forget
       pingSearchEngines().catch(err => console.error('Ping error:', err));
+
+      // Auto-post to Facebook if not already posted
+      if (!post.facebook_post_id) {
+        const fbResult = await postToFacebook(post);
+        if (fbResult.success && fbResult.id) {
+          await supabaseAdmin
+            .from('posts')
+            .update({ facebook_post_id: fbResult.id })
+            .eq('id', post.id);
+        }
+      }
     }
 
-    return NextResponse.json({ post: data });
+    return NextResponse.json({ post });
   } catch (error) {
     console.error('Server Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

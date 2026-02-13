@@ -13,11 +13,13 @@ declare global {
 export default function Analytics({
   googleAnalyticsId,
   facebookPixelId,
-  tiktokPixelId
+  tiktokPixelId,
+  googleAdsId
 }: {
   googleAnalyticsId?: string;
   facebookPixelId?: string;
   tiktokPixelId?: string;
+  googleAdsId?: string;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -110,6 +112,21 @@ export default function Analytics({
                ttq.page();
              }(window, document, 'ttq');
            `,
+          }}
+        />
+      )}
+      {/* Google Ads */}
+      {googleAdsId && (
+        <Script
+          id="google-ads"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${googleAdsId}');
+            `,
           }}
         />
       )}

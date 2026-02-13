@@ -69,6 +69,11 @@ export interface VisualizerOutput {
   featured_image_url: string | null;
   image_suggestions: string[];
   post_id: string;
+  generated_images?: {
+    location: string;
+    url: string;
+    alt: string;
+  }[];
 }
 
 // =============================================
@@ -408,22 +413,83 @@ export async function runAgentVisualInspector(
   try {
     // 1. Generate featured image
     const imgPrompt = `${imageStyle}, ${topic.keyword} signage in a modern Manila commercial building, professional quality, no text overlays, clean composition, cinematic lighting`;
-    const imageUrl = await generateProjectImage(imgPrompt);
+    const featuredImageUrl = await generateProjectImage(imgPrompt);
 
-    // 2. Analyze article for image suggestions
-    const analysisPrompt = `Analyze this article and suggest 2-3 additional image placement points.
-Article title: "${article.title}"
-First 500 chars: "${article.content?.substring(0, 500)}"
+    // 2. Analyze article for inline images (New Logic)
+    let finalContent = article.content;
+    const generatedImages: { location: string; url: string; alt: string }[] = [];
 
-Return JSON only: { "image_suggestions": ["description of suggested image 1", "description 2"] }`;
+    // Only generate inline images if article is long enough
+    if (article.content && article.content.length > 1500) {
+      await logAgent(batchId, 'Visual Inspector', 'Phân tích vị trí chèn ảnh...', 'running');
 
-    let imageSuggestions: string[] = [];
-    try {
-      const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest images', 'gpt-4o-mini');
-      const parsed = JSON.parse(analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '{}');
-      imageSuggestions = parsed.image_suggestions || [];
-    } catch {
-      imageSuggestions = ['Hero image of the signage type', 'Close-up detail shot'];
+      const analysisPrompt = `Analyze this article and identify 2-3 strategic points to insert illustrative images.
+        Focus on sections describing:
+        - Manufacturing processes (bending, welding, printing)
+        - Specific materials (acrylic, metal, neon)
+        - Installation or finished look
+        
+        Article Title: "${article.title}"
+        Content Snippet:
+        ${article.content.substring(0, 3000)}...
+
+        Rules:
+        - Identify valid "## Section Headers" from the text to insert images AFTER.
+        - Create specific, realistic image prompts for a signage company.
+        - Return JSON ONLY.
+
+        Output Format:
+        [
+          {
+            "insert_after_header": "exact header text without hashes", 
+            "image_prompt": "modern signage photo, ${imageStyle}, ...",
+            "alt_text": "description for seo"
+          }
+        ]`;
+
+      try {
+        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest inline images', 'gpt-4o');
+        const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
+        const suggestions: { insert_after_header: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
+
+        // 3. Generate and Insert Inline Images
+        for (const item of suggestions) {
+          if (!item.insert_after_header || !item.image_prompt) continue;
+
+          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
+          const imgUrl = await generateProjectImage(item.image_prompt);
+
+          if (imgUrl) {
+            generatedImages.push({
+              location: item.insert_after_header,
+              url: imgUrl,
+              alt: item.alt_text
+            });
+
+            // Insert into markdown content
+            const cleanHeader = item.insert_after_header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const replaceRegex = new RegExp(`(## ${cleanHeader}.*?)(?=\n)`, 'i');
+
+            if (replaceRegex.test(finalContent)) {
+              finalContent = finalContent.replace(
+                replaceRegex,
+                `$1\n\n![${item.alt_text}](${imgUrl})`
+              );
+            } else {
+              const looseRegex = new RegExp(`(##.*?${cleanHeader}.*?)(?=\n)`, 'i');
+              if (looseRegex.test(finalContent)) {
+                finalContent = finalContent.replace(
+                  looseRegex,
+                  `$1\n\n![${item.alt_text}](${imgUrl})`
+                );
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error generating inline images:', err);
+        await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
+      }
     }
 
     // 3. Save to DB as draft
@@ -432,11 +498,11 @@ Return JSON only: { "image_suggestions": ["description of suggested image 1", "d
     const { data: post, error } = await supabaseAdmin.from('posts').upsert({
       title: article.title,
       slug: slug,
-      content: article.content,
+      content: finalContent,
       excerpt: article.excerpt,
       meta_title: article.meta_title,
       meta_description: article.meta_description,
-      featured_image: imageUrl,
+      featured_image: featuredImageUrl,
       status: 'draft',
       seo_score: 85,
       tags: article.suggested_tags,
@@ -446,24 +512,104 @@ Return JSON only: { "image_suggestions": ["description of suggested image 1", "d
 
     if (error) throw error;
 
-    await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp: "${article.title}"`, 'success', {
-      post_id: post.id,
-      image_url: imageUrl,
-      image_suggestions: imageSuggestions
+    await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
+      post_id: post?.id,
+      featured_image: featuredImageUrl,
+      inline_images_count: generatedImages.length
     });
 
     return {
       success: true,
       data: {
-        featured_image_url: imageUrl,
-        image_suggestions: imageSuggestions,
-        post_id: post.id
+        featured_image_url: featuredImageUrl,
+        image_suggestions: [],
+        generated_images: generatedImages,
+        post_id: post?.id
       } as VisualizerOutput,
-      message: `Lưu bản nháp thành công. Post ID: ${post.id}`
+      message: `Lưu bản nháp thành công. Ảnh cover + ${generatedImages.length} ảnh minh họa.`
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh/lưu bài', 'failed', { error: message });
     return { success: false, message: message };
+  }
+}
+
+// =============================================
+// HELPER: Project Description Generator
+// =============================================
+export async function generateProjectDescription(params: {
+  title: string;
+  client: string;
+  location: string;
+  type: string;
+  challenges?: string;
+}): Promise<string | null> {
+  const config = await getAllConfig();
+  const model = config.writer_model || 'gpt-4o';
+
+  const systemPrompt = `You are a professional copywriter for a premium signage company called "SignsHaus".
+  Write a compelling project case study description (approx 200-300 words).
+  
+  Tone: Professional, confident, architectural, focusing on quality and craftsmanship.
+  Structure:
+  1. The Challenge/Objective
+  2. The Solution (Materials, Technique)
+  3. The Result (Visual impact)
+  
+  Do NOT use markdown headers (like ##). Use paragraph breaks.
+  Do NOT include "Title:" or "Client:" labels, just the narrative text.`;
+
+  const userPrompt = `Write a project description for:
+  Project Name: ${params.title}
+  Client: ${params.client}
+  Location: ${params.location}
+  Signage Type: ${params.type}
+  Special Challenges/Notes: ${params.challenges || 'N/A'}
+  
+  Focus on how this project enhances the client's brand visibility in ${params.location}.`;
+
+  return await generateContentResolved(systemPrompt, userPrompt, model);
+}
+
+// =============================================
+// AGENT 5: INTERNAL LINKING EXPERT (Trích xuất từ khóa)
+// =============================================
+export async function extractKeywordsForLinking(
+  title: string,
+  description: string,
+  content: string
+): Promise<string[]> {
+  const config = await getAllConfig();
+  const model = config.researcher_model || 'gpt-4o-mini';
+
+  const systemPrompt = `You are an SEO Internal Linking Specialist.
+  Analyze the provided content and extract 3-5 distinct, high-value keywords or phrases that naturally represent this content.
+  These keywords will be used as "anchor text" to link FROM other pages TO this page.
+
+  RULES:
+  1. Keywords must be natural phrases (2-4 words usually).
+  2. Avoid generic terms like "product", "signage" (too broad).
+  3. Use specific material names, product types, or service names found in the content.
+  4. Return ONLY a JSON array of strings. No markdown.
+
+  Example:
+  Input: "Acrylic LED signage for outdoor use..."
+  Output: ["acrylic LED signage", "outdoor lighted signs", "custom acrylic signs"]`;
+
+  const userPrompt = `Page Title: ${title}
+  Description: ${description}
+  Content Snippet: ${content.substring(0, 1000)}...
+
+  Extract 3-5 keywords:`;
+
+  try {
+    const result = await generateContentResolved(systemPrompt, userPrompt, model);
+    const cleaned = result?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
+    const keywords: string[] = JSON.parse(cleaned);
+    return Array.isArray(keywords) ? keywords.slice(0, 5) : [];
+  } catch (e) {
+    console.error('Error extracting keywords:', e);
+    return [];
   }
 }

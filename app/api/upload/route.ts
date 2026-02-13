@@ -1,58 +1,43 @@
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Helper to create uploads bucket if not exists
-// Ideally this is done once manually or via migration, but we can try here safely
-async function ensureBucket() {
-    const { data, error } = await supabaseAdmin.storage.getBucket('uploads');
-    if (error) {
-        await supabaseAdmin.storage.createBucket('uploads', {
-            public: true,
-            fileSizeLimit: 5242880, // 5MB
-            allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp']
-        });
-    }
-}
+export const runtime = 'edge'; // Optional: Use Edge if supported, otherwise Node.js
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Ensure bucket exists
-    await ensureBucket();
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
 
-    // Generate unique filename
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    const filePath = `images/${fileName}`;
-
-    // Upload using admin client to bypass RLS for admin actions
-    const { data, error } = await supabaseAdmin
-      .storage
-      .from('uploads')
-      .upload(filePath, buffer, {
+    const { data, error } = await supabaseAdmin.storage
+      .from('images')
+      .upload(fileName, bytes, {
         contentType: file.type,
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Upload error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     // Get public URL
-    const { data: { publicUrl } } = supabaseAdmin
-      .storage
-      .from('uploads')
-      .getPublicUrl(filePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('images')
+      .getPublicUrl(fileName);
 
     return NextResponse.json({ url: publicUrl });
-  } catch (error: any) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  } catch (error) {
+    console.error('Server error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

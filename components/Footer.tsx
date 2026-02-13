@@ -28,7 +28,8 @@ export default function Footer() {
     facebook,
     instagram,
     viber,
-    messenger
+    messenger,
+    mapEmbedUrl
   } = useSiteSettings();
 
   return (
@@ -38,7 +39,7 @@ export default function Footer() {
 
       {/* Main Footer */}
       <div className="container py-14 md:py-20">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href="/" className="inline-block">
@@ -91,28 +92,57 @@ export default function Footer() {
           </div>
 
           {/* Contact Info */}
-          <div>
+          <div className="lg:col-span-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 mb-5">
               Contact
             </h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                <span className="text-sm text-slate-300">{address}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-amber-500 shrink-0" />
-                <a href={`tel:${phone}`} className="hover:text-amber-500 transition-colors">
-                  {phone}
-                </a>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-amber-500 shrink-0" />
-                <a href={`mailto:${email}`} className="hover:text-amber-500 transition-colors">
-                  {email}
-                </a>
-              </li>
-            </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <span className="text-sm text-slate-300">{address}</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-amber-500 shrink-0" />
+                  <a href={`tel:${phone}`} className="hover:text-amber-500 transition-colors">
+                    {phone}
+                  </a>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-amber-500 shrink-0" />
+                  <a href={`mailto:${email}`} className="hover:text-amber-500 transition-colors">
+                    {email}
+                  </a>
+                </li>
+              </ul>
+
+              {/* Footer Map */}
+              <div className="rounded-xl overflow-hidden border border-slate-700/50 bg-slate-800/50 min-h-[160px] h-full">
+                {mapEmbedUrl ? (
+                  mapEmbedUrl.startsWith('<iframe') ? (
+                    <div
+                      className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:filter [&>iframe]:grayscale hover:[&>iframe]:filter-none transition-all duration-500"
+                      dangerouslySetInnerHTML={{ __html: mapEmbedUrl }}
+                    />
+                  ) : (
+                    <iframe
+                      src={mapEmbedUrl}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="w-full h-full filter grayscale hover:filter-none transition-all duration-500"
+                    />
+                  )
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-600 text-xs">
+                    Map not configured
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

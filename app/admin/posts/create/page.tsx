@@ -6,6 +6,7 @@ import { Loader2, Wand2, Image as ImageIcon, Save, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 import RichEditor from '@/components/RichEditor';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function CreatePostPage() {
   const router = useRouter();
@@ -64,7 +65,7 @@ export default function CreatePostPage() {
     try {
       const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const excerpt = content.substring(0, 150).replace(/<[^>]*>?/gm, '') + '...'; // Strip HTML tags for excerpt
-      
+
       const res = await fetch('/api/admin/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,11 +168,14 @@ export default function CreatePostPage() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
                 Generate Image (DALL-E 3)
               </button>
-              {imageUrl && (
-                <div className="rounded-md overflow-hidden border">
-                  <img src={imageUrl} alt="Generated" className="w-full h-auto" />
-                </div>
-              )}
+              <div className="mt-4 border-t pt-4">
+                <ImageUploader
+                  value={imageUrl}
+                  onChange={setImageUrl}
+                  label="Featured Image (Upload or AI Generated)"
+                  aspectRatio={16 / 9}
+                />
+              </div>
             </CardContent>
           </Card>
         )}

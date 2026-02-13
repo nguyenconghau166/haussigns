@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Save, ArrowLeft, Loader2, Image as ImageIcon, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import RichEditor from '@/components/RichEditor';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function EditIndustry({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -65,20 +66,20 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const handleGenerateContent = async () => {
     setAiLoading(true);
     try {
-        const res = await fetch('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({ 
-                topic: `Signage solutions for ${aiTopic || title}`, 
-                lang: 'en', 
-                tone: 'professional' 
-            })
-        });
-        const data = await res.json();
-        if (data.content) setContent(data.content);
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: `Signage solutions for ${aiTopic || title}`,
+          lang: 'en',
+          tone: 'professional'
+        })
+      });
+      const data = await res.json();
+      if (data.content) setContent(data.content);
     } catch (e) {
-        alert('AI Error');
+      alert('AI Error');
     } finally {
-        setAiLoading(false);
+      setAiLoading(false);
     }
   };
 
@@ -136,51 +137,48 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         </div>
 
         <div className="space-y-6">
-            <Card className="border-amber-100 shadow-amber-500/10 shadow-lg">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                        <Wand2 className="h-4 w-4 text-amber-600" /> AI Content
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <input 
-                        value={aiTopic} 
-                        onChange={(e) => setAiTopic(e.target.value)} 
-                        className="w-full mb-3 p-2 text-sm border rounded" 
-                        placeholder="Chủ đề..."
-                    />
-                    <button 
-                        onClick={handleGenerateContent}
-                        disabled={aiLoading}
-                        className="w-full bg-amber-500 text-white py-2 rounded text-sm font-medium disabled:opacity-50"
-                    >
-                        {aiLoading ? 'Đang viết...' : 'Tự động viết nội dung'}
-                    </button>
-                </CardContent>
-            </Card>
+          <Card className="border-amber-100 shadow-amber-500/10 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Wand2 className="h-4 w-4 text-amber-600" /> AI Content
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <input
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+                className="w-full mb-3 p-2 text-sm border rounded"
+                placeholder="Chủ đề..."
+              />
+              <button
+                onClick={handleGenerateContent}
+                disabled={aiLoading}
+                className="w-full bg-amber-500 text-white py-2 rounded text-sm font-medium disabled:opacity-50"
+              >
+                {aiLoading ? 'Đang viết...' : 'Tự động viết nội dung'}
+              </button>
+            </CardContent>
+          </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm">Hình ảnh</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <label className="text-xs font-medium text-slate-500">Icon (Lucide Name)</label>
-                        <input value={icon} onChange={(e) => setIcon(e.target.value)} className="w-full mt-1 p-2 text-sm border rounded" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-slate-500">Ảnh đại diện (URL)</label>
-                        <div className="flex gap-2">
-                            <input value={image} onChange={(e) => setImage(e.target.value)} className="w-full mt-1 p-2 text-sm border rounded" />
-                            <button onClick={() => {
-                                const url = prompt('URL ảnh:', image);
-                                if (url) setImage(url);
-                            }} className="mt-1 px-3 bg-slate-100 border rounded text-xs">Chọn</button>
-                        </div>
-                        {image && <img src={image} alt="Preview" className="mt-2 w-full h-32 object-cover rounded bg-slate-50" />}
-                    </div>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Hình ảnh</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-500">Icon (Lucide Name)</label>
+                <input value={icon} onChange={(e) => setIcon(e.target.value)} className="w-full mt-1 p-2 text-sm border rounded" />
+              </div>
+              <div>
+                <ImageUploader
+                  label="Ảnh đại diện (Thumbnail)"
+                  value={image}
+                  onChange={setImage}
+                  aspectRatio={4 / 3}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

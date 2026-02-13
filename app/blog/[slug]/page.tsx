@@ -1,45 +1,60 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { formatDate } from '@/lib/utils';
 import { ArrowLeft } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+// Revalidate every 60 seconds (or logic for ISR)
+export const revalidate = 60;
+
+// Helper to fetch post
+async function getPost(slug: string) {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(`
+      *,
+      categories (
+        name,
+        slug
+      )
+    `)
+    .eq('slug', slug)
+    .eq('status', 'published')
+    .single();
+
+  if (error) {
+    console.error('Error fetching post:', error);
+    return null;
+  }
+  return data;
+}
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
-  // In a real app, fetch post data based on params.slug
   const { slug } = await params;
+  const postData = await getPost(slug);
+
+  if (!postData) {
+    notFound();
+  }
+
+  // Transform data to match UI needs
+  // The 'categories' field from join might be an object or array depending on client generation, 
+  // but usually for Many-to-One it is an object.
+  // We'll cast to any for safety or assume it adheres to the shape.
+  const categoryName = Array.isArray(postData.categories)
+    ? postData.categories[0]?.name
+    : (postData.categories as any)?.name || 'General';
+
   const post = {
-    title: slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-    date: '2024-02-15',
-    category: 'Materials',
-    author: 'SignsHaus Team',
-    image: 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=2674&auto=format&fit=crop',
-    content: `
-      <h2>Introduction</h2>
-      <p>Acrylic signage has become the gold standard for modern businesses in Metro Manila. Its versatility, durability, and premium finish make it an ideal choice for both indoor and outdoor applications.</p>
-      
-      <h3>Why Choose Acrylic?</h3>
-      <p>Compared to traditional panaflex, acrylic offers a much more sophisticated look. It can be laser-cut into precise shapes, making it perfect for intricate logos and lettering.</p>
-      
-      <ul>
-        <li><strong>High Durability:</strong> Resistant to UV rays and harsh weather conditions.</li>
-        <li><strong>Versatile Finishes:</strong> Available in glossy, matte, or frosted textures.</li>
-        <li><strong>Illumination:</strong> Works perfectly with LED modules for face-lit or halo-lit effects.</li>
-      </ul>
-
-      <h3>Cost Considerations</h3>
-      <p>While acrylic is more expensive upfront than tarpaulin or panaflex, its longevity means you save money in the long run. A well-maintained acrylic sign can last 5-10 years without significant fading.</p>
-
-      <h2>Installation Process</h2>
-      <p>Our team at SignsHaus handles the entire process from design to installation. We use high-grade stainless steel spacers or industrial adhesives depending on the wall surface.</p>
-
-      <blockquote>
-        &quot;A quality sign is the first handshake with your customer.&quot;
-      </blockquote>
-
-      <h3>Contact Us Today</h3>
-      <p>Ready to upgrade your storefront? Contact us for a free ocular inspection and quote.</p>
-    `,
+    title: postData.title,
+    date: postData.created_at,
+    category: categoryName,
+    author: 'SignsHaus Team', // Static for now, or add author table later
+    image: postData.featured_image || 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=2674&auto=format&fit=crop',
+    content: postData.content || '',
   };
 
   return (
@@ -94,21 +109,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         </article>
 
-        {/* Related Posts Placeholder */}
+        {/* Related Posts Placeholder - Could be made dynamic later */}
         <section className="bg-slate-50 py-16">
           <div className="container">
             <h2 className="mb-8 text-2xl font-bold text-slate-900">Related Articles</h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {/* Reuse BlogCard components here with different data */}
               <div className="rounded-lg bg-white p-6 shadow-sm">
-                <div className="h-40 bg-slate-200 rounded-md mb-4"></div>
-                <h3 className="font-bold text-lg mb-2">3 Tips for Durable Outdoor Signs</h3>
-                <p className="text-slate-500 text-sm">Learn how to choose materials that withstand Manila's heat and rain.</p>
+                <div className="h-40 bg-slate-200 rounded-md mb-4 bg-cover bg-center" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1616400619175-5beda3a17896?q=80&w=2574&auto=format&fit=crop)' }}></div>
+                <h3 className="font-bold text-lg mb-2">How to Clean Stainless Steel</h3>
+                <p className="text-slate-500 text-sm">Keep your outdoor signage looking brand new with these simple cleaning tips.</p>
               </div>
               <div className="rounded-lg bg-white p-6 shadow-sm">
-                <div className="h-40 bg-slate-200 rounded-md mb-4"></div>
-                <h3 className="font-bold text-lg mb-2">Permit Requirements 101</h3>
-                <p className="text-slate-500 text-sm">Don't get fined! Check our updated list of LGU requirements.</p>
+                <div className="h-40 bg-slate-200 rounded-md mb-4 bg-cover bg-center" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=2674&auto=format&fit=crop)' }}></div>
+                <h3 className="font-bold text-lg mb-2">Why Choose Acrylic?</h3>
+                <p className="text-slate-500 text-sm">Versatile, durable, and premium finish for indoor and outdoor use.</p>
               </div>
             </div>
           </div>
@@ -119,3 +134,4 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     </div>
   );
 }
+

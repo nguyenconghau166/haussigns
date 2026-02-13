@@ -23,7 +23,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 async function getAnalyticsConfig() {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data } = await supabase.from('ai_config').select('*').in('key', ['google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id']);
+    const { data } = await supabase.from('ai_config').select('*').in('key', ['google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id', 'google_ads_id']);
 
     const config: Record<string, string> = {};
     data?.forEach((row: any) => { config[row.key] = row.value; });
@@ -31,7 +31,8 @@ async function getAnalyticsConfig() {
     return {
       googleAnalyticsId: config.google_analytics_id,
       facebookPixelId: config.facebook_pixel_id,
-      tiktokPixelId: config.tiktok_pixel_id
+      tiktokPixelId: config.tiktok_pixel_id,
+      googleAdsId: config.google_ads_id
     };
   } catch (e) {
     console.error('Failed to fetch analytics config:', e);

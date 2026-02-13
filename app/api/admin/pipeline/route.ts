@@ -141,11 +141,11 @@ export async function POST() {
 
           send('Visual Inspector', 'complete', 'success', visualizer.message, {
             post_id: visualizerData.post_id,
-            image_count: 1
+            image_count: (visualizerData.generated_images?.length || 0) + 1 // +1 for featured image
           });
 
           articlesCreated++;
-          imagesGenerated++;
+          imagesGenerated += (visualizerData.generated_images?.length || 0) + 1;
         }
 
         // Update pipeline run as completed

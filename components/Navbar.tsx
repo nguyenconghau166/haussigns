@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: 'Sign Types', href: '/services/types', icon: LayoutGrid },
   { label: 'Industries', href: '/services/industries', icon: ShoppingBag },
   { label: 'Materials', href: '/services/materials', icon: Hammer },
+  { label: 'Projects', href: '/projects', icon: LayoutGrid },
   { label: 'Blog', href: '/blog', icon: FileText },
   { label: 'Contact', href: '/contact', icon: Phone },
 ];
@@ -56,7 +57,6 @@ export default function Navbar() {
             >
               <Search className="h-5 w-5" />
             </button>
-
             <Link
               href="/contact"
               className={cn(
@@ -68,7 +68,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu Toggle */}
-          <div className="flex items-center gap-2 md:hidden">
+          < div className="flex items-center gap-2 md:hidden" >
             <button
               onClick={() => setIsSearchOpen(true)}
               className="p-2 text-slate-700"
