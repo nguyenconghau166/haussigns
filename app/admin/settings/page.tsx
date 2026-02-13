@@ -742,23 +742,25 @@ export default function SettingsPage() {
                           setTesting(true);
                           setTestResult(null);
                           try {
-                            // Simple test using the product writer or a specific test endpoint if available. 
-                            // For now, let's just simulate a check or call an existing lightweight endpoint.
-                            // Actually, let's call the product writer with a dummy request to see if it errors.
-                            // Or better, let's rely on the fact that we have the key. 
-                            // To be real, we should hit an endpoint. content-writer/generate endpoint is good.
-                            const res = await fetch('/api/ai/research', {
+                            const res = await fetch('/api/admin/test-gemini', {
                               method: 'POST',
-                              body: JSON.stringify({ seed: 'test connection' })
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ apiKey: settings.GEMINI_API_KEY })
                             });
+
                             if (res.ok) {
                               const data = await res.json();
-                              if (data.keywords) setTestResult('success');
-                              else setTestResult('error');
+                              if (data.success) setTestResult('success');
+                              else {
+                                console.error('Gemini Test Failed:', data);
+                                setTestResult('error');
+                              }
                             } else {
+                              console.error('Gemini Test HTTP Error:', res.status, res.statusText);
                               setTestResult('error');
                             }
                           } catch (e) {
+                            console.error('Gemini Test Exception:', e);
                             setTestResult('error');
                           } finally {
                             setTesting(false);
