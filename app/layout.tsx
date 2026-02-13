@@ -78,9 +78,15 @@ export async function generateMetadata(): Promise<Metadata> {
       "building signage Metro Manila",
     ],
     icons: {
-      icon: favicon,
-      shortcut: favicon,
-      apple: favicon,
+      icon: [
+        { url: favicon, href: favicon },
+      ],
+      shortcut: [
+        { url: favicon, href: favicon },
+      ],
+      apple: [
+        { url: favicon, href: favicon },
+      ],
     },
     openGraph: {
       title: title,
