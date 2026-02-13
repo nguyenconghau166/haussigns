@@ -28,6 +28,9 @@ export async function POST(req: Request) {
             response_format: "b64_json", // Get base64 directly to avoid double downloading
         });
 
+        if (!response.data || !response.data[0]) {
+            throw new Error("No image data received from OpenAI");
+        }
         const b64Json = response.data[0].b64_json;
         if (!b64Json) {
             throw new Error("Failed to generate image data");
