@@ -754,14 +754,18 @@ export default function SettingsPage() {
                               else {
                                 console.error('Gemini Test Failed:', data);
                                 setTestResult('error');
+                                alert(`Lỗi: ${data.error}`); // Show specific error to user
                               }
                             } else {
-                              console.error('Gemini Test HTTP Error:', res.status, res.statusText);
+                              const errData = await res.json();
+                              console.error('Gemini Test HTTP Error:', res.status, errData);
                               setTestResult('error');
+                              alert(`Lỗi kết nối: ${errData.error || res.statusText}`); // Show specific error
                             }
-                          } catch (e) {
+                          } catch (e: any) {
                             console.error('Gemini Test Exception:', e);
                             setTestResult('error');
+                            alert(`Lỗi hệ thống: ${e.message}`);
                           } finally {
                             setTesting(false);
                           }

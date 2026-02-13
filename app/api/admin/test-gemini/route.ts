@@ -42,6 +42,8 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error('Gemini Test Error:', error);
-        return NextResponse.json({ error: error.message || 'Connection failed' }, { status: 500 });
+        // Extract meaningful error message from Google API error structure if possible
+        const errorMessage = error?.response?.data?.error?.message || error?.message || 'Connection failed';
+        return NextResponse.json({ error: errorMessage, details: error }, { status: 500 });
     }
 }
