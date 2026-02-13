@@ -32,7 +32,7 @@ const getClient = (apiKey: string) => new GoogleGenerativeAI(apiKey);
 export const generateContentGemini = async (
     systemPrompt: string,
     userPrompt: string,
-    modelName: string = 'gemini-1.5-flash-001',
+    modelName: string = 'gemini-1.5-flash',
     apiKey?: string
 ): Promise<string | null> => {
     const key = apiKey || await getGeminiKey();
