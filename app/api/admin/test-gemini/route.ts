@@ -43,6 +43,9 @@ export async function POST(request: Request) {
         let workingModel = null;
         let successResult = null;
 
+        const systemPrompt = "You are a connection tester.";
+        const userPrompt = "Reply with 'Success' if you receive this.";
+
         // Try each model until one works
         for (const model of candidateModels) {
             try {
