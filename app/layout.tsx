@@ -65,7 +65,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = settings.seo_title || "SignsHaus — Premium Signage Maker in Metro Manila";
   const description = settings.seo_description || "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!";
   const ogImage = settings.seo_og_image || "/images/og-image.jpg";
-  const favicon = settings.site_favicon || "/logo-web.png";
+  const favicon = settings.site_favicon ? `${settings.site_favicon}?v=${Date.now()}` : "/logo-web.png?v=2";
 
   return {
     title: {
@@ -83,13 +83,13 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     icons: {
       icon: [
-        { url: favicon, href: favicon },
+        { url: favicon, href: favicon, sizes: 'any', type: 'image/png' },
       ],
       shortcut: [
-        { url: favicon, href: favicon },
+        { url: favicon, href: favicon, type: 'image/png' },
       ],
       apple: [
-        { url: favicon, href: favicon },
+        { url: favicon, href: favicon, sizes: '180x180', type: 'image/png' },
       ],
     },
     openGraph: {
