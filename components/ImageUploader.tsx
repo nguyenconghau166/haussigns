@@ -108,6 +108,7 @@ export default function ImageUploader({
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) {
+          console.error('Canvas is empty');
           reject(new Error('Canvas is empty'));
           return;
         }
@@ -124,26 +125,37 @@ export default function ImageUploader({
       const mimeType = fileType === 'image/png' || fileType === 'image/webp' ? fileType : 'image/jpeg';
       const extension = mimeType.split('/')[1];
 
+      console.log('Cropping image with area:', croppedAreaPixels);
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, mimeType);
+
+      if (!croppedBlob) throw new Error('Failed to create crop blob');
+
       const formData = new FormData();
       formData.append('file', croppedBlob, `image.${extension}`);
 
+      console.log('Uploading cropped image...');
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Upload failed: ${res.status} ${errText}`);
+      }
+
       const data = await res.json();
       if (data.url) {
+        console.log('Upload successful:', data.url);
         onChange(data.url);
         setIsCropping(false);
         setImageSrc(null);
       } else {
-        alert('Upload failed: ' + (data.error || 'Unknown error'));
+        throw new Error(data.error || 'Unknown error from upload API');
       }
-    } catch (e) {
-      console.error(e);
-      alert('Error uploading image');
+    } catch (e: any) {
+      console.error('Image Upload Error:', e);
+      alert(`Error uploading image: ${e.message}`);
     } finally {
       setLoading(false);
     }

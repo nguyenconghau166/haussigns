@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateContent } from '@/lib/openai';
+import { generateSmartContent } from '@/lib/ai/service';
 
 export async function POST(request: Request) {
   try {
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
 
     const userPrompt = `Generate 10 keywords for: "${seed}"`;
 
-    const content = await generateContent(systemPrompt, userPrompt);
-    
+    const content = await generateSmartContent(systemPrompt, userPrompt);
+
     // Parse JSON from content (handle potential markdown ticks)
     let jsonStr = content?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
     const keywords = JSON.parse(jsonStr);

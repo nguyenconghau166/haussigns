@@ -12,10 +12,10 @@ async function getPreferredProvider(): Promise<AIProvider> {
             .eq('key', 'ai_provider')
             .single();
 
-        return (data?.value as AIProvider) || 'openai';
+        return (data?.value as AIProvider) || 'gemini';
     } catch (error) {
-        console.warn('Error fetching AI provider config, defaulting to OpenAI:', error);
-        return 'openai';
+        console.warn('Error fetching AI provider config, defaulting to Gemini:', error);
+        return 'gemini';
     }
 }
 

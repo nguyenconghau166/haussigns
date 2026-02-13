@@ -25,9 +25,13 @@ export async function POST(req: Request) {
       });
 
     if (error) {
-      console.error('Upload error:', error);
+      console.error('Supabase Upload error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    console.log('File uploaded to Supabase:', fileName);
+
+    // Get public URL
 
     // Get public URL
     const { data: { publicUrl } } = supabaseAdmin.storage

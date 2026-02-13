@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateImage } from '@/lib/openai';
+import { generateProjectImage } from '@/lib/image-gen';
 
 export async function POST(request: Request) {
   try {
@@ -7,7 +7,7 @@ export async function POST(request: Request) {
 
     const enhancedPrompt = `Realistic, high-quality, professional photography of a signage project: ${prompt}. Location: Modern urban area like BGC/Makati. Clear, crisp, no text distortions. Cinematic lighting.`;
 
-    const imageUrl = await generateImage(enhancedPrompt);
+    const imageUrl = await generateProjectImage(enhancedPrompt);
 
     return NextResponse.json({ url: imageUrl });
   } catch (error) {

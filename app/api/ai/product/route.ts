@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { generateContent as generateContentOpenAI } from '@/lib/openai';
-import { generateContentGemini } from '@/lib/ai/gemini';
+import { generateSmartContent } from '@/lib/ai/service';
 
 // Helper to get config
 async function getAllConfig(): Promise<Record<string, string>> {
+    // ... existing config fetching ...
     const { data } = await supabaseAdmin.from('ai_config').select('*');
     const config: Record<string, string> = {};
     data?.forEach((row: any) => { config[row.key] = row.value; });
@@ -20,7 +20,6 @@ export async function POST(request: Request) {
         }
 
         const config = await getAllConfig();
-        const provider = config.ai_provider || 'openai';
         const companyName = config.company_name || 'SignsHaus';
 
         const langMap: Record<string, string> = {
@@ -70,21 +69,10 @@ Key Specs/Notes: ${features}
 
 Write a description that positions this ${isMaterial ? 'material as a premium choice for signage' : 'product as a must-have for business branding'}.`;
 
-        let content: string | null = null;
-        let responseText = "";
-
-        if (provider === 'gemini') {
-            const apiKey = config.GEMINI_API_KEY;
-            // Let the service handle missing key (it checks env vars too)
-            responseText = await generateContentGemini(systemPrompt, userPrompt, 'gemini-1.5-pro', apiKey) || "";
-        } else {
-            // Fallback or OpenAI implementation
-            const result = await generateContentOpenAI(systemPrompt, userPrompt, 'gpt-5.2');
-            responseText = result || "";
-        }
+        const responseText = await generateSmartContent(systemPrompt, userPrompt) || "";
 
         // Clean markdown if AI adds it (Gemini often does)
-        content = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const content = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
         if (!content) throw new Error('Failed to generate content');
 

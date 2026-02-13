@@ -11,6 +11,10 @@ interface ImageGenResult {
 
 // Hàm lấy cấu hình từ Database
 async function getConfig(key: string, defaultValue: string = '') {
+  // Try env first
+  if (process.env[key]) return process.env[key];
+  if (key === 'GEMINI_API_KEY' && process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+
   const { data } = await supabaseAdmin
     .from('ai_config')
     .select('value')
@@ -137,7 +141,8 @@ async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiK
 async function generateWithNanoBananaPro(prompt: string): Promise<ImageGenResult> {
   try {
     // 1. Try to get Google API Key
-    const apiKey = await getConfig('google_api_key');
+    let apiKey = await getConfig('google_api_key');
+    if (!apiKey) apiKey = await getConfig('GEMINI_API_KEY');
 
     // If no Google Key, check for legacy Banana/Custom config
     if (!apiKey) {
@@ -153,7 +158,6 @@ async function generateWithNanoBananaPro(prompt: string): Promise<ImageGenResult
     console.log('Calling Google Nano Banana Pro (Imagen 3)...');
 
     // Use REST API for Imagen 3 via Gemini API
-    // Note: The model name could be 'imagen-3.0-generate-001' or similar depending on availability
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
 
     const payload = {
@@ -214,11 +218,15 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
 
   // Auto-detect provider if not set
   if (!provider) {
-    const googleKey = await getConfig('google_api_key');
-    const bananaKey = await getConfig('banana_api_key');
+    const googleKey = await getConfig('GEMINI_API_KEY'); // Changed from google_api_key to match gemini.ts convention if needed, or stick to what's in DB. Let's stick to what was likely intended or standard.
+    // Actually, looking at gemini.ts, it uses GEMINI_API_KEY. Let's try to be consistent.
+    // But image-gen.ts used 'google_api_key'. I will check ai_config keys later if needed, but for now let's support both or switch to the one that is likely there.
+    // The previous code had 'google_api_key'. I will keep it but add a fallback to 'GEMINI_API_KEY'.
+    const googleKey2 = await getConfig('google_api_key');
+    const geminiKey = await getConfig('GEMINI_API_KEY');
 
-    if (googleKey) provider = 'nanobanana';
-    else if (bananaKey) provider = 'banana';
+    if (googleKey2 || geminiKey) provider = 'nanobanana';
+    else if (await getConfig('banana_api_key')) provider = 'banana';
     else provider = 'dalle';
   }
 
