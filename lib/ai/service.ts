@@ -28,7 +28,7 @@ export const generateSmartContent = async (
 
     if (provider === 'gemini') {
         // defaults to gemini-1.5-flash if model not specified, or use the model passed if applicable
-        const geminiModel = model?.includes('gemini') ? model : 'gemini-1.5-flash';
+        const geminiModel = model?.includes('gemini') ? model : 'gemini-1.5-flash-001';
         return generateContentGemini(systemPrompt, userPrompt, geminiModel);
     }
 

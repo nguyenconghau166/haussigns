@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         const systemPrompt = "You are a connection tester.";
         const userPrompt = "Reply with 'Success' if you receive this.";
 
-        const result = await generateContentGemini(systemPrompt, userPrompt, 'gemini-1.5-flash', apiKey);
+        const result = await generateContentGemini(systemPrompt, userPrompt, 'gemini-1.5-flash-001', apiKey);
 
         if (result) {
             return NextResponse.json({ success: true, message: result });
