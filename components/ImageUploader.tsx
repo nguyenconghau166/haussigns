@@ -13,12 +13,12 @@ interface ImageUploaderProps {
   className?: string;
 }
 
-export default function ImageUploader({ 
-  value, 
-  onChange, 
-  aspectRatio = 16 / 9, 
+export default function ImageUploader({
+  value,
+  onChange,
+  aspectRatio = 16 / 9,
   label = "Upload Image",
-  className 
+  className
 }: ImageUploaderProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -28,6 +28,8 @@ export default function ImageUploader({
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [fileType, setFileType] = useState<string>('image/jpeg'); // Default to jpeg
+
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
@@ -35,6 +37,7 @@ export default function ImageUploader({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      setFileType(file.type); // Store original file type
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setImageSrc(reader.result as string);
@@ -57,7 +60,8 @@ export default function ImageUploader({
 
   const getCroppedImg = async (
     imageSrc: string,
-    pixelCrop: any
+    pixelCrop: any,
+    mimeType: string = 'image/jpeg'
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
@@ -89,7 +93,7 @@ export default function ImageUploader({
           return;
         }
         resolve(blob);
-      }, 'image/jpeg', 0.95);
+      }, mimeType, 0.95);
     });
   };
 
@@ -98,9 +102,12 @@ export default function ImageUploader({
 
     setLoading(true);
     try {
-      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const mimeType = fileType === 'image/png' || fileType === 'image/webp' ? fileType : 'image/jpeg';
+      const extension = mimeType.split('/')[1];
+
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, mimeType);
       const formData = new FormData();
-      formData.append('file', croppedBlob, 'image.jpg');
+      formData.append('file', croppedBlob, `image.${extension}`);
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -128,12 +135,12 @@ export default function ImageUploader({
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-slate-700">{label}</label>
         {value && (
-            <button 
-                onClick={() => onChange('')}
-                className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
-            >
-                <X className="h-3 w-3" /> Remove
-            </button>
+          <button
+            onClick={() => onChange('')}
+            className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+          >
+            <X className="h-3 w-3" /> Remove
+          </button>
         )}
       </div>
 
@@ -153,33 +160,33 @@ export default function ImageUploader({
           {/* Input Area */}
           <div className="flex-1">
             <div className="relative group">
-                <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
-                        <div className="flex flex-col items-center justify-center pt-2 pb-3">
-                            <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                            <p className="text-xs text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        </div>
-                        <input 
-                            ref={fileInputRef}
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*"
-                            onChange={handleFileChange} 
-                        />
-                    </label>
-                </div>
+              <div className="flex items-center justify-center w-full">
+                <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                    <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                    <p className="text-xs text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
             </div>
-            
+
             {/* Direct URL Input Fallback */}
             <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-slate-400">or paste URL:</span>
-                <input 
-                    type="text" 
-                    value={value} 
-                    onChange={(e) => onChange(e.target.value)}
-                    className="flex-1 py-1 px-2 text-xs border border-slate-200 rounded focus:outline-none focus:border-amber-500"
-                    placeholder="https://..."
-                />
+              <span className="text-xs text-slate-400">or paste URL:</span>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 py-1 px-2 text-xs border border-slate-200 rounded focus:outline-none focus:border-amber-500"
+                placeholder="https://..."
+              />
             </div>
           </div>
         </div>
@@ -188,14 +195,14 @@ export default function ImageUploader({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl overflow-hidden w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-4 border-b flex items-center justify-between bg-slate-50">
-                <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                    <CropIcon className="h-5 w-5 text-amber-500" /> Crop Image
-                </h3>
-                <button onClick={() => setIsCropping(false)} className="p-2 hover:bg-slate-200 rounded-full">
-                    <X className="h-5 w-5 text-slate-500" />
-                </button>
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <CropIcon className="h-5 w-5 text-amber-500" /> Crop Image
+              </h3>
+              <button onClick={() => setIsCropping(false)} className="p-2 hover:bg-slate-200 rounded-full">
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
             </div>
-            
+
             <div className="relative h-80 bg-slate-900 w-full">
               <Cropper
                 image={imageSrc!}
@@ -222,7 +229,7 @@ export default function ImageUploader({
                   className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                 />
               </div>
-              
+
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setIsCropping(false)}
