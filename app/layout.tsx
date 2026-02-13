@@ -55,31 +55,54 @@ async function getSettings() {
   }
 }
 
-export const metadata: Metadata = {
-  title: "SignsHaus — Premium Signage Maker in Metro Manila",
-  description:
-    "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!",
-  keywords: [
-    "signage maker Manila",
-    "acrylic signage Philippines",
-    "stainless steel letters",
-    "LED neon signs",
-    "panaflex signage",
-    "building signage Metro Manila",
-  ],
-  openGraph: {
-    title: "SignsHaus — Premium Signage Maker in Metro Manila",
-    description:
-      "Professional signage fabrication & installation. Free ocular inspection across Metro Manila.",
-    type: "website",
-    locale: "en_PH",
-    siteName: "SignsHaus",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+
+  const title = settings.seo_title || "SignsHaus — Premium Signage Maker in Metro Manila";
+  const description = settings.seo_description || "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!";
+  const ogImage = settings.seo_og_image || "/images/og-image.jpg";
+  const favicon = settings.site_favicon || "/logo-web.png";
+
+  return {
+    title: {
+      default: title,
+      template: `%s | ${settings.company_name || 'SignsHaus'}`,
+    },
+    description: description,
+    keywords: settings.seo_keywords ? settings.seo_keywords.split(',').map(k => k.trim()) : [
+      "signage maker Manila",
+      "acrylic signage Philippines",
+      "stainless steel letters",
+      "LED neon signs",
+      "panaflex signage",
+      "building signage Metro Manila",
+    ],
+    icons: {
+      icon: favicon,
+      shortcut: favicon,
+      apple: favicon,
+    },
+    openGraph: {
+      title: title,
+      description: description,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+      type: "website",
+      locale: "en_PH",
+      siteName: settings.company_name || "SignsHaus",
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
