@@ -57,6 +57,10 @@ async function getSettings() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
+  console.log('DEBUG: SEO settings loaded:', {
+    title: settings.seo_title,
+    favicon: settings.site_favicon
+  });
 
   const title = settings.seo_title || "SignsHaus — Premium Signage Maker in Metro Manila";
   const description = settings.seo_description || "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!";
