@@ -750,11 +750,13 @@ export default function SettingsPage() {
 
                             if (res.ok) {
                               const data = await res.json();
-                              if (data.success) setTestResult('success');
-                              else {
+                              if (data.success) {
+                                setTestResult('success');
+                                alert(`Kết nối thành công!\nModel đang sử dụng: ${data.model || 'Unknown'}\n\nLưu ý: Hệ thống đã tự động tìm model phù hợp nhất với Key của bạn.`);
+                              } else {
                                 console.error('Gemini Test Failed:', data);
                                 setTestResult('error');
-                                alert(`Lỗi: ${data.error}`); // Show specific error to user
+                                alert(`Lỗi: ${data.error}`);
                               }
                             } else {
                               const errData = await res.json();
