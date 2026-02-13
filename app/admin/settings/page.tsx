@@ -723,10 +723,69 @@ export default function SettingsPage() {
                   placeholder="AIzaSy..."
                   hint="Lấy key tại: aistudio.google.com"
                 />
-                {!settings.GEMINI_API_KEY && (
+
+                {/* Gemini Status & Test */}
+                {settings.GEMINI_API_KEY ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
+                      <CheckCircle className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">Google Gemini đã kết nối</p>
+                        <p className="text-xs text-blue-600">API Key đã được lưu. Hệ thống sẵn sàng sử dụng Gemini 3.</p>
+                      </div>
+                    </div>
+
+                    {/* Test Button */}
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={async () => {
+                          setTesting(true);
+                          setTestResult(null);
+                          try {
+                            // Simple test using the product writer or a specific test endpoint if available. 
+                            // For now, let's just simulate a check or call an existing lightweight endpoint.
+                            // Actually, let's call the product writer with a dummy request to see if it errors.
+                            // Or better, let's rely on the fact that we have the key. 
+                            // To be real, we should hit an endpoint. content-writer/generate endpoint is good.
+                            const res = await fetch('/api/ai/research', {
+                              method: 'POST',
+                              body: JSON.stringify({ seed: 'test connection' })
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              if (data.keywords) setTestResult('success');
+                              else setTestResult('error');
+                            } else {
+                              setTestResult('error');
+                            }
+                          } catch (e) {
+                            setTestResult('error');
+                          } finally {
+                            setTesting(false);
+                          }
+                        }}
+                        disabled={testing}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                      >
+                        {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                        Test kết nối Gemini
+                      </button>
+                      {testResult === 'success' && (
+                        <span className="text-sm text-emerald-600 flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" /> Kết nối thành công!
+                        </span>
+                      )}
+                      {testResult === 'error' && (
+                        <span className="text-sm text-red-600 flex items-center gap-1">
+                          <XCircle className="h-4 w-4" /> Lỗi: Không thể kết nối (Kiểm tra Key)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
                   <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
                     <AlertCircle className="h-4 w-4" />
-                    Cần nhập API Key để sử dụng Gemini.
+                    Cần nhập API Key và Lưu để sử dụng Gemini.
                   </div>
                 )}
               </CardContent>
