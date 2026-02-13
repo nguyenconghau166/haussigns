@@ -74,14 +74,14 @@ const SelectField = ({ label, value, onChange, options, hint }: {
 
 import ImageUploader from '@/components/ImageUploader';
 
-const ImageField = ({ label, value, onChange, placeholder, hint }: {
-  label: string; value: string; onChange: (val: string) => void; placeholder?: string; hint?: string;
+const ImageField = ({ label, value, onChange, placeholder, hint, aspectRatio = 16 / 9 }: {
+  label: string; value: string; onChange: (val: string) => void; placeholder?: string; hint?: string; aspectRatio?: number;
 }) => (
   <ImageUploader
     label={label}
     value={value}
     onChange={onChange}
-    aspectRatio={16 / 9} // Can be adjusted or prop passed
+    aspectRatio={aspectRatio}
   />
 );
 
@@ -622,6 +622,7 @@ export default function SettingsPage() {
                   value={settings.site_favicon}
                   onChange={(v) => handleChange('site_favicon', v)}
                   placeholder="Nhập đường dẫn hình ảnh (K/thước khuyên dùng 256x256px)"
+                  aspectRatio={1}
                 />
               </CardContent>
             </Card>
