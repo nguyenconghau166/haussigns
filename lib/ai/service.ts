@@ -27,8 +27,8 @@ export const generateSmartContent = async (
     const provider = await getPreferredProvider();
 
     if (provider === 'gemini') {
-        // defaults to gemini-2.0-flash if model not specified, or use the model passed if applicable
-        const geminiModel = model?.includes('gemini') ? model : 'gemini-2.0-flash';
+        // use model from config if not specified
+        const geminiModel = model?.includes('gemini') ? model : undefined;
         return generateContentGemini(systemPrompt, userPrompt, geminiModel);
     }
 

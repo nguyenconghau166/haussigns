@@ -2,6 +2,7 @@ import { generateContent as generateContentOpenAI } from './openai';
 import { generateContentGemini } from './ai/gemini';
 import { generateProjectImage } from './image-gen';
 import { supabaseAdmin } from './supabase';
+import { marked } from 'marked';
 
 // =============================================
 // Helper: AI Provider Router
@@ -16,11 +17,10 @@ async function generateContentResolved(
 
   if (provider === 'gemini') {
     const apiKey = config.GEMINI_API_KEY;
-    // Map OpenAI model names to Gemini equivalents
-    let model = configModel || 'gemini-2.0-flash';
-    if (model.includes('gpt')) model = 'gemini-2.0-flash';
+    // If configModel is provided, use it. Otherwise, let generateContentGemini use its default from DB/Env
+    let model = configModel;
+    if (model?.includes('gpt')) model = undefined; // Clear OpenAI model if switching to Gemini
 
-    // Let the service handle missing key (it checks env vars too)
     return await generateContentGemini(systemPrompt, userPrompt, model, apiKey);
   } else {
     // Default OpenAI
@@ -452,53 +452,58 @@ export async function runAgentVisualInspector(
         const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
         const suggestions: { insert_after_header: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
 
-        // 3. Generate and Insert Inline Images
-        for (const item of suggestions) {
-          if (!item.insert_after_header || !item.image_prompt) continue;
+    // 3. Generate and Insert Inline Images
+    for (const item of suggestions) {
+        if (!item.insert_after_header || !item.image_prompt) continue;
 
-          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
-          const imgUrl = await generateProjectImage(item.image_prompt);
+        await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
+        const imgUrl = await generateProjectImage(item.image_prompt);
 
-          if (imgUrl) {
+        if (imgUrl) {
             generatedImages.push({
-              location: item.insert_after_header,
-              url: imgUrl,
-              alt: item.alt_text
+                location: item.insert_after_header,
+                url: imgUrl,
+                alt: item.alt_text
             });
 
-            // Insert into markdown content
+            // Insert into markdown content (BEFORE conversion to HTML)
             const cleanHeader = item.insert_after_header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const replaceRegex = new RegExp(`(## ${cleanHeader}.*?)(?=\n)`, 'i');
 
             if (replaceRegex.test(finalContent)) {
-              finalContent = finalContent.replace(
-                replaceRegex,
-                `$1\n\n![${item.alt_text}](${imgUrl})`
-              );
-            } else {
-              const looseRegex = new RegExp(`(##.*?${cleanHeader}.*?)(?=\n)`, 'i');
-              if (looseRegex.test(finalContent)) {
                 finalContent = finalContent.replace(
-                  looseRegex,
-                  `$1\n\n![${item.alt_text}](${imgUrl})`
+                    replaceRegex,
+                    `$1\n\n![${item.alt_text}](${imgUrl})`
                 );
-              }
+            } else {
+                const looseRegex = new RegExp(`(##.*?${cleanHeader}.*?)(?=\n)`, 'i');
+                if (looseRegex.test(finalContent)) {
+                    finalContent = finalContent.replace(
+                        looseRegex,
+                        `$1\n\n![${item.alt_text}](${imgUrl})`
+                    );
+                }
             }
-          }
         }
-      } catch (err) {
-        console.error('Error generating inline images:', err);
-        await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
-      }
     }
 
-    // 3. Save to DB as draft
+    // 4. Convert Markdown to HTML for WYSIWYG Editor
+    // Quill editor works best with HTML.
+    try {
+        finalContent = await marked.parse(finalContent);
+        // Ensure images have max-width
+        finalContent = finalContent.replace(/<img/g, '<img style="max-width: 100%; height: auto; border-radius: 8px;"');
+    } catch (err) {
+        console.warn('Failed to convert Markdown to HTML, saving as raw markdown:', err);
+    }
+    
+    // 5. Save to DB as draft
     const slug = article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     const { data: post, error } = await supabaseAdmin.from('posts').upsert({
       title: article.title,
       slug: slug,
-      content: finalContent,
+      content: finalContent, // Now HTML
       excerpt: article.excerpt,
       meta_title: article.meta_title,
       meta_description: article.meta_description,
