@@ -57,8 +57,9 @@ FOCUS FOR PRODUCTS:
 
 IMAGE PLACEHOLDER:
 - Insert exactly 1 image placeholder in the long_description at a strategic point
-- Use this syntax: <!-- IMAGE: detailed english description for AI image generation -->
-- Example: <!-- IMAGE: close-up of premium brushed stainless steel signage letter with LED backlight -->
+- Syntax: <!-- IMAGE: detailed english scene description for AI image generation | Short display caption -->
+- Example: <!-- IMAGE: close-up of premium brushed stainless steel signage letter with LED backlight on dark wall | Premium Stainless Steel Channel Letters -->
+- IMPORTANT: Part before | is a DETAILED scene description for AI. Part after | is a SHORT caption shown to readers.
 
 CRITICAL FORMAT RULES FOR long_description:
 - Output CLEAN HTML only. NO Markdown whatsoever.
@@ -96,14 +97,22 @@ Write a description that positions this ${isMaterial ? 'material as a premium ch
             const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
             let match;
             while ((match = imagePlaceholderRegex.exec(result.long_description)) !== null) {
+                const raw = match[1];
+                const parts = raw.split('|').map((s: string) => s.trim());
+                const prompt = parts[0];
+                const caption = parts[1] || '';
                 try {
                     const imageUrl = await generateProjectImage(
-                        `professional photography, ${match[1]}, no text overlays, clean composition, studio lighting`
+                        `professional signage photography, realistic, ${prompt}, no text overlays, no watermarks, clean composition, studio lighting`
                     );
                     if (imageUrl) {
+                        const altText = caption || prompt;
+                        const figcaptionHtml = caption
+                            ? `<figcaption style="margin-top: 0.5em; font-size: 0.85em; color: #64748b; font-style: italic;">${caption}</figcaption>`
+                            : '';
                         result.long_description = result.long_description.replace(
                             match[0],
-                            `<figure style="margin: 1.5em 0; text-align: center;"><img src="${imageUrl}" alt="${match[1]}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.5em; font-size: 0.85em; color: #64748b; font-style: italic;">${match[1]}</figcaption></figure>`
+                            `<figure style="margin: 1.5em 0; text-align: center;"><img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />${figcaptionHtml}</figure>`
                         );
                     } else {
                         result.long_description = result.long_description.replace(match[0], '');

@@ -371,8 +371,9 @@ YÊU CẦU BÀI VIẾT:
 
 8. ẢNH MINH HỌA TỰ ĐỘNG:
    - Chèn đúng 3 placeholder ảnh vào các vị trí chiến lược trong bài viết
-   - Dùng cú pháp: ${'<!-- IMAGE: mô tả chi tiết bằng tiếng Anh cho AI tạo ảnh -->'}
-   - Ví dụ: ${'<!-- IMAGE: modern LED channel letter signage installed on a glass storefront in Manila -->'}
+   - Cú pháp: ${'<!-- IMAGE: chi tiết bằng tiếng Anh mô tả cảnh cụ thể cho AI tạo ảnh | Chú thích ngắn gọn hiển thị cho người đọc -->'}
+   - Ví dụ: ${'<!-- IMAGE: close-up photo of illuminated 3D acrylic channel letters mounted on modern glass storefront in Makati CBD at night | Bảng hiệu chữ nổi Acrylic có đèn LED tại cửa hàng ở Makati -->'}
+   - QUAN TRỌNG: Phần trước dấu | là prompt chi tiết tiếng Anh để AI tạo ảnh thực tế, PHẢI mô tả cảnh cụ thể liên quan đến nội dung đoạn văn phía trên (loại biển, vật liệu, địa điểm cụ thể). Phần sau dấu | là chú thích ngắn gọn (tiếng Việt hoặc tiếng Anh theo ngôn ngữ bài viết)
    - Đặt placeholder sau các đoạn văn mô tả hình ảnh, vật liệu hoặc quy trình
 
 BÀI VIẾT GẦN ĐÂY (TRÁNH TRÙNG):
@@ -441,10 +442,15 @@ export async function runAgentVisualInspector(
 
     // Extract all <!-- IMAGE: description --> placeholders from the HTML content
     const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
-    const placeholders: { fullMatch: string; description: string }[] = [];
+    const placeholders: { fullMatch: string; prompt: string; caption: string }[] = [];
     let match;
     while ((match = imagePlaceholderRegex.exec(finalContent)) !== null) {
-      placeholders.push({ fullMatch: match[0], description: match[1] });
+      const raw = match[1];
+      // Support format: "prompt | caption" or just "prompt"
+      const parts = raw.split('|').map(s => s.trim());
+      const prompt = parts[0];
+      const caption = parts[1] || '';
+      placeholders.push({ fullMatch: match[0], prompt, caption });
     }
 
     if (placeholders.length > 0) {
@@ -452,21 +458,25 @@ export async function runAgentVisualInspector(
 
       for (const placeholder of placeholders) {
         try {
-          const imgPrompt = `${imageStyle}, ${placeholder.description}, professional quality, no text overlays, clean composition, cinematic lighting`;
-          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.description.substring(0, 50)}...`, 'running');
+          const imgPrompt = `${imageStyle}, ${placeholder.prompt}, professional signage photography, realistic, no text overlays, no watermarks, clean composition, cinematic lighting`;
+          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
           const imgUrl = await generateProjectImage(imgPrompt);
 
           if (imgUrl) {
+            const altText = placeholder.caption || placeholder.prompt;
             generatedImages.push({
-              location: placeholder.description,
+              location: placeholder.prompt,
               url: imgUrl,
-              alt: placeholder.description
+              alt: altText
             });
 
-            // Replace placeholder with <figure> HTML tag
+            // Replace placeholder with <figure> HTML tag — caption for display, NOT the raw prompt
+            const figcaptionHtml = placeholder.caption
+              ? `<figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${placeholder.caption}</figcaption>`
+              : '';
             finalContent = finalContent.replace(
               placeholder.fullMatch,
-              `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${placeholder.description}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${placeholder.description}</figcaption></figure>`
+              `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />${figcaptionHtml}</figure>`
             );
           } else {
             // Remove placeholder if image generation failed

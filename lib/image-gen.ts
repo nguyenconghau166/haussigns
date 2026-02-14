@@ -259,7 +259,6 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
     // END: Upload to Supabase Storage
   } else {
     console.error('Image Generation Failed:', result.error);
-    // Fallback placeholder
-    return 'https://images.unsplash.com/photo-1563291074-2bf8677ac0e5?q=80&w=2548&auto=format&fit=crop';
+    return null;
   }
 }
