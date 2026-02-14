@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateSmartContent } from '@/lib/ai/service';
+import { generateProjectImage } from '@/lib/image-gen';
 
 export async function POST(request: Request) {
   try {
@@ -12,18 +13,60 @@ export async function POST(request: Request) {
     Language: ${lang === 'tl' ? 'Tagalog' : lang === 'mix' ? 'Taglish (English-Tagalog Mix)' : 'English'}.
     Tone: ${tone}.
     Structure:
-    - Catchy Title (H1)
     - Engaging Introduction (Hook)
     - Technical Details (Materials, Process)
     - Benefits
     - Price Range Estimate (in PHP)
     - FAQ Section
     - Strong Call to Action (Contact SignsHaus).
-    Format: Markdown.`;
+    
+    IMAGE PLACEHOLDERS:
+    - Insert exactly 2-3 image placeholders at strategic points in the article
+    - Use this syntax: <!-- IMAGE: detailed english description for AI image generation -->
+    - Example: <!-- IMAGE: professional acrylic LED signage installed on modern office building facade in Makati -->
+    - Place them after paragraphs describing visuals, materials or processes
+    
+    CRITICAL FORMAT RULES:
+    - Output CLEAN HTML only. NO Markdown whatsoever.
+    - Use h2 and h3 tags for section headings (NOT ## or ###)
+    - Use p tags for paragraphs (NOT plain text)
+    - Use ul/li or ol/li for lists (NOT - or *)
+    - Use strong and em for emphasis (NOT ** or *)
+    - Use blockquote for quotes (NOT >)
+    - Use table/thead/tbody/tr/th/td for price tables
+    - Write naturally like a published newspaper article, NOT a dry list`;
 
     const userPrompt = `Write a comprehensive article about: "${topic}". Focus on durability, price, and visual appeal. Mention locations like Makati, BGC, Quezon City naturally.`;
 
-    const content = await generateSmartContent(systemPrompt, userPrompt);
+    let content = await generateSmartContent(systemPrompt, userPrompt) || '';
+
+    // Process IMAGE placeholders — generate actual images
+    const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
+    let match;
+    const replacements: { fullMatch: string; html: string }[] = [];
+
+    while ((match = imagePlaceholderRegex.exec(content)) !== null) {
+      const description = match[1];
+      try {
+        const imageUrl = await generateProjectImage(
+          `professional photography, modern urban setting, ${description}, no text overlays, clean composition, cinematic lighting`
+        );
+        if (imageUrl) {
+          replacements.push({
+            fullMatch: match[0],
+            html: `<figure style="margin: 2em 0; text-align: center;"><img src="${imageUrl}" alt="${description}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${description}</figcaption></figure>`
+          });
+        } else {
+          replacements.push({ fullMatch: match[0], html: '' });
+        }
+      } catch {
+        replacements.push({ fullMatch: match[0], html: '' });
+      }
+    }
+
+    for (const r of replacements) {
+      content = content.replace(r.fullMatch, r.html);
+    }
 
     return NextResponse.json({ content });
   } catch (error) {

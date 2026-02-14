@@ -2,7 +2,6 @@ import { generateContent as generateContentOpenAI } from './openai';
 import { generateContentGemini } from './ai/gemini';
 import { generateProjectImage } from './image-gen';
 import { supabaseAdmin } from './supabase';
-import { marked } from 'marked';
 
 // =============================================
 // Helper: AI Provider Router
@@ -317,6 +316,18 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic): Pr
     'mix': 'Taglish - English-Tagalog mix, relatable local vibe'
   };
 
+  const htmlFormatGuide = [
+    'KHÔNG DÙNG Markdown (##, **, *, -, ```, >). TUYỆT ĐỐI KHÔNG.',
+    'Dùng thẻ h2 và h3 cho tiêu đề phần',
+    'Dùng thẻ p cho mỗi đoạn văn',
+    'Dùng thẻ ul/li hoặc ol/li cho danh sách',
+    'Dùng thẻ strong và em cho nhấn mạnh',
+    'Dùng thẻ blockquote cho trích dẫn',
+    'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá',
+    'Dùng thẻ figure/figcaption nếu cần chú thích',
+    'Viết mượt mà, tự nhiên, đọc như bài báo, KHÔNG liệt kê khô khan',
+  ].map(line => `- ${line}`).join('\n');
+
   const systemPrompt = `Bạn là Senior Content Writer cho ${companyName}.
 
 VỀ DOANH NGHIỆP:
@@ -336,9 +347,8 @@ YÊU CẦU BÀI VIẾT:
 2. Ngôn ngữ: ${langMap[language] || langMap['en']}
 3. Giọng văn: ${tone}
 4. CẤU TRÚC:
-   - Tiêu đề H1 hấp dẫn, chứa từ khóa chính
    - Phần mở đầu hook (2-3 câu thu hút)
-   - Nội dung chính chia thành H2/H3 sections
+   - Nội dung chính chia thành nhiều phần rõ ràng
    - Chi tiết kỹ thuật (vật liệu, quy trình, độ bền)
    - So sánh ưu nhược điểm nếu phù hợp
    - Bảng giá tham khảo (PHP)
@@ -359,13 +369,23 @@ YÊU CẦU BÀI VIẾT:
    - Từ khóa phụ: ${topic.expanded_keywords?.join(', ')}
    - Sử dụng tên địa phương tự nhiên
 
+8. ẢNH MINH HỌA TỰ ĐỘNG:
+   - Chèn đúng 3 placeholder ảnh vào các vị trí chiến lược trong bài viết
+   - Dùng cú pháp: ${'<!-- IMAGE: mô tả chi tiết bằng tiếng Anh cho AI tạo ảnh -->'}
+   - Ví dụ: ${'<!-- IMAGE: modern LED channel letter signage installed on a glass storefront in Manila -->'}
+   - Đặt placeholder sau các đoạn văn mô tả hình ảnh, vật liệu hoặc quy trình
+
 BÀI VIẾT GẦN ĐÂY (TRÁNH TRÙNG):
 ${recentPosts?.map(p => `- ${p.title}`).join('\n') || 'Chưa có bài nào'}
+
+ĐỊNH DẠNG NỘI DUNG - RẤT QUAN TRỌNG:
+Viết nội dung dạng HTML sạch, giống một bài báo xuất bản chuyên nghiệp.
+${htmlFormatGuide}
 
 OUTPUT FORMAT (JSON only, no markdown wrapping):
 {
   "title": "Tiêu đề bài viết",
-  "content": "Nội dung bài viết đầy đủ (Markdown format)",
+  "content": "Nội dung bài viết đầy đủ bằng HTML sạch (KHÔNG markdown)",
   "meta_title": "SEO title (max 60 chars)",
   "meta_description": "SEO description (max 155 chars)",
   "excerpt": "Tóm tắt bài viết (max 200 chars)",
@@ -415,34 +435,61 @@ export async function runAgentVisualInspector(
     const imgPrompt = `${imageStyle}, ${topic.keyword} signage in a modern Manila commercial building, professional quality, no text overlays, clean composition, cinematic lighting`;
     const featuredImageUrl = await generateProjectImage(imgPrompt);
 
-    // 2. Analyze article for inline images (New Logic)
+    // 2. Find IMAGE placeholders and generate images for them
     let finalContent = article.content;
     const generatedImages: { location: string; url: string; alt: string }[] = [];
 
-    // Only generate inline images if article is long enough
-    if (article.content && article.content.length > 1500) {
-      await logAgent(batchId, 'Visual Inspector', 'Phân tích vị trí chèn ảnh...', 'running');
+    // Extract all <!-- IMAGE: description --> placeholders from the HTML content
+    const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
+    const placeholders: { fullMatch: string; description: string }[] = [];
+    let match;
+    while ((match = imagePlaceholderRegex.exec(finalContent)) !== null) {
+      placeholders.push({ fullMatch: match[0], description: match[1] });
+    }
 
-      const analysisPrompt = `Analyze this article and identify 2-3 strategic points to insert illustrative images.
-        Focus on sections describing:
-        - Manufacturing processes (bending, welding, printing)
-        - Specific materials (acrylic, metal, neon)
-        - Installation or finished look
-        
+    if (placeholders.length > 0) {
+      await logAgent(batchId, 'Visual Inspector', `Tìm thấy ${placeholders.length} vị trí chèn ảnh`, 'running');
+
+      for (const placeholder of placeholders) {
+        try {
+          const imgPrompt = `${imageStyle}, ${placeholder.description}, professional quality, no text overlays, clean composition, cinematic lighting`;
+          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.description.substring(0, 50)}...`, 'running');
+          const imgUrl = await generateProjectImage(imgPrompt);
+
+          if (imgUrl) {
+            generatedImages.push({
+              location: placeholder.description,
+              url: imgUrl,
+              alt: placeholder.description
+            });
+
+            // Replace placeholder with <figure> HTML tag
+            finalContent = finalContent.replace(
+              placeholder.fullMatch,
+              `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${placeholder.description}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${placeholder.description}</figcaption></figure>`
+            );
+          } else {
+            // Remove placeholder if image generation failed
+            finalContent = finalContent.replace(placeholder.fullMatch, '');
+          }
+        } catch (err) {
+          console.error('Error generating image for placeholder:', err);
+          finalContent = finalContent.replace(placeholder.fullMatch, '');
+        }
+      }
+    } else if (article.content && article.content.length > 1500) {
+      // Fallback: If Writer didn't include placeholders, use AI analysis
+      await logAgent(batchId, 'Visual Inspector', 'Không có placeholder, phân tích vị trí chèn ảnh...', 'running');
+
+      const analysisPrompt = `Analyze this HTML article and suggest 2-3 image prompts.
         Article Title: "${article.title}"
-        Content Snippet:
-        ${article.content.substring(0, 3000)}...
+        Content Snippet: ${article.content.substring(0, 3000)}...
 
-        Rules:
-        - Identify valid "## Section Headers" from the text to insert images AFTER.
-        - Create specific, realistic image prompts for a signage company.
-        - Return JSON ONLY.
-
-        Output Format:
+        Return JSON ONLY:
         [
           {
-            "insert_after_header": "exact header text without hashes", 
-            "image_prompt": "modern signage photo, ${imageStyle}, ...",
+            "insert_after_text": "a short unique sentence from the article to insert image after",
+            "image_prompt": "${imageStyle}, specific realistic signage photo...",
             "alt_text": "description for seo"
           }
         ]`;
@@ -450,59 +497,37 @@ export async function runAgentVisualInspector(
       try {
         const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest inline images', 'gpt-4o');
         const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-        const suggestions: { insert_after_header: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
+        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
 
-    // 3. Generate and Insert Inline Images
-    for (const item of suggestions) {
-        if (!item.insert_after_header || !item.image_prompt) continue;
+        for (const item of suggestions) {
+          if (!item.insert_after_text || !item.image_prompt) continue;
+          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
+          const imgUrl = await generateProjectImage(item.image_prompt);
 
-        await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
-        const imgUrl = await generateProjectImage(item.image_prompt);
+          if (imgUrl) {
+            generatedImages.push({ location: item.insert_after_text, url: imgUrl, alt: item.alt_text });
+            const figureHtml = `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${item.alt_text}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${item.alt_text}</figcaption></figure>`;
 
-        if (imgUrl) {
-            generatedImages.push({
-                location: item.insert_after_header,
-                url: imgUrl,
-                alt: item.alt_text
-            });
-
-            // Insert into markdown content (BEFORE conversion to HTML)
-            const cleanHeader = item.insert_after_header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const replaceRegex = new RegExp(`(## ${cleanHeader}.*?)(?=\n)`, 'i');
-
-            if (replaceRegex.test(finalContent)) {
-                finalContent = finalContent.replace(
-                    replaceRegex,
-                    `$1\n\n![${item.alt_text}](${imgUrl})`
-                );
+            // Try to insert after the matching text
+            const escapedText = item.insert_after_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const textRegex = new RegExp(`(${escapedText})`, 'i');
+            if (textRegex.test(finalContent)) {
+              finalContent = finalContent.replace(textRegex, `$1${figureHtml}`);
             } else {
-                const looseRegex = new RegExp(`(##.*?${cleanHeader}.*?)(?=\n)`, 'i');
-                if (looseRegex.test(finalContent)) {
-                    finalContent = finalContent.replace(
-                        looseRegex,
-                        `$1\n\n![${item.alt_text}](${imgUrl})`
-                    );
-                }
+              // Append at end of content if text not found
+              finalContent += figureHtml;
             }
+          }
         }
-    } // end for loop
-
       } catch (err) {
         console.error('Error generating inline images:', err);
         await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
       }
-    } // end if length > 1500
-
-    // 4. Convert Markdown to HTML for WYSIWYG Editor
-    // Quill editor works best with HTML.
-    try {
-        finalContent = await marked.parse(finalContent);
-        // Ensure images have max-width
-        finalContent = finalContent.replace(/<img/g, '<img style="max-width: 100%; height: auto; border-radius: 8px;"');
-    } catch (err) {
-        console.warn('Failed to convert Markdown to HTML, saving as raw markdown:', err);
     }
-    
+
+    // 3. Clean up: ensure all images have proper styling
+    finalContent = finalContent.replace(/<img(?![^>]*style=)/g, '<img style="max-width: 100%; height: auto; border-radius: 8px;"');
+
     // 5. Save to DB as draft
     const slug = article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
