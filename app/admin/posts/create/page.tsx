@@ -174,6 +174,7 @@ export default function CreatePostPage() {
                   onChange={setImageUrl}
                   label="Featured Image (Upload or AI Generated)"
                   aspectRatio={16 / 9}
+                  maxWidth={1200}
                 />
               </div>
             </CardContent>

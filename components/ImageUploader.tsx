@@ -10,6 +10,7 @@ interface ImageUploaderProps {
   value: string;
   onChange: (url: string) => void;
   aspectRatio?: number; // Default aspect ratio to start with
+  maxWidth?: number; // Max output width in pixels (default 1920)
   label?: string;
   className?: string;
 }
@@ -27,6 +28,7 @@ export default function ImageUploader({
   value,
   onChange,
   aspectRatio = 16 / 9,
+  maxWidth = 1920,
   label = "Upload Image",
   className
 }: ImageUploaderProps) {
@@ -77,10 +79,12 @@ export default function ImageUploader({
       image.src = url;
     });
 
+  const MAX_BLOB_SIZE = 2 * 1024 * 1024; // 2 MB safety threshold
+
   const getCroppedImg = async (
     imageSrc: string,
     pixelCrop: any,
-    mimeType: string = 'image/jpeg'
+    _mimeType: string = 'image/jpeg'
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
@@ -90,8 +94,28 @@ export default function ImageUploader({
       throw new Error('No 2d context');
     }
 
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
+    // --- Scale down to maxWidth while preserving aspect ratio ---
+    let outWidth = pixelCrop.width;
+    let outHeight = pixelCrop.height;
+
+    if (outWidth > maxWidth) {
+      const scale = maxWidth / outWidth;
+      outWidth = Math.round(outWidth * scale);
+      outHeight = Math.round(outHeight * scale);
+    }
+    // Also cap height to maxWidth (for portrait crops)
+    if (outHeight > maxWidth) {
+      const scale = maxWidth / outHeight;
+      outWidth = Math.round(outWidth * scale);
+      outHeight = Math.round(outHeight * scale);
+    }
+
+    canvas.width = outWidth;
+    canvas.height = outHeight;
+
+    // Use high-quality image smoothing for the downscale
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     ctx.drawImage(
       image,
@@ -101,20 +125,38 @@ export default function ImageUploader({
       pixelCrop.height,
       0,
       0,
-      pixelCrop.width,
-      pixelCrop.height
+      outWidth,
+      outHeight
     );
 
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          console.error('Canvas is empty');
-          reject(new Error('Canvas is empty'));
-          return;
-        }
-        resolve(blob);
-      }, mimeType, 0.95);
-    });
+    // Always output JPEG for maximum compression
+    const outputMime = 'image/jpeg';
+    let quality = 0.80;
+
+    // Encode and check size; re-encode at lower quality if needed
+    const encode = (q: number): Promise<Blob> =>
+      new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+          resolve(blob);
+        }, outputMime, q);
+      });
+
+    let blob = await encode(quality);
+    console.log(`Crop output: ${outWidth}x${outHeight}, quality=${quality}, size=${(blob.size / 1024).toFixed(0)} KB`);
+
+    // Iterative quality reduction if still too large
+    const qualitySteps = [0.65, 0.50, 0.35];
+    for (const q of qualitySteps) {
+      if (blob.size <= MAX_BLOB_SIZE) break;
+      console.log(`Blob too large (${(blob.size / 1024).toFixed(0)} KB), re-encoding at quality=${q}`);
+      blob = await encode(q);
+    }
+
+    return blob;
   };
 
   const handleUpload = async () => {
@@ -122,16 +164,13 @@ export default function ImageUploader({
 
     setLoading(true);
     try {
-      const mimeType = fileType === 'image/png' || fileType === 'image/webp' ? fileType : 'image/jpeg';
-      const extension = mimeType.split('/')[1];
-
       console.log('Cropping image with area:', croppedAreaPixels);
-      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, mimeType);
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
 
       if (!croppedBlob) throw new Error('Failed to create crop blob');
 
       const formData = new FormData();
-      formData.append('file', croppedBlob, `image.${extension}`);
+      formData.append('file', croppedBlob, `image.jpeg`);
 
       console.log('Uploading cropped image...');
       const res = await fetch('/api/upload', {

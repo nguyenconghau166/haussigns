@@ -175,6 +175,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
                   value={image}
                   onChange={setImage}
                   aspectRatio={4 / 3}
+                  maxWidth={1200}
                 />
               </div>
             </CardContent>
