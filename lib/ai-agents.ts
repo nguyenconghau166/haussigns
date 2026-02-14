@@ -485,7 +485,13 @@ export async function runAgentVisualInspector(
                 }
             }
         }
-    }
+    } // end for loop
+
+      } catch (err) {
+        console.error('Error generating inline images:', err);
+        await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
+      }
+    } // end if length > 1500
 
     // 4. Convert Markdown to HTML for WYSIWYG Editor
     // Quill editor works best with HTML.
