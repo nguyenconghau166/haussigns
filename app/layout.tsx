@@ -8,6 +8,9 @@ import JsonLd from "@/components/JsonLd";
 import { createClient } from '@supabase/supabase-js';
 import "./globals.css";
 
+// Force dynamic rendering so settings (hero image, SEO, etc.) are always fresh
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
