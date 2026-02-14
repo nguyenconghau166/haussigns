@@ -137,8 +137,8 @@ async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiK
   }
 }
 
-// --- ENGINE 3: NANO BANANA PRO (Mapped to Google Imagen 3) ---
-async function generateWithNanoBananaPro(prompt: string): Promise<ImageGenResult> {
+// --- ENGINE 3: GOOGLE GEMINI NATIVE IMAGE GENERATION ---
+async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult> {
   try {
     // 1. Try to get Google API Key
     let apiKey = await getConfig('google_api_key');
@@ -152,61 +152,68 @@ async function generateWithNanoBananaPro(prompt: string): Promise<ImageGenResult
         console.log('Falling back to custom Banana Endpoint due to missing Google Key');
         return generateWithCustomEndpoint(prompt, bananaEndpoint, bananaKey);
       }
-      return { success: false, error: 'Missing Google API Key (google_api_key) in configuration.' };
+      return { success: false, error: 'Missing Google API Key (google_api_key or GEMINI_API_KEY) in configuration.' };
     }
 
-    console.log('Calling Google Nano Banana Pro (Imagen 3)...');
+    console.log('Calling Gemini Native Image Generation...');
 
-    // Use REST API for Imagen 3 via Gemini API
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+    // Use Gemini generateContent API with image generation model
+    const model = 'gemini-2.0-flash-preview-image-generation';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
-      instances: [
-        { prompt: prompt }
-      ],
-      parameters: {
-        sampleCount: 1,
-        aspectRatio: "4:3",
-        personGeneration: "allow_adult"
+      contents: [{
+        parts: [{ text: `Generate a high-quality photograph: ${prompt}` }]
+      }],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"]
       }
     };
 
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json' // API Key is in query param
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      // Try to parse error
       try {
         const errJson = JSON.parse(errText);
-        // If error is 404, maybe model name is different?
-        if (response.status === 404) {
-          throw new Error('Imagen 3 Model not found. Please ensure you have access to Imagen 3 in Google AI Studio.');
-        }
         throw new Error(errJson.error?.message || errText);
-      } catch (e) {
-        throw new Error(`Google API Error ${response.status}: ${errText.substring(0, 100)}`);
+      } catch {
+        throw new Error(`Google API Error ${response.status}: ${errText.substring(0, 200)}`);
       }
     }
 
     const data = await response.json();
-    const imageUrl = extractImageFromResponse(data);
 
-    if (!imageUrl) {
-      console.error('Unknown Google JSON structure:', JSON.stringify(data));
-      return { success: false, error: 'Could not detect image in Google API response.' };
+    // Extract image from Gemini generateContent response
+    // Response format: { candidates: [{ content: { parts: [{ inlineData: { mimeType, data } }, { text }] } }] }
+    const parts = data?.candidates?.[0]?.content?.parts;
+    if (parts && Array.isArray(parts)) {
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          return { success: true, url: `data:${mimeType};base64,${part.inlineData.data}` };
+        }
+      }
     }
 
-    return { success: true, url: imageUrl };
+    // Fallback: try old-style extraction
+    const imageUrl = extractImageFromResponse(data);
+    if (imageUrl) {
+      return { success: true, url: imageUrl };
+    }
+
+    console.error('No image found in Gemini response:', JSON.stringify(data).substring(0, 500));
+    return { success: false, error: 'Could not detect image in Gemini API response.' };
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Nano Banana Pro Error:', error);
+    console.error('Gemini Image Gen Error:', error);
     return { success: false, error: message };
   }
 }
@@ -235,7 +242,7 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
   let result: ImageGenResult;
 
   if (provider === 'nanobanana' || provider === 'google' || provider === 'banana') {
-    result = await generateWithNanoBananaPro(prompt);
+    result = await generateWithGeminiNative(prompt);
   } else {
     result = await generateWithDallE(prompt);
   }
