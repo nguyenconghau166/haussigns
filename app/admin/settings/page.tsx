@@ -390,7 +390,7 @@ export default function SettingsPage() {
                     { value: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (Tiết kiệm)' },
                     { value: 'gpt-5.2', label: 'OpenAI GPT-5.2 (Mới nhất)' },
                     { value: 'gemini-3-flash', label: 'Google Gemini 3 Flash (Siêu nhanh 2026)' },
-                    { value: 'gemini-2.0-pro', label: 'Google Gemini 2.0 Pro (Ổn định)' },
+                    { value: 'gemini-3-pro-preview', label: 'Google Gemini 3 Pro (Mạnh nhất 2026)' },
                   ]}
                   hint="Model nhanh phù hợp vì chỉ cần tìm kiếm, không cần viết sâu"
                 />

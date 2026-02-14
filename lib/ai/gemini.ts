@@ -11,7 +11,7 @@ export const getGeminiConfig = async () => {
 
         if (error) {
             console.warn('Failed to fetch Gemini config from Supabase:', error);
-            return { apiKey: process.env.GEMINI_API_KEY || null, model: 'gemini-2.0-flash' };
+            return { apiKey: process.env.GEMINI_API_KEY || null, model: 'gemini-3-flash-preview' };
         }
 
         const configMap = data.reduce((acc, curr) => {
@@ -21,11 +21,11 @@ export const getGeminiConfig = async () => {
 
         return {
             apiKey: process.env.GEMINI_API_KEY || configMap['GEMINI_API_KEY'],
-            model: configMap['GEMINI_MODEL'] || 'gemini-2.0-flash'
+            model: configMap['GEMINI_MODEL'] || 'gemini-3-flash-preview'
         };
     } catch (err) {
         console.error('Error fetching Gemini Config:', err);
-        return { apiKey: process.env.GEMINI_API_KEY || null, model: 'gemini-2.0-flash' };
+        return { apiKey: process.env.GEMINI_API_KEY || null, model: 'gemini-3-flash-preview' };
     }
 };
 
@@ -42,7 +42,7 @@ export const generateContentGemini = async (
     const config = await getGeminiConfig();
     const key = apiKey || config.apiKey;
     // Prefer passed modelName, then DB config, then default
-    const finalModelName = modelName || config.model || 'gemini-2.0-flash';
+    const finalModelName = modelName || config.model || 'gemini-3-flash-preview';
 
     if (!key) {
         console.error('Missing Gemini API Key');

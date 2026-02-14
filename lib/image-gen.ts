@@ -167,7 +167,7 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
     console.log(`Calling Gemini Native Image Generation (key: ${apiKey.substring(0, 8)}...)...`);
 
     // Use Gemini generateContent API with image generation model
-    const model = 'gemini-2.0-flash-exp-image-generation';
+    const model = 'gemini-3-pro-image-preview';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
