@@ -140,11 +140,20 @@ async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiK
 // --- ENGINE 3: GOOGLE GEMINI NATIVE IMAGE GENERATION ---
 async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult> {
   try {
-    // 1. Try to get Google API Key
-    let apiKey = await getConfig('google_api_key');
-    if (!apiKey) apiKey = await getConfig('GEMINI_API_KEY');
+    // Helper to check if key is a real key (not a placeholder)
+    const isValidKey = (k: string | undefined | null): k is string => {
+      if (!k) return false;
+      if (k.length < 10) return false;
+      if (k.startsWith('YOUR_') || k.startsWith('your-') || k.startsWith('your_') || k === 'placeholder') return false;
+      return true;
+    };
 
-    // If no Google Key, check for legacy Banana/Custom config
+    // 1. Try to get Google API Key — prioritize GEMINI_API_KEY (usually the real one)
+    const geminiKey = await getConfig('GEMINI_API_KEY');
+    const googleKey = await getConfig('google_api_key');
+    const apiKey = isValidKey(geminiKey) ? geminiKey : isValidKey(googleKey) ? googleKey : null;
+
+    // If no valid Google Key, check for legacy Banana/Custom config
     if (!apiKey) {
       const bananaKey = await getConfig('banana_api_key');
       const bananaEndpoint = await getConfig('banana_endpoint');
@@ -152,13 +161,13 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
         console.log('Falling back to custom Banana Endpoint due to missing Google Key');
         return generateWithCustomEndpoint(prompt, bananaEndpoint, bananaKey);
       }
-      return { success: false, error: 'Missing Google API Key (google_api_key or GEMINI_API_KEY) in configuration.' };
+      return { success: false, error: 'Missing valid Google/Gemini API Key in configuration.' };
     }
 
-    console.log('Calling Gemini Native Image Generation...');
+    console.log(`Calling Gemini Native Image Generation (key: ${apiKey.substring(0, 8)}...)...`);
 
     // Use Gemini generateContent API with image generation model
-    const model = 'gemini-2.0-flash-preview-image-generation';
+    const model = 'gemini-2.0-flash-exp-image-generation';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
