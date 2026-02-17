@@ -37,7 +37,8 @@ export const generateContentGemini = async (
     systemPrompt: string,
     userPrompt: string,
     modelName?: string,
-    apiKey?: string
+    apiKey?: string,
+    options?: { temperature?: number; topK?: number; topP?: number }
 ): Promise<string | null> => {
     const config = await getGeminiConfig();
     const key = apiKey || config.apiKey;
@@ -51,7 +52,10 @@ export const generateContentGemini = async (
 
     try {
         const genAI = getClient(key);
-        const model = genAI.getGenerativeModel({ model: finalModelName });
+        const model = genAI.getGenerativeModel({
+            model: finalModelName,
+            generationConfig: options
+        });
 
         const prompt = `${systemPrompt}\n\nUser Request: ${userPrompt}`;
 

@@ -58,7 +58,8 @@ export default function ProductWriterPage() {
         audience: '',
         tone: 'Professional',
         language: 'en',
-        type: 'product' // 'product' | 'material'
+        type: 'product', // 'product' | 'material'
+        goal: 'catalog' // 'catalog' | 'seo' | 'social' | 'technical'
     });
 
     const handleChange = (key: string, value: string) => {
@@ -175,17 +176,31 @@ export default function ProductWriterPage() {
                             />
                         </div>
 
-                        <SelectField
-                            label="Tone of Voice"
-                            value={formData.tone}
-                            onChange={(v) => handleChange('tone', v)}
-                            options={[
-                                { value: 'Professional', label: 'Professional & Corporate' },
-                                { value: 'Luxury', label: 'Luxury & Premium' },
-                                { value: 'Friendly', label: 'Friendly & Approachable' },
-                                { value: 'Technical', label: 'Technical & Detailed' },
-                            ]}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <SelectField
+                                label="Content Goal"
+                                value={formData.goal}
+                                onChange={(v) => handleChange('goal', v)}
+                                options={[
+                                    { value: 'catalog', label: 'Catalog Listing (Standard)' },
+                                    { value: 'seo', label: 'SEO Article (Long Form)' },
+                                    { value: 'social', label: 'Social Media Post' },
+                                    { value: 'technical', label: 'Technical Datasheet' },
+                                ]}
+                            />
+                            <SelectField
+                                label="Tone of Voice"
+                                value={formData.tone}
+                                onChange={(v) => handleChange('tone', v)}
+                                options={[
+                                    { value: 'Professional', label: 'Professional & Corporate' },
+                                    { value: 'Luxury', label: 'Luxury & Premium' },
+                                    { value: 'Friendly', label: 'Friendly & Approachable' },
+                                    { value: 'Technical', label: 'Technical & Detailed' },
+                                    { value: 'Exciting', label: 'Exciting & High Energy' },
+                                ]}
+                            />
+                        </div>
 
                         <button
                             onClick={handleGenerate}

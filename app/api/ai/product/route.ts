@@ -5,16 +5,51 @@ import { generateProjectImage } from '@/lib/image-gen';
 
 // Helper to get config
 async function getAllConfig(): Promise<Record<string, string>> {
-    // ... existing config fetching ...
     const { data } = await supabaseAdmin.from('ai_config').select('*');
     const config: Record<string, string> = {};
     data?.forEach((row: any) => { config[row.key] = row.value; });
     return config;
 }
 
+type ContentGoal = 'catalog' | 'seo' | 'social' | 'technical';
+
+const GOAL_PROMPTS: Record<ContentGoal, (context: any) => string> = {
+    catalog: (ctx) => `
+FOCUS: Professional Catalog Listing
+- Highlight benefits and sales appeal.
+- Focus on visibility, branding impact, and quality.
+- Include a strong Call to Action.
+- Tone: Professional & Persuasive.
+`,
+    seo: (ctx) => `
+FOCUS: SEO Optimized Article
+- Write a comprehensive, long-form description (min 300 words).
+- Use HTML headings (h2, h3) to structure the content naturally.
+- Focus on including relevant keywords naturally: ${ctx.keywords}.
+- Detailed explanation of benefits, use cases, and installation/maintenance.
+- Tone: Informative & Authoritative.
+`,
+    social: (ctx) => `
+FOCUS: Social Media Post
+- Write a short, engaging caption suitable for Instagram/Facebook.
+- Use emojis significantly to make it visual 📸✨.
+- Include relevant hashtags at the end (e.g. #Signage #${ctx.companyName}).
+- Keep sentences punchy and exciting.
+- Tone: ${ctx.tone || 'Exciting & Trending'}.
+`,
+    technical: (ctx) => `
+FOCUS: Technical Datasheet / Spec Sheet
+- Focus strictly on physical properties, grades, and durability.
+- Use bullet points for clear data presentation.
+- Avoid fluff or marketing buzzwords.
+- Describe weather resistance, material composition, and finish details.
+- Tone: Dry, Precise, Engineering-focused.
+`
+};
+
 export async function POST(request: Request) {
     try {
-        const { productName, features, audience, tone, language, type } = await request.json();
+        const { productName, features, audience, tone, language, type, goal = 'catalog' } = await request.json();
 
         if (!productName || !features) {
             return NextResponse.json({ error: 'Name and Features are required' }, { status: 400 });
@@ -31,9 +66,10 @@ export async function POST(request: Request) {
 
         const isMaterial = type === 'material';
         const contextType = isMaterial ? 'Raw Material / Substrate' : 'Signage Product';
+        const selectedGoal = (goal as ContentGoal) || 'catalog';
 
-        const systemPrompt = `You are an expert copywriter and technical specialist for ${companyName}, a premium signage manufacturer.
-Your task is to write a detailed description for a ${contextType}.
+        const baseSystemPrompt = `You are an expert copywriter and technical specialist for ${companyName}, a premium signage manufacturer.
+Your task is to write detailed content for a ${contextType}.
 
 CONTEXT:
 - Company: ${companyName}
@@ -41,51 +77,44 @@ CONTEXT:
 - Target Audience: ${audience || 'General Customers'}
 - Tone: ${tone || 'Professional'}
 - Language: ${langMap[language] || 'English'}
+- Content Goal: ${selectedGoal.toUpperCase()}
 
-${isMaterial ? `
-FOCUS FOR MATERIALS:
-- Highlight technical properties (Durability, Weather Resistance, Thickness options).
-- Describe the finish and aesthetic quality (Matte, Glossy, Brushed, etc.).
-- Mention common applications (Best for indoor/outdoor, specific sign types).
-- Maintain a technical but accessible tone.
-` : `
-FOCUS FOR PRODUCTS:
-- Highlight benefits and sales appeal.
-- Focus on visibility, branding impact, and quality.
-- Include a strong Call to Action.
-`}
+${GOAL_PROMPTS[selectedGoal]({ companyName, keywords: features, tone })}
 
 IMAGE PLACEHOLDER:
-- Insert exactly 1 image placeholder in the long_description at a strategic point
+- Insert exactly 1 image placeholder in the long_description at a strategic point (unless the goal is Social Media, then NO image placeholder).
 - Syntax: <!-- IMAGE: detailed english scene description for AI image generation | Short display caption -->
 - Example: <!-- IMAGE: close-up of premium brushed stainless steel signage letter with LED backlight on dark wall | Premium Stainless Steel Channel Letters -->
-- IMPORTANT: Part before | is a DETAILED scene description for AI. Part after | is a SHORT caption shown to readers.
 
-CRITICAL FORMAT RULES FOR long_description:
+CRITICAL FORMAT RULES:
 - Output CLEAN HTML only. NO Markdown whatsoever.
-- Use p tags for paragraphs, strong/em for emphasis
-- Use ul/li for feature lists within the description
-- Write naturally like a published product catalog, NOT a dry spec sheet
-- Do NOT use ## or ** or * or - for formatting
+- Use p tags for paragraphs, strong/em for emphasis.
+- Use ul/li for feature lists.
+- Do NOT use ## or ** or * or - for formatting.
 
 OUTPUT FORMAT (JSON only):
 {
-  "title": "Professional Title (e.g., 'Premium 304 Stainless Steel' or '3D Acrylic Build-up')",
-  "short_description": "2-3 sentences summary suitable for a catalog listing.",
-  "long_description": "Detailed description in clean HTML (2-3 paragraphs using p, strong, ul/li tags). ${isMaterial ? 'Focus on material properties, grades, and suitability.' : 'Focus on marketing benefits.'} Include 1 IMAGE placeholder.",
-  "features_list": ["${isMaterial ? 'Technical Spec 1' : 'Benefit 1'}", "${isMaterial ? 'Technical Spec 2' : 'Benefit 2'}", "Feature 3"],
+  "title": "Professional Title",
+  "short_description": "2-3 sentences summary.",
+  "long_description": "Main content body in HTML. ${selectedGoal === 'social' ? 'Short text with emojis.' : 'Detailed HTML content.'}",
+  "features_list": ["Feature 1", "Feature 2", "Feature 3"],
   "seo_keywords": ["keyword1", "keyword2", "keyword3"],
-  "call_to_action": "${isMaterial ? 'Suggestion for use (e.g., Perfect for your next lobby sign)' : 'Sales Call to Action'}"
+  "call_to_action": "Closing statement or CTA"
 }`;
 
         const userPrompt = `Item Name: ${productName}
 Key Specs/Notes: ${features}
 
-Write a description that positions this ${isMaterial ? 'material as a premium choice for signage' : 'product as a must-have for business branding'}.`;
+Write content that achieves the goal: ${selectedGoal}.`;
 
-        const responseText = await generateSmartContent(systemPrompt, userPrompt) || "";
+        // Adjust validation settings based on goal
+        const generationOptions = {
+            temperature: selectedGoal === 'technical' ? 0.2 : (selectedGoal === 'social' ? 0.9 : 0.7)
+        };
 
-        // Clean markdown if AI adds it (Gemini often does)
+        const responseText = await generateSmartContent(baseSystemPrompt, userPrompt, undefined, generationOptions) || "";
+
+        // Clean markdown if AI adds it
         const content = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
         if (!content) throw new Error('Failed to generate content');
@@ -93,7 +122,7 @@ Write a description that positions this ${isMaterial ? 'material as a premium ch
         const result = JSON.parse(content);
 
         // Process IMAGE placeholders in long_description
-        if (result.long_description) {
+        if (result.long_description && selectedGoal !== 'social') {
             const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
             let match;
             while ((match = imagePlaceholderRegex.exec(result.long_description)) !== null) {

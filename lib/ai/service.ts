@@ -22,14 +22,15 @@ async function getPreferredProvider(): Promise<AIProvider> {
 export const generateSmartContent = async (
     systemPrompt: string,
     userPrompt: string,
-    model?: string
+    model?: string,
+    options?: { temperature?: number; topK?: number; topP?: number }
 ): Promise<string | null> => {
     const provider = await getPreferredProvider();
 
     if (provider === 'gemini') {
         // use model from config if not specified
         const geminiModel = model?.includes('gemini') ? model : undefined;
-        return generateContentGemini(systemPrompt, userPrompt, geminiModel);
+        return generateContentGemini(systemPrompt, userPrompt, geminiModel, undefined, options);
     }
 
     // Default to OpenAI
