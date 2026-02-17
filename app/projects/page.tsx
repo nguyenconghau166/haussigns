@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import ProjectsGrid from '@/components/ProjectsGrid';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -57,7 +59,8 @@ export default async function ProjectsPage() {
     const categories = await getCategories();
 
     return (
-        <main className="min-h-screen bg-white pt-24 pb-20">
+        <main className="min-h-screen bg-white pt-0 pb-0">
+            <Navbar />
             {/* Header */}
             <section className="bg-slate-900 text-white py-20 mb-16 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2301&auto=format&fit=crop')] bg-cover bg-center opacity-20" />
@@ -73,6 +76,7 @@ export default async function ProjectsPage() {
             <div className="container px-4">
                 <ProjectsGrid initialProjects={projects} categories={categories} />
             </div>
+            <Footer />
         </main>
     );
 }
