@@ -44,7 +44,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           setMetaDescription(data.page.meta_description || '');
           setFeaturedImage(data.page.featured_image || '');
           setIsPublished(data.page.is_published);
-          
+
           // Pre-fill AI topic if empty
           setAiTopic(data.page.title);
         }
@@ -58,7 +58,13 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: aiTopic || title, lang: aiLang, tone: aiTone }),
+        body: JSON.stringify({
+          topic: aiTopic || title,
+          lang: aiLang,
+          tone: aiTone,
+          slug: page.slug, // Pass slug for context
+          pageContext: page.title // Pass title for context
+        }),
       });
       const data = await res.json();
       if (data.content) {
@@ -192,7 +198,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
             <CardContent className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-500">Chủ đề / Từ khóa</label>
-                <input 
+                <input
                   value={aiTopic}
                   onChange={(e) => setAiTopic(e.target.value)}
                   placeholder={title}
@@ -201,31 +207,31 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                   <label className="text-xs font-medium text-slate-500">Ngôn ngữ</label>
-                   <select 
-                      value={aiLang}
-                      onChange={(e) => setAiLang(e.target.value)}
-                      className="w-full mt-1 p-2 text-sm border rounded-lg"
-                   >
-                      <option value="en">English</option>
-                      <option value="tl">Vietnamese</option>
-                      <option value="mix">Song ngữ</option>
-                   </select>
+                  <label className="text-xs font-medium text-slate-500">Ngôn ngữ</label>
+                  <select
+                    value={aiLang}
+                    onChange={(e) => setAiLang(e.target.value)}
+                    className="w-full mt-1 p-2 text-sm border rounded-lg"
+                  >
+                    <option value="en">English</option>
+                    <option value="tl">Vietnamese</option>
+                    <option value="mix">Song ngữ</option>
+                  </select>
                 </div>
                 <div>
-                   <label className="text-xs font-medium text-slate-500">Giọng văn</label>
-                   <select 
-                      value={aiTone}
-                      onChange={(e) => setAiTone(e.target.value)}
-                      className="w-full mt-1 p-2 text-sm border rounded-lg"
-                   >
-                      <option value="professional">Chuyên nghiệp</option>
-                      <option value="friendly">Thân thiện</option>
-                      <option value="persuasive">Bán hàng</option>
-                   </select>
+                  <label className="text-xs font-medium text-slate-500">Giọng văn</label>
+                  <select
+                    value={aiTone}
+                    onChange={(e) => setAiTone(e.target.value)}
+                    className="w-full mt-1 p-2 text-sm border rounded-lg"
+                  >
+                    <option value="professional">Chuyên nghiệp</option>
+                    <option value="friendly">Thân thiện</option>
+                    <option value="persuasive">Bán hàng</option>
+                  </select>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleGenerateContent}
                 disabled={aiLoading}
                 className="w-full flex items-center justify-center gap-2 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
@@ -233,19 +239,19 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                 Viết nội dung (Draft)
               </button>
-              
+
               <hr className="border-slate-100 my-2" />
-              
+
               <div>
                 <label className="text-xs font-medium text-slate-500">Prompt tạo ảnh</label>
-                <textarea 
+                <textarea
                   value={aiImagePrompt}
                   onChange={(e) => setAiImagePrompt(e.target.value)}
                   placeholder="Mô tả hình ảnh muốn tạo..."
                   className="w-full mt-1 p-2 text-xs border rounded-lg h-16"
                 />
               </div>
-              <button 
+              <button
                 onClick={handleGenerateImage}
                 disabled={aiLoading || !aiImagePrompt}
                 className="w-full flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 transition-all disabled:opacity-50"
@@ -280,11 +286,11 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 />
               </div>
               <div>
-                <ImageUploader 
-                    label="Hình ảnh đại diện (OG Image)"
-                    value={featuredImage}
-                    onChange={setFeaturedImage}
-                    aspectRatio={16/9}
+                <ImageUploader
+                  label="Hình ảnh đại diện (OG Image)"
+                  value={featuredImage}
+                  onChange={setFeaturedImage}
+                  aspectRatio={16 / 9}
                 />
               </div>
             </CardContent>
