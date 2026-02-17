@@ -43,3 +43,13 @@ export const getServiceBySlug = async (slug: string) => {
     }
     return data;
 };
+
+export const getPage = async (slug: string) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('site_pages').select('*').eq('slug', slug).single();
+    if (error) {
+        console.error(`Error fetching page ${slug}:`, error);
+        return null;
+    }
+    return data;
+};
