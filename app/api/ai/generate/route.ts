@@ -4,7 +4,7 @@ import { generateProjectImage } from '@/lib/image-gen';
 
 export async function POST(request: Request) {
   try {
-    const { topic, lang, tone, slug, pageContext } = await request.json();
+    const { topic, lang, tone, slug, pageContext, contentType } = await request.json();
 
     let systemPrompt = `You are an expert Signage Contractor in Metro Manila, Philippines. 
     You have 20 years of experience in fabrication (Acrylic, Stainless, Panaflex).
@@ -13,8 +13,37 @@ export async function POST(request: Request) {
     Language: ${lang === 'tl' ? 'Tagalog' : lang === 'mix' ? 'Taglish (English-Tagalog Mix)' : 'English'}.
     Tone: ${tone}.`;
 
-    // Tailor prompt based on page type
-    if (slug === 'about') {
+    // Tailor prompt based on content type or page slug
+    if (contentType === 'industry') {
+      systemPrompt += `
+      CONTEXT: You are writing a service page dedicated to a specific Industry.
+      Structure:
+      - Introduction: How high-quality signage impacts this specific industry.
+      - Recommended Signage Types: Briefly suggest 3-4 types of signs (e.g. Channel Letters, Pylons, Indoor LED) best suited for them.
+      - Why SignsHaus: Focus on our experience, reliable fabrication, and installation speed.
+      - Call to Action: Encourage them to contact us for an ocular inspection.
+      `;
+    } else if (contentType === 'material') {
+      systemPrompt += `
+      CONTEXT: You are writing an educational guide about a specific Signage Material.
+      Structure:
+      - Introduction: What is this material and why is it popular in signage.
+      - Properties & Durability: Discuss weather resistance, maintenance, indoor vs outdoor suitability.
+      - Pros & Cons: A balanced view of the material.
+      - Best Applications: Where should clients use this material (e.g., storefronts, office lobbies).
+      - Call to Action: Invite them to consult with SignsHaus for their next project using this material.
+      `;
+    } else if (contentType === 'post') {
+      systemPrompt += `
+      CONTEXT: You are writing an engaging blog post or news article.
+      Structure:
+      - Engaging Hook: Start with an interesting fact or current trend in Metro Manila.
+      - Deep Dive: Explore the topic thoroughly with actionable advice or insights for business owners.
+      - Examples/Scenarios: Provide relatable examples.
+      - Conclusion: Summarize the main points.
+      - Call to Action: Seamlessly transition into how SignsHaus can help them achieve this.
+      `;
+    } else if (slug === 'about') {
       systemPrompt += `
       CONTEXT: You are writing the "About Us" page for SignsHaus.
       Structure:
@@ -55,7 +84,7 @@ export async function POST(request: Request) {
        - Keep it short (1-2 paragraphs).
        `;
     } else {
-      // Default / Generic Page / Blog Post
+      // Default / Generic Page
       systemPrompt += `
       Structure:
       - Engaging Introduction (Hook)

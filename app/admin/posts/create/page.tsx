@@ -25,7 +25,7 @@ export default function CreatePostPage() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, lang, tone }),
+        body: JSON.stringify({ topic, lang, tone, contentType: 'post' }),
       });
       const data = await res.json();
       if (data.content) {

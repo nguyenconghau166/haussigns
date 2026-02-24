@@ -71,7 +71,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         body: JSON.stringify({
           topic: `Signage solutions for ${aiTopic || title}`,
           lang: 'en',
-          tone: 'professional'
+          tone: 'professional',
+          contentType: 'industry'
         })
       });
       const data = await res.json();

@@ -85,7 +85,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
         body: JSON.stringify({
           topic: `Detailed guide about ${aiTopic || name} for signage`,
           lang: 'en',
-          tone: 'educational'
+          tone: 'educational',
+          contentType: 'material'
         })
       });
       const data = await res.json();

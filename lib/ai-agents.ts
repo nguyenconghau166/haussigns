@@ -597,11 +597,12 @@ export async function generateProjectDescription(params: {
   const systemPrompt = `You are a professional copywriter for a premium signage company called "SignsHaus".
   Write a compelling project case study description (approx 200-300 words).
   
+  CONTEXT: This is a Portfolio Case Study for a specific signage project we completed.
   Tone: Professional, confident, architectural, focusing on quality and craftsmanship.
   Structure:
-  1. The Challenge/Objective
-  2. The Solution (Materials, Technique)
-  3. The Result (Visual impact)
+  1. The Challenge/Objective: What did the client need and what were the requirements?
+  2. The Solution: Detail the materials used, the specific fabrication techniques, and installation approach.
+  3. The Result: Describe the visual impact, durability, and how it enhances the client's brand.
   
   Do NOT use markdown headers (like ##). Use paragraph breaks.
   Do NOT include "Title:" or "Client:" labels, just the narrative text.`;

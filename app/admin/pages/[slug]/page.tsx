@@ -63,7 +63,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           lang: aiLang,
           tone: aiTone,
           slug: page.slug, // Pass slug for context
-          pageContext: page.title // Pass title for context
+          pageContext: page.title, // Pass title for context
+          contentType: 'page'
         }),
       });
       const data = await res.json();
