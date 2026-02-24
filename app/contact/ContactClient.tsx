@@ -111,10 +111,24 @@ export default function ContactClient({ page }: ContactClientProps) {
                         <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl">
                             {page?.title || 'Contact Us'}
                         </h1>
-                        <div className="mt-5 text-lg text-slate-300/90 max-w-xl leading-relaxed" dangerouslySetInnerHTML={{ __html: page?.content || 'Get a free quote for your signage project today! We serve all of Metro Manila.' }} />
+                        <p className="mt-5 text-lg text-slate-300/90 max-w-xl leading-relaxed">
+                            Get a free quote for your signage project today! We serve all of Metro Manila.
+                        </p>
                     </motion.div>
                 </div>
             </section>
+
+            {/* Page Content */}
+            {page?.content && (
+                <section className="py-16 md:py-24 bg-white border-b border-slate-100">
+                    <div className="container max-w-4xl px-4">
+                        <div
+                            className="prose prose-lg prose-slate max-w-none text-center"
+                            dangerouslySetInnerHTML={{ __html: page.content }}
+                        />
+                    </div>
+                </section>
+            )}
 
             {/* Contact Cards + Form */}
             <section className="py-16 md:py-24">

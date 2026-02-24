@@ -52,12 +52,23 @@ export default async function ServicesPage() {
                     <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl mb-6">
                         {page?.title || 'Our Services'}
                     </h1>
-                    <div
-                        className="max-w-3xl mx-auto text-lg text-slate-200"
-                        dangerouslySetInnerHTML={{ __html: page?.content || 'We provide end-to-end signage solutions from design to installation.' }}
-                    />
+                    <p className="max-w-3xl mx-auto text-lg text-slate-200">
+                        We provide end-to-end signage solutions from design to installation.
+                    </p>
                 </div>
             </section>
+
+            {/* Page Content */}
+            {page?.content && (
+                <section className="py-16 md:py-24 bg-white">
+                    <div className="container max-w-4xl">
+                        <div
+                            className="prose prose-lg prose-slate max-w-none"
+                            dangerouslySetInnerHTML={{ __html: page.content }}
+                        />
+                    </div>
+                </section>
+            )}
 
             {/* Services Grid Content */}
             <ServiceGrid services={services || []} />

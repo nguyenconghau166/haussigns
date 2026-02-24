@@ -32,10 +32,22 @@ export default function PortfolioClient({ page, initialProjects }: PortfolioClie
                         {page?.title || 'Our Portfolio'}
                     </h1>
                     <p className="mx-auto max-w-2xl text-lg text-slate-300 md:text-xl">
-                        {page?.content || 'See how we help brands stand out across Metro Manila. From sketch to installation.'}
+                        See how we help brands stand out across Metro Manila. From sketch to installation.
                     </p>
                 </div>
             </section>
+
+            {/* Page Content */}
+            {page?.content && (
+                <section className="py-16 md:py-24 bg-white border-b border-slate-100">
+                    <div className="container max-w-4xl px-4">
+                        <div
+                            className="prose prose-lg prose-slate max-w-none text-center"
+                            dangerouslySetInnerHTML={{ __html: page.content }}
+                        />
+                    </div>
+                </section>
+            )}
 
             <section className="py-16 bg-slate-50">
                 <div className="container px-4">
@@ -46,8 +58,8 @@ export default function PortfolioClient({ page, initialProjects }: PortfolioClie
                                 key={category}
                                 onClick={() => setFilter(category)}
                                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${filter === category
-                                        ? 'bg-slate-900 text-white shadow-lg scale-105'
-                                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                    ? 'bg-slate-900 text-white shadow-lg scale-105'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                             >
                                 {category}
