@@ -31,10 +31,8 @@ export async function POST(request: Request) {
         // specific test prompt
         // List of models to try in order of preference
         const candidateModels = [
-            'gemini-3-flash-preview',
-            'gemini-3-pro-preview',
-            'gemini-1.5-pro',
-            'gemini-1.5-flash'
+            'gemini-1.5-flash',
+            'gemini-1.5-pro'
         ];
 
         let lastError;
