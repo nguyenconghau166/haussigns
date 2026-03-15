@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import Cropper from 'react-easy-crop';
+import Cropper, { Area } from 'react-easy-crop';
 import { Upload, X, Check, Image as ImageIcon, Loader2, Crop as CropIcon, RectangleHorizontal, RectangleVertical, Square, Maximize } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from 'react-responsive';
@@ -36,29 +36,23 @@ export default function ImageUploader({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [currentAspect, setCurrentAspect] = useState<number | undefined>(aspectRatio);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isCropping, setIsCropping] = useState(false);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Use media query to adjust layout on mobile
-  const isMobile = useMediaQuery({ maxWidth: 768 });
-
-  const [fileType, setFileType] = useState<string>('image/jpeg'); // Default to jpeg
 
   // If the parent component changes the required aspect ratio, update our state
   useEffect(() => {
     setCurrentAspect(aspectRatio);
   }, [aspectRatio]);
 
-  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      setFileType(file.type); // Store original file type
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setImageSrc(reader.result as string);
@@ -83,7 +77,7 @@ export default function ImageUploader({
 
   const getCroppedImg = async (
     imageSrc: string,
-    pixelCrop: any,
+    pixelCrop: Area,
     _mimeType: string = 'image/jpeg'
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
@@ -131,7 +125,7 @@ export default function ImageUploader({
 
     // Always output JPEG for maximum compression
     const outputMime = 'image/jpeg';
-    let quality = 0.80;
+    const quality = 0.80;
 
     // Encode and check size; re-encode at lower quality if needed
     const encode = (q: number): Promise<Blob> =>
@@ -192,9 +186,10 @@ export default function ImageUploader({
       } else {
         throw new Error(data.error || 'Unknown error from upload API');
       }
-    } catch (e: any) {
-      console.error('Image Upload Error:', e);
-      alert(`Error uploading image: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error('Image Upload Error:', err);
+      alert(`Error uploading image: ${err.message}`);
     } finally {
       setLoading(false);
     }

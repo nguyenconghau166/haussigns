@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 type TabId = 'business' | 'agents' | 'schedule' | 'seo' | 'api' | 'tracking' | 'website';
 
-const TABS: { id: TabId; label: string; icon: any; desc: string }[] = [
+const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; desc: string }[] = [
   { id: 'business', label: 'Doanh nghiệp', icon: Building2, desc: 'Thông tin thương hiệu' },
   { id: 'website', label: 'Nội dung Website', icon: LayoutGrid, desc: 'Hero, Header, Footer' },
   { id: 'agents', label: 'AI Agents', icon: Bot, desc: 'Cài đặt từng Agent' },
@@ -93,7 +93,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
-  const [settings, setSettings] = useState<any>({});
+  const [settings, setSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -105,7 +105,7 @@ export default function SettingsPage() {
   }, []);
 
   const handleChange = (key: string, value: string) => {
-    setSettings((prev: any) => ({ ...prev, [key]: value }));
+    setSettings((prev: Record<string, string>) => ({ ...prev, [key]: value }));
     setSaved(false);
     if (['banana_endpoint', 'banana_api_key'].includes(key)) setTestResult(null);
   };
@@ -766,10 +766,11 @@ export default function SettingsPage() {
                               setTestResult('error');
                               alert(`Lỗi kết nối: ${errData.error || res.statusText}`); // Show specific error
                             }
-                          } catch (e: any) {
-                            console.error('Gemini Test Exception:', e);
+                          } catch (e: unknown) {
+                            const err = e instanceof Error ? e : new Error(String(e));
+                            console.error('Gemini Test Exception:', err);
                             setTestResult('error');
-                            alert(`Lỗi hệ thống: ${e.message}`);
+                            alert(`Lỗi hệ thống: ${err.message}`);
                           } finally {
                             setTesting(false);
                           }
@@ -841,7 +842,7 @@ export default function SettingsPage() {
                 ) : (
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                     <p className="text-sm text-slate-500">
-                      Đang sử dụng DALL-E 3. Chuyển sang tab "AI Agents" → Agent 4 để chọn API tùy chỉnh.
+                      Đang sử dụng DALL-E 3. Chuyển sang tab &quot;AI Agents&quot; → Agent 4 để chọn API tùy chỉnh.
                     </p>
                   </div>
                 )}

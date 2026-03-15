@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const content = await generateSmartContent(systemPrompt, userPrompt);
 
     // Parse JSON from content (handle potential markdown ticks)
-    let jsonStr = content?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
+    const jsonStr = content?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
     const keywords = JSON.parse(jsonStr);
 
     return NextResponse.json({ keywords });

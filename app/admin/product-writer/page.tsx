@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PenTool, Sparkles, Loader2, Copy, Check, Save } from 'lucide-react';
+import { PenTool, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Helper components defined outside to prevent focus loss
@@ -47,9 +47,18 @@ const SelectField = ({ label, value, onChange, options }: { label: string, value
     </div>
 );
 
+interface ProductResult {
+    title: string;
+    short_description: string;
+    features_list: string[];
+    long_description: string;
+    call_to_action: string;
+    seo_keywords: string[];
+}
+
 export default function ProductWriterPage() {
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<any>(null);
+    const [result, setResult] = useState<ProductResult | null>(null);
     const [copied, setCopied] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -117,7 +126,7 @@ export default function ProductWriterPage() {
                             <PenTool className="h-5 w-5 text-amber-500" />
                             {formData.type === 'product' ? 'Product Details' : 'Material Details'}
                         </CardTitle>
-                        <CardDescription>Enter details about what you're writing for</CardDescription>
+                        <CardDescription>Enter details about what you&apos;re writing for</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Type Selector */}

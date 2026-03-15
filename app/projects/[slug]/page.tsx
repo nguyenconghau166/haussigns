@@ -34,7 +34,7 @@ async function getProject(slug: string) {
 
     return {
         ...project,
-        categories: project.project_categories?.map((pc: any) => pc.categories.name) || [],
+        categories: project.project_categories?.map((pc: { categories: { name: string } }) => pc.categories.name) || [],
     };
 }
 
@@ -147,7 +147,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
                     <div className="relative z-10">
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to start your project?</h2>
                         <p className="text-slate-300 mb-8 max-w-xl mx-auto">
-                            Contact us today for a free consultation and quote. Let's make your brand shine.
+                            Contact us today for a free consultation and quote. Let&apos;s make your brand shine.
                         </p>
                         <Link href="/contact" className="inline-flex items-center px-8 py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-full transition-colors">
                             Get a Quote <ExternalLink className="ml-2 h-5 w-5" />

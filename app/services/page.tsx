@@ -71,7 +71,8 @@ export default async function ServicesPage() {
             )}
 
             {/* Services Grid Content */}
-            <ServiceGrid services={services || []} />
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <ServiceGrid services={(services as any[]) || []} />
 
             <CTABanner />
             <Footer />

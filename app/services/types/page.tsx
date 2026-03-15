@@ -7,13 +7,15 @@ import { motion } from 'framer-motion';
 import { getServices } from '@/lib/dataService';
 import { useEffect, useState } from 'react';
 
+interface ServiceItem { id: string; name: string; title: string; slug: string; description: string; icon_name: string; gradient: string; bg: string; [key: string]: unknown; }
+
 export default function SignTypesPage() {
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
 
   useEffect(() => {
     async function loadData() {
       const data = await getServices();
-      setServices(data);
+      setServices(data as any[]);
     }
     loadData();
   }, []);
@@ -40,7 +42,7 @@ export default function SignTypesPage() {
           <div className="max-w-4xl mx-auto prose prose-lg prose-slate">
             <h2>Choosing the Right Signage</h2>
             <p>
-              Your signage is the face of your business. It's the first thing customers see when they walk by or drive past your establishment.
+              Your signage is the face of your business. It&apos;s the first thing customers see when they walk by or drive past your establishment.
               Choosing the right type depends on several factors:
             </p>
             <ul>

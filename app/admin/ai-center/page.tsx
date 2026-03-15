@@ -382,7 +382,7 @@ export default function AICenterPage() {
           {logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-600">
               <Bot className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm italic">Hệ thống chờ lệnh. Bấm "Chạy Pipeline" để bắt đầu...</p>
+              <p className="text-sm italic">Hệ thống chờ lệnh. Bấm &quot;Chạy Pipeline&quot; để bắt đầu...</p>
               <p className="text-xs text-slate-700 mt-2">
                 4 AI Agents sẽ tự động: Nghiên cứu → Đánh giá → Viết bài → Tạo ảnh
               </p>

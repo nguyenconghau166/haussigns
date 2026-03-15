@@ -4,6 +4,13 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { analyzePage } from '@/lib/seo-analyzer';
 import { revalidatePath } from 'next/cache';
 
+interface SeaSuggestion {
+    category: string;
+    issue: string;
+    suggestion: string;
+    priority: string;
+}
+
 export async function analyzeUrlAction(url: string) {
     // 1. Analyze the page
     // Ensure URL is absolute for fetching, but store relative path if it's internal
@@ -51,7 +58,7 @@ export async function analyzeUrlAction(url: string) {
 
     if (result.suggestions.length > 0) {
         const { error: sugError } = await supabaseAdmin.from('seo_suggestions').insert(
-            result.suggestions.map((s: any) => ({
+            result.suggestions.map((s: SeaSuggestion) => ({
                 page_id: pageData.id,
                 category: s.category,
                 issue: s.issue,

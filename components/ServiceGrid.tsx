@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 // Map icon names to components
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   Type,
   Lightbulb,
   Hammer,

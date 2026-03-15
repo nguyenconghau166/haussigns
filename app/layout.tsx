@@ -29,7 +29,7 @@ async function getAnalyticsConfig() {
     const { data } = await supabase.from('ai_config').select('*').in('key', ['google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id', 'google_ads_id']);
 
     const config: Record<string, string> = {};
-    data?.forEach((row: any) => { config[row.key] = row.value; });
+    data?.forEach((row: { key: string; value: string }) => { config[row.key] = row.value; });
 
     return {
       googleAnalyticsId: config.google_analytics_id,
@@ -49,7 +49,7 @@ async function getSettings() {
     const { data } = await supabase.from('ai_config').select('*');
 
     const settings: Record<string, string> = {};
-    data?.forEach((row: any) => { settings[row.key] = row.value; });
+    data?.forEach((row: { key: string; value: string }) => { settings[row.key] = row.value; });
 
     return settings;
   } catch (e) {

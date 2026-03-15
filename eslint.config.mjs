@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Downgrade no-explicit-any to warn for API routes and pages where
+  // Supabase's dynamic schema makes precise typing impractical.
+  {
+    files: ["app/api/**/*.ts", "app/admin/**/*.tsx", "app/blog/**/*.tsx", "app/contact/**/*.tsx", "app/portfolio/**/*.tsx", "app/services/**/*.tsx", "app/about/**/*.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;
+

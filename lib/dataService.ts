@@ -28,11 +28,11 @@ async function fetchData<T>(table: string, limit?: number) {
     return data as T[];
 }
 
-export const getProducts = async (limit?: number) => fetchData<any>('products', limit);
-export const getTestimonials = async (limit?: number) => fetchData<any>('testimonials', limit);
-export const getProjects = async (limit?: number) => fetchData<any>('projects', limit);
-export const getServices = async (limit?: number) => fetchData<any>('services', limit);
-export const getPosts = async (limit?: number) => fetchData<any>('posts', limit);
+export const getProducts = async (limit?: number) => fetchData<Record<string, unknown>>('products', limit);
+export const getTestimonials = async (limit?: number) => fetchData<Record<string, unknown>>('testimonials', limit);
+export const getProjects = async (limit?: number) => fetchData<Record<string, unknown>>('projects', limit);
+export const getServices = async (limit?: number) => fetchData<Record<string, unknown>>('services', limit);
+export const getPosts = async (limit?: number) => fetchData<Record<string, unknown>>('posts', limit);
 
 export const getServiceBySlug = async (slug: string) => {
     const supabase = getSupabase();

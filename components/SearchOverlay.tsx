@@ -44,15 +44,15 @@ export default function SearchOverlay({ isOpen, onClose }: { isOpen: boolean; on
     const pages = useMemo(() => filtered.filter((i) => i.category === 'page'), [filtered]);
     const allResults = useMemo(() => [...services, ...pages], [services, pages]);
 
-    // Focus input when opened
+    // Focus input when opened and reset state
     useEffect(() => {
         if (isOpen) {
-            // We reset state here to ensure fresh search when opening
-            // This is acceptable behavior for a modal
-            setQuery(''); // eslint-disable-line react-hooks/exhaustive-deps
-            setActiveIndex(0);
-            // Small timeout to allow animation to start/DOM to be ready
-            const timer = setTimeout(() => inputRef.current?.focus(), 100);
+            // Use setTimeout to avoid synchronous setState inside effect body
+            const timer = setTimeout(() => {
+                setQuery('');
+                setActiveIndex(0);
+                inputRef.current?.focus();
+            }, 50);
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
