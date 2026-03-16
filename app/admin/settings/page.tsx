@@ -280,6 +280,93 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-indigo-500" /> Why Choose Us (Trang chủ)
+                </CardTitle>
+                <CardDescription>Tùy chỉnh tiêu đề và 4 ô nội dung của section Why Choose Us</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Nhãn nhỏ (badge)"
+                    value={settings.whyus_label}
+                    onChange={(v) => handleChange('whyus_label', v)}
+                    placeholder="Why Us"
+                  />
+                  <InputField
+                    label="Tiêu đề section"
+                    value={settings.whyus_title}
+                    onChange={(v) => handleChange('whyus_title', v)}
+                    placeholder="Why Choose SignsHaus?"
+                  />
+                </div>
+                <TextareaField
+                  label="Mô tả section"
+                  value={settings.whyus_subtitle}
+                  onChange={(v) => handleChange('whyus_subtitle', v)}
+                  placeholder="Metro Manila's trusted partner for high-quality signage fabrication."
+                  rows={2}
+                />
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Box 1 - Tiêu đề"
+                    value={settings.whyus_ocular_title}
+                    onChange={(v) => handleChange('whyus_ocular_title', v)}
+                    placeholder="Free Ocular Inspection"
+                  />
+                  <TextareaField
+                    label="Box 1 - Mô tả"
+                    value={settings.whyus_ocular_description}
+                    onChange={(v) => handleChange('whyus_ocular_description', v)}
+                    placeholder="We visit your site anywhere in Metro Manila for precise measurements."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Box 2 - Tiêu đề"
+                    value={settings.whyus_materials_title}
+                    onChange={(v) => handleChange('whyus_materials_title', v)}
+                    placeholder="Premium Materials"
+                  />
+                  <TextareaField
+                    label="Box 2 - Mô tả"
+                    value={settings.whyus_materials_description}
+                    onChange={(v) => handleChange('whyus_materials_description', v)}
+                    placeholder="Branded acrylics (Crocodile/Suntuf) and 304-grade stainless steel only."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Box 3 - Tiêu đề"
+                    value={settings.whyus_turnaround_title}
+                    onChange={(v) => handleChange('whyus_turnaround_title', v)}
+                    placeholder="Fast Turnaround"
+                  />
+                  <TextareaField
+                    label="Box 3 - Mô tả"
+                    value={settings.whyus_turnaround_description}
+                    onChange={(v) => handleChange('whyus_turnaround_description', v)}
+                    placeholder="Signage installed in as fast as 3-5 days for urgent projects."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Box 4 - Tiêu đề"
+                    value={settings.whyus_crafted_title}
+                    onChange={(v) => handleChange('whyus_crafted_title', v)}
+                    placeholder="Precision Crafted"
+                  />
+                  <TextareaField
+                    label="Box 4 - Mô tả"
+                    value={settings.whyus_crafted_description}
+                    onChange={(v) => handleChange('whyus_crafted_description', v)}
+                    placeholder="CNC-cut and laser-finished for perfect edges and letters every time."
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* CONTACT APP-WIDE */}
             <Card className="border-0 shadow-md">
               <CardHeader>

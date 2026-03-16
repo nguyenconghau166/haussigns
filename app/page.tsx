@@ -11,25 +11,30 @@ import Link from 'next/link';
 import { ArrowRight, Shield, Clock, Eye, Ruler } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getProducts, getServices, getProjects, getTestimonials, getPosts } from '@/lib/dataService';
-import { use, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSiteSettings } from '@/lib/useSiteSettings';
 
 const WHY_CHOOSE = [
   {
+    key: 'ocular',
     title: 'Free Ocular Inspection',
     description: 'We visit your site anywhere in Metro Manila for precise measurements.',
     icon: Eye,
   },
   {
+    key: 'materials',
     title: 'Premium Materials',
     description: 'Branded acrylics (Crocodile/Suntuf) and 304-grade stainless steel only.',
     icon: Shield,
   },
   {
+    key: 'turnaround',
     title: 'Fast Turnaround',
     description: 'Signage installed in as fast as 3-5 days for urgent projects.',
     icon: Clock,
   },
   {
+    key: 'crafted',
     title: 'Precision Crafted',
     description: 'CNC-cut and laser-finished for perfect edges and letters every time.',
     icon: Ruler,
@@ -39,6 +44,7 @@ const WHY_CHOOSE = [
 import Testimonials from '@/components/Testimonials';
 
 export default function Home() {
+  const { get: getSetting } = useSiteSettings();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [products, setProducts] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +55,21 @@ export default function Home() {
   const [testimonials, setTestimonials] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [posts, setPosts] = useState<any[]>([]);
+
+  const whyUsLabel = getSetting('whyus_label', 'Why Us');
+  const whyUsTitle = getSetting('whyus_title', 'Why Choose SignsHaus?');
+  const whyUsSubtitle = getSetting(
+    'whyus_subtitle',
+    "Metro Manila's trusted partner for high-quality signage fabrication."
+  );
+
+  const whyChooseItems = useMemo(() => {
+    return WHY_CHOOSE.map((item) => ({
+      ...item,
+      title: getSetting(`whyus_${item.key}_title`, item.title),
+      description: getSetting(`whyus_${item.key}_description`, item.description),
+    }));
+  }, [getSetting]);
 
   useEffect(() => {
     async function loadData() {
@@ -89,18 +110,18 @@ export default function Home() {
             className="text-center mb-14"
           >
             <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-yellow-600 mb-3">
-              Why Us
+              {whyUsLabel}
             </span>
             <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
-              Why Choose SignsHaus?
+              {whyUsTitle}
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500">
-              Metro Manila&apos;s trusted partner for high-quality signage fabrication.
+              {whyUsSubtitle}
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {WHY_CHOOSE.map((item, index) => (
+            {whyChooseItems.map((item, index) => (
               <motion.div
                 key={item.title}
                 initial={{ opacity: 0, y: 30 }}
