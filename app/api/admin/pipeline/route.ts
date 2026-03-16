@@ -13,7 +13,7 @@ import {
 } from '@/lib/ai-agents';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export const maxDuration = 900; // Pipeline can take several minutes per run
+export const maxDuration = 300; // Vercel Hobby limit: 1-300s for serverless functions
 
 export async function POST() {
   const encoder = new TextEncoder();
