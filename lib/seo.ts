@@ -5,11 +5,18 @@ function getSiteUrl(): string {
 }
 
 async function getConfigValue(key: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('ai_config')
     .select('value')
     .eq('key', key)
-    .single();
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`Failed to load config key ${key}:`, error.message);
+    return null;
+  }
+
   return data?.value || null;
 }
 
