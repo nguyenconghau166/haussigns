@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 async function getDbKey(): Promise<string | null> {
   const { data } = await supabaseAdmin
@@ -20,7 +20,7 @@ export async function GET() {
       status: 404,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'public, s-maxage=300',
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   }
@@ -28,7 +28,7 @@ export async function GET() {
   return new Response(key, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      'Cache-Control': 'no-store, max-age=0',
     },
   });
 }
