@@ -390,8 +390,8 @@ export default function SettingsPage() {
                   options={[
                     { value: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (Tiết kiệm)' },
                     { value: 'gpt-5.2', label: 'OpenAI GPT-5.2 (Mới nhất)' },
-                    { value: 'gemini-1.5-flash', label: 'Google Gemini 1.5 Flash (Siêu nhanh)' },
-                    { value: 'gemini-1.5-pro', label: 'Google Gemini 1.5 Pro (Mạnh nhất)' },
+                    { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
+                    { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Rất nhanh)' },
                   ]}
                   hint="Model nhanh phù hợp vì chỉ cần tìm kiếm, không cần viết sâu"
                 />
@@ -449,10 +449,10 @@ export default function SettingsPage() {
                   options={[
                     { value: 'gpt-5.2', label: 'OpenAI GPT-5.2 (Recommended 2026)' },
                     { value: 'gpt-4o', label: 'OpenAI GPT-4o (Standard)' },
-                    { value: 'gemini-1.5-pro', label: 'Google Gemini 1.5 Pro (Powerful)' },
-                    { value: 'gemini-1.5-flash', label: 'Google Gemini 1.5 Flash (Fast)' },
+                    { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Powerful + Stable)' },
+                    { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Fast)' },
                   ]}
-                  hint="Nên dùng GPT-5.2 hoặc Gemini 3 Pro cho chất lượng bài viết tốt nhất"
+                  hint="Nên dùng GPT-5.2 hoặc Gemini 2.0 Flash cho chất lượng bài viết tốt"
                 />
                 <SelectField
                   label="Ngôn ngữ viết bài"

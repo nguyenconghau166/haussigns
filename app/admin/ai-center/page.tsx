@@ -107,6 +107,11 @@ export default function AICenterPage() {
     try {
       const response = await fetch('/api/admin/pipeline', { method: 'POST' });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Pipeline request failed with status ${response.status}`);
+      }
+
       if (!response.body) {
         throw new Error('No response body');
       }
@@ -153,14 +158,34 @@ export default function AICenterPage() {
           }
         }
       }
+
+      if (buffer.startsWith('data: ')) {
+        try {
+          const event: LogEntry = JSON.parse(buffer.slice(6));
+          setLogs(prev => [...prev, event]);
+          if (event.agent === 'System' && event.step === 'complete') {
+            setPipelineResult(event);
+          }
+        } catch {
+          // ignore trailing partial event
+        }
+      }
     } catch (error: any) {
+      const message = error?.message || 'Unknown error';
       setLogs(prev => [...prev, {
         agent: 'System',
         step: 'error',
         status: 'failed',
-        message: `Lỗi kết nối: ${error.message}`,
+        message: `Lỗi kết nối: ${message}`,
         timestamp: new Date().toISOString(),
       }]);
+      setPipelineResult({
+        agent: 'System',
+        step: 'complete',
+        status: 'failed',
+        message: `Pipeline thất bại: ${message}`,
+        data: null,
+      });
     } finally {
       setIsRunning(false);
     }
