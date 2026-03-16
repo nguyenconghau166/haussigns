@@ -517,6 +517,22 @@ export default function SettingsPage() {
                   placeholder="2"
                   hint="Giới hạn số bài viết tạo ra mỗi lần chạy Pipeline"
                 />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Timeout Researcher (giây)"
+                    value={settings.pipeline_research_timeout_seconds || '180'}
+                    onChange={(v) => handleChange('pipeline_research_timeout_seconds', v)}
+                    type="number"
+                    placeholder="180"
+                  />
+                  <InputField
+                    label="Timeout Evaluator (giây)"
+                    value={settings.pipeline_evaluator_timeout_seconds || '180'}
+                    onChange={(v) => handleChange('pipeline_evaluator_timeout_seconds', v)}
+                    type="number"
+                    placeholder="180"
+                  />
+                </div>
               </CardContent>
             </Card>
 
@@ -585,6 +601,30 @@ export default function SettingsPage() {
                   placeholder="82"
                   hint="Nếu điểm trung bình SEO+AIO dưới ngưỡng, hệ thống sẽ tự revision thêm 1 vòng"
                 />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Timeout Writer (giây)"
+                    value={settings.pipeline_writer_timeout_seconds || '420'}
+                    onChange={(v) => handleChange('pipeline_writer_timeout_seconds', v)}
+                    type="number"
+                    placeholder="420"
+                  />
+                  <InputField
+                    label="Timeout AI request (ms)"
+                    value={settings.ai_request_timeout_ms || '120000'}
+                    onChange={(v) => handleChange('ai_request_timeout_ms', v)}
+                    type="number"
+                    placeholder="120000"
+                  />
+                </div>
+                <InputField
+                  label="Retry AI request"
+                  value={settings.ai_request_retry_count || '1'}
+                  onChange={(v) => handleChange('ai_request_retry_count', v)}
+                  type="number"
+                  placeholder="1"
+                  hint="Số lần thử lại khi request AI timeout hoặc lỗi tạm thời"
+                />
                 <InputField
                   label="Đối tượng mục tiêu"
                   value={settings.target_audience}
@@ -647,6 +687,13 @@ export default function SettingsPage() {
                   type="number"
                   placeholder="3"
                   hint="Nên giữ 2-5 links để tự nhiên và không spam"
+                />
+                <InputField
+                  label="Timeout Visual Inspector (giây)"
+                  value={settings.pipeline_visual_timeout_seconds || '360'}
+                  onChange={(v) => handleChange('pipeline_visual_timeout_seconds', v)}
+                  type="number"
+                  placeholder="360"
                 />
               </CardContent>
             </Card>

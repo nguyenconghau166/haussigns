@@ -13,7 +13,7 @@ import {
 } from '@/lib/ai-agents';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export const maxDuration = 120; // Allow longer execution for pipeline
+export const maxDuration = 900; // Pipeline can take several minutes per run
 
 export async function POST() {
   const encoder = new TextEncoder();
@@ -29,18 +29,54 @@ export async function POST() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let pipelineRun: any;
       let batchId: string;
+      let currentStage = 'Khởi tạo';
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+      const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        try {
+          return await Promise.race([
+            promise,
+            new Promise<T>((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error(`${label} timeout after ${ms / 1000}s`)), ms);
+            })
+          ]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
+      };
 
       try {
         // Create pipeline run record
         pipelineRun = await createPipelineRun('manual');
         batchId = pipelineRun.id;
 
+        heartbeatTimer = setInterval(() => {
+          send('System', 'heartbeat', 'running', `Pipeline đang xử lý: ${currentStage}`);
+        }, 15000);
+
+        const { data: timeoutConfig } = await supabaseAdmin
+          .from('ai_config')
+          .select('key, value')
+          .in('key', ['pipeline_writer_timeout_seconds', 'pipeline_visual_timeout_seconds', 'pipeline_research_timeout_seconds', 'pipeline_evaluator_timeout_seconds']);
+
+        const timeoutMap = (timeoutConfig || []).reduce((acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const researchTimeoutMs = Math.max(60000, (parseInt(timeoutMap.pipeline_research_timeout_seconds || '180', 10) || 180) * 1000);
+        const evaluatorTimeoutMs = Math.max(60000, (parseInt(timeoutMap.pipeline_evaluator_timeout_seconds || '180', 10) || 180) * 1000);
+        const writerTimeoutMs = Math.max(120000, (parseInt(timeoutMap.pipeline_writer_timeout_seconds || '420', 10) || 420) * 1000);
+        const visualTimeoutMs = Math.max(120000, (parseInt(timeoutMap.pipeline_visual_timeout_seconds || '360', 10) || 360) * 1000);
+
         send('System', 'init', 'running', 'Khởi tạo AI Pipeline...');
 
         // ===== AGENT 1: RESEARCHER =====
+        currentStage = 'Researcher';
         send('Researcher', 'start', 'running', 'Đang nghiên cứu từ khóa và xu hướng thị trường...');
 
-        const research = await runAgentResearcher(batchId);
+        const research = await withTimeout(runAgentResearcher(batchId), researchTimeoutMs, 'Researcher');
         const researchData = research.data as ResearchTopic[] | undefined;
 
         if (!research.success || !researchData?.length) {
@@ -67,9 +103,10 @@ export async function POST() {
         await updatePipelineRun(batchId, { topics_found: researchData.length });
 
         // ===== AGENT 2: EVALUATOR =====
+        currentStage = 'Evaluator';
         send('Evaluator', 'start', 'running', 'Đang đánh giá và lọc chủ đề...');
 
-        const evaluation = await runAgentEvaluator(batchId, researchData);
+        const evaluation = await withTimeout(runAgentEvaluator(batchId, researchData), evaluatorTimeoutMs, 'Evaluator');
         const evaluationData = evaluation.data as EvaluatedTopic[] | undefined;
 
         if (!evaluation.success || !evaluationData?.length) {
@@ -112,40 +149,59 @@ export async function POST() {
         for (let i = 0; i < topicsToProcess.length; i++) {
           const topic = topicsToProcess[i];
 
-          // ===== AGENT 3: WRITER =====
-          send('Writer', 'start', 'running', `Viết bài ${i + 1}/${topicsToProcess.length}: "${topic.keyword}"...`);
+          try {
+            // ===== AGENT 3: WRITER =====
+            currentStage = `Writer ${i + 1}/${topicsToProcess.length}`;
+            send('Writer', 'start', 'running', `Viết bài ${i + 1}/${topicsToProcess.length}: "${topic.keyword}"...`);
 
-          const writer = await runAgentWriter(batchId, topic);
-          const writerData = writer.data as WriterOutput;
+            const writer = await withTimeout(runAgentWriter(batchId, topic), writerTimeoutMs, `Writer(${topic.keyword})`);
+            const writerData = writer.data as WriterOutput;
 
-          if (!writer.success) {
-            send('Writer', 'complete', 'failed', `Lỗi viết bài: ${writer.message}`);
+            if (!writer.success) {
+              send('Writer', 'complete', 'failed', `Lỗi viết bài: ${writer.message}`);
+              continue;
+            }
+
+            send('Writer', 'complete', 'success', writer.message, {
+              title: writerData.title,
+              word_count: writerData.content?.split(/\s+/).length || 0
+            });
+
+            // ===== AGENT 4: VISUAL INSPECTOR =====
+            currentStage = `Visual Inspector ${i + 1}/${topicsToProcess.length}`;
+            send('Visual Inspector', 'start', 'running', `Tạo ảnh minh họa cho: "${writerData.title}"...`);
+
+            const visualizer = await withTimeout(
+              runAgentVisualInspector(batchId, topic, writerData),
+              visualTimeoutMs,
+              `VisualInspector(${writerData.title})`
+            );
+            const visualizerData = visualizer.data as VisualizerOutput;
+
+            if (!visualizer.success) {
+              send('Visual Inspector', 'complete', 'failed', `Lỗi tạo ảnh: ${visualizer.message}`);
+              continue;
+            }
+
+            send('Visual Inspector', 'complete', 'success', visualizer.message, {
+              post_id: visualizerData.post_id,
+              image_count: (visualizerData.generated_images?.length || 0) + 1 // +1 for featured image
+            });
+
+            articlesCreated++;
+            imagesGenerated += (visualizerData.generated_images?.length || 0) + 1;
+          } catch (topicError: any) {
+            const topicErrorMsg = topicError?.message || 'Unknown topic error';
+            send('Writer', 'complete', 'failed', `Lỗi xử lý chủ đề "${topic.keyword}": ${topicErrorMsg}`);
+            await supabaseAdmin.from('ai_pipeline_logs').insert({
+              batch_id: batchId,
+              agent_name: 'System',
+              action: `Topic failed: ${topic.keyword}`,
+              status: 'failed',
+              details: { error: topicErrorMsg }
+            });
             continue;
           }
-
-          send('Writer', 'complete', 'success', writer.message, {
-            title: writerData.title,
-            word_count: writerData.content?.split(/\s+/).length || 0
-          });
-
-          // ===== AGENT 4: VISUAL INSPECTOR =====
-          send('Visual Inspector', 'start', 'running', `Tạo ảnh minh họa cho: "${writerData.title}"...`);
-
-          const visualizer = await runAgentVisualInspector(batchId, topic, writerData);
-          const visualizerData = visualizer.data as VisualizerOutput;
-
-          if (!visualizer.success) {
-            send('Visual Inspector', 'complete', 'failed', `Lỗi tạo ảnh: ${visualizer.message}`);
-            continue;
-          }
-
-          send('Visual Inspector', 'complete', 'success', visualizer.message, {
-            post_id: visualizerData.post_id,
-            image_count: (visualizerData.generated_images?.length || 0) + 1 // +1 for featured image
-          });
-
-          articlesCreated++;
-          imagesGenerated += (visualizerData.generated_images?.length || 0) + 1;
         }
 
         // Update pipeline run as completed
@@ -176,6 +232,8 @@ export async function POST() {
             error_log: errorMsg
           });
         }
+      } finally {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
       }
 
       controller.close();

@@ -13,18 +13,51 @@ async function generateContentResolved(
 ): Promise<string | null> {
   const config = await getAllConfig();
   const provider = config.ai_provider || 'openai'; // 'openai' | 'gemini'
+  const timeoutMs = Math.max(30000, parseInt(config.ai_request_timeout_ms || '120000', 10) || 120000);
+  const retryCount = Math.max(0, parseInt(config.ai_request_retry_count || '1', 10) || 1);
 
-  if (provider === 'gemini') {
-    const apiKey = config.GEMINI_API_KEY;
-    // If configModel is provided, use it. Otherwise, let generateContentGemini use its default from DB/Env
-    let model = configModel;
-    if (model?.includes('gpt')) model = undefined; // Clear OpenAI model if switching to Gemini
+  const runOnce = async (): Promise<string | null> => {
+    if (provider === 'gemini') {
+      const apiKey = config.GEMINI_API_KEY;
+      // If configModel is provided, use it. Otherwise, let generateContentGemini use its default from DB/Env
+      let model = configModel;
+      if (model?.includes('gpt')) model = undefined; // Clear OpenAI model if switching to Gemini
 
-    return await generateContentGemini(systemPrompt, userPrompt, model, apiKey);
-  } else {
+      return await generateContentGemini(systemPrompt, userPrompt, model, apiKey);
+    }
+
     // Default OpenAI
     return await generateContentOpenAI(systemPrompt, userPrompt, configModel);
+  };
+
+  const withTimeout = async (): Promise<string | null> => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        runOnce(),
+        new Promise<null>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`AI request timeout after ${timeoutMs}ms (${provider})`)), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      return await withTimeout();
+    } catch (error) {
+      lastError = error;
+      const isLastAttempt = attempt === retryCount;
+      if (isLastAttempt) break;
+      const backoffMs = Math.min(1500 * (attempt + 1), 4000);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
   }
+
+  throw lastError instanceof Error ? lastError : new Error('Unknown AI provider error');
 }
 
 // =============================================
