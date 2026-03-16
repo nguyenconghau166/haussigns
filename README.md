@@ -15,6 +15,8 @@ This project requires Supabase and OpenAI credentials to function correctly.
     -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous public key.
     -   `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (keep this secret!).
     -   `OPENAI_API_KEY`: Your OpenAI API key for AI features.
+    -   `NEXT_PUBLIC_SITE_URL`: Canonical website URL (e.g. `https://signshaus.ph`).
+    -   `CRON_SECRET`: Secret token for scheduled pipeline endpoint.
 
 ### 2. Run the Development Server
 
@@ -48,3 +50,32 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Pipeline Auto Schedule
+
+This project includes an hourly Vercel cron (`vercel.json`) that hits:
+
+- `GET /api/cron/pipeline`
+
+The cron route checks:
+
+- `schedule_enabled` (must be `true`)
+- `schedule_interval` (hours)
+- `pipeline_last_run_at` (to avoid running too often)
+- active run lock (skips when another run is still in progress)
+
+To enable:
+
+1. Set `CRON_SECRET` in Vercel project env.
+2. Enable schedule in Admin Settings (`Lịch chạy`).
+3. Set interval (e.g. `24` for daily posting).
+
+## SEO / AIO Infrastructure
+
+The site now includes:
+
+- Dynamic `sitemap.xml` from database content
+- Dynamic `robots.txt` with sitemap + RSS references
+- `rss.xml` feed for fresh content discovery
+- `llms.txt` for AI crawler discoverability
+- JSON-LD graph for `Organization`, `WebSite`, and `LocalBusiness`

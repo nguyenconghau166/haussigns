@@ -60,10 +60,7 @@ async function getSettings() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
-  console.log('DEBUG: SEO settings loaded:', {
-    title: settings.seo_title,
-    favicon: settings.site_favicon
-  });
+  const siteUrl = settings.site_url || process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.ph';
 
   const title = settings.seo_title || "SignsHaus — Premium Signage Maker in Metro Manila";
   const description = settings.seo_description || "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!";
@@ -74,6 +71,13 @@ export async function generateMetadata(): Promise<Metadata> {
     title: {
       default: title,
       template: `%s | ${settings.company_name || 'SignsHaus'}`,
+    },
+    metadataBase: new URL(siteUrl),
+    alternates: {
+      canonical: '/',
+      languages: {
+        'en-PH': '/',
+      },
     },
     description: description,
     keywords: settings.seo_keywords ? settings.seo_keywords.split(',').map(k => k.trim()) : [
@@ -98,6 +102,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: title,
       description: description,
+      url: siteUrl,
       images: [
         {
           url: ogImage,

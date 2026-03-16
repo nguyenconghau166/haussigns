@@ -751,11 +751,19 @@ export default function SettingsPage() {
                         <div>
                           <p className="text-sm font-medium text-amber-800">Lưu ý</p>
                           <p className="text-xs text-amber-700 mt-1">
-                            Tính năng tự động chạy cần cài đặt Cron Job trên server.
-                            Hiện tại, bạn có thể chạy Pipeline thủ công từ trang AI Command Center.
+                            Bật cron trên server (hoặc Vercel Cron) để route /api/cron/pipeline được gọi định kỳ.
+                            Biến môi trường CRON_SECRET phải trùng với Authorization Bearer token của cron job.
                           </p>
                         </div>
                       </div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <p className="text-sm font-medium text-slate-800">Lần chạy tự động gần nhất</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {settings.pipeline_last_run_at
+                          ? new Date(settings.pipeline_last_run_at).toLocaleString('vi-VN')
+                          : 'Chưa có dữ liệu'}
+                      </p>
                     </div>
                   </>
                 )}
@@ -862,7 +870,7 @@ export default function SettingsPage() {
                   onChange={(v) => handleChange('ai_provider', v)}
                   options={[
                     { value: 'openai', label: 'OpenAI (GPT-5.2, DALL-E 3)' },
-                    { value: 'gemini', label: 'Google Gemini (3 Pro, 3 Flash)' },
+                    { value: 'gemini', label: 'Google Gemini (2.0 Flash)' },
                   ]}
                   hint="OpenAI ổn định hơn, Gemini tốc độ nhanh và chi phí thấp hơn (hoặc miễn phí)"
                 />
@@ -914,7 +922,7 @@ export default function SettingsPage() {
                       <CheckCircle className="h-5 w-5 text-blue-500" />
                       <div>
                         <p className="text-sm font-medium text-blue-800">Google Gemini đã kết nối</p>
-                        <p className="text-xs text-blue-600">API Key đã được lưu. Hệ thống sẵn sàng sử dụng Gemini 3.</p>
+                        <p className="text-xs text-blue-600">API Key đã được lưu. Hệ thống sẵn sàng sử dụng Gemini 2.x.</p>
                       </div>
                     </div>
 
