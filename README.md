@@ -70,6 +70,28 @@ To enable:
 2. Enable schedule in Admin Settings (`Lịch chạy`).
 3. Set interval (e.g. `24` for daily posting).
 
+### Quick Setup (beginner-friendly)
+
+1. Deploy latest code to Vercel (contains `vercel.json` cron).
+2. In Vercel Project -> Settings -> Environment Variables, add:
+   - `CRON_SECRET`
+   - `NEXT_PUBLIC_SITE_URL`
+3. Run migration bundle:
+   - Open: `GET /api/admin/migrate-v22`
+4. In Admin -> Settings -> `Lịch chạy`:
+   - Turn on `Tự động chạy Pipeline`
+   - Set `Khoảng cách chạy = 24 giờ`
+5. Test cron manually:
+
+```bash
+curl -H "Authorization: Bearer <CRON_SECRET>" https://your-domain.com/api/cron/pipeline
+```
+
+Expected behavior:
+
+- Returns `triggered: true` when it is due.
+- Returns `skipped: true` when schedule is disabled/not due/another run is active.
+
 ## SEO / AIO Infrastructure
 
 The site now includes:
