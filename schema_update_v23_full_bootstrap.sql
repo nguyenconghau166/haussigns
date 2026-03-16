@@ -62,6 +62,30 @@ INSERT INTO ai_config (key, value, description) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_schedule_enabled', 'false', 'Bat/tat auto scheduler SEO audit')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_schedule_interval', '24', 'Khoang cach chay cron SEO audit (gio)')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_last_run_at', '', 'Thoi diem chay cron SEO audit gan nhat (ISO timestamp)')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_bulk_scan_limit', '25', 'So URL toi da se scan tu sitemap moi lan cron')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_stale_days', '7', 'So ngay de xac dinh trang SEO can re-scan')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
+  ('seo_rescan_limit', '20', 'So trang SEO toi da re-scan moi lan cron')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO ai_config (key, value, description) VALUES
   ('site_url', 'https://signs.haus', 'Canonical site URL used for metadata, sitemap, RSS')
 ON CONFLICT (key) DO NOTHING;
 

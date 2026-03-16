@@ -56,6 +56,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 This project includes an hourly Vercel cron (`vercel.json`) that hits:
 
 - `GET /api/cron/pipeline`
+- `GET /api/cron/seo-audit`
 
 The cron route checks:
 
@@ -63,6 +64,13 @@ The cron route checks:
 - `schedule_interval` (hours)
 - `pipeline_last_run_at` (to avoid running too often)
 - active run lock (skips when another run is still in progress)
+
+SEO audit cron checks:
+
+- `seo_schedule_enabled` (must be `true`)
+- `seo_schedule_interval` (hours)
+- `seo_last_run_at` (to avoid running too often)
+- `seo_bulk_scan_limit`, `seo_stale_days`, `seo_rescan_limit`
 
 To enable:
 

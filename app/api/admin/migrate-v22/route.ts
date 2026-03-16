@@ -13,6 +13,12 @@ export async function GET() {
       ('pipeline_last_run_at', '', 'Thoi diem chay cron pipeline gan nhat (ISO timestamp)'),
       ('schedule_interval', '24', 'Khoang cach chay cron pipeline (gio)'),
       ('schedule_enabled', 'false', 'Bat/tat auto scheduler pipeline'),
+      ('seo_schedule_enabled', 'false', 'Bat/tat auto scheduler SEO audit'),
+      ('seo_schedule_interval', '24', 'Khoang cach chay cron SEO audit (gio)'),
+      ('seo_last_run_at', '', 'Thoi diem chay cron SEO audit gan nhat (ISO timestamp)'),
+      ('seo_bulk_scan_limit', '25', 'So URL toi da se scan tu sitemap moi lan cron'),
+      ('seo_stale_days', '7', 'So ngay de xac dinh trang SEO can re-scan'),
+      ('seo_rescan_limit', '20', 'So trang SEO toi da re-scan moi lan cron'),
       ('site_url', 'https://signshaus.ph', 'Canonical site URL used for metadata, sitemap, RSS'),
       ('indexnow_key', '', 'IndexNow key for instant URL submission (optional)')
     ON CONFLICT (key) DO NOTHING;

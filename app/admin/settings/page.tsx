@@ -769,6 +769,91 @@ export default function SettingsPage() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-emerald-500" /> Lịch chạy SEO Audit
+                </CardTitle>
+                <CardDescription>Tự động quét sitemap và re-scan các trang SEO đã cũ</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <p className="font-semibold text-slate-900">Bật SEO Audit tự động</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Cron sẽ gọi /api/cron/seo-audit theo lịch</p>
+                  </div>
+                  <button
+                    onClick={() => handleChange('seo_schedule_enabled', settings.seo_schedule_enabled === 'true' ? 'false' : 'true')}
+                    className={cn(
+                      'relative inline-flex h-7 w-12 items-center rounded-full transition-colors',
+                      settings.seo_schedule_enabled === 'true' ? 'bg-emerald-500' : 'bg-slate-300'
+                    )}
+                  >
+                    <span className={cn(
+                      'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                      settings.seo_schedule_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'
+                    )} />
+                  </button>
+                </div>
+
+                {settings.seo_schedule_enabled === 'true' && (
+                  <>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <InputField
+                        label="Khoảng cách chạy SEO (giờ)"
+                        value={settings.seo_schedule_interval || '24'}
+                        onChange={(v) => handleChange('seo_schedule_interval', v)}
+                        type="number"
+                        placeholder="24"
+                      />
+                      <InputField
+                        label="Số URL sitemap scan mỗi lần"
+                        value={settings.seo_bulk_scan_limit || '25'}
+                        onChange={(v) => handleChange('seo_bulk_scan_limit', v)}
+                        type="number"
+                        placeholder="25"
+                      />
+                      <InputField
+                        label="Trang cũ hơn bao nhiêu ngày"
+                        value={settings.seo_stale_days || '7'}
+                        onChange={(v) => handleChange('seo_stale_days', v)}
+                        type="number"
+                        placeholder="7"
+                      />
+                      <InputField
+                        label="Số trang re-scan mỗi lần"
+                        value={settings.seo_rescan_limit || '20'}
+                        onChange={(v) => handleChange('seo_rescan_limit', v)}
+                        type="number"
+                        placeholder="20"
+                      />
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-emerald-800">Lưu ý cấu hình Cron</p>
+                          <p className="text-xs text-emerald-700 mt-1">
+                            Vercel đã lên lịch /api/cron/seo-audit. Cần đảm bảo CRON_SECRET hợp lệ để route chạy tự động.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <p className="text-sm font-medium text-slate-800">Lần chạy SEO Audit gần nhất</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {settings.seo_last_run_at
+                          ? new Date(settings.seo_last_run_at).toLocaleString('vi-VN')
+                          : 'Chưa có dữ liệu'}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
