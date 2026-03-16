@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { pingSearchEngines } from '@/lib/seo';
 import { postToFacebook } from '@/lib/facebook';
+
+function refreshSeoPaths(slug: string) {
+  revalidatePath('/blog');
+  revalidatePath(`/blog/${slug}`);
+  revalidatePath('/sitemap.xml');
+  revalidatePath('/rss.xml');
+}
 
 // GET: Fetch all posts
 export async function GET() {
@@ -48,8 +56,11 @@ export async function POST(request: Request) {
 
     // Ping search engines if published immediately
     if (status === 'published') {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.ph';
+      const postUrl = `${siteUrl}/blog/${post.slug}`;
+      refreshSeoPaths(post.slug);
       // Fire and forget - don't await strictly to slow down response
-      pingSearchEngines().catch(err => console.error('Ping error:', err));
+      pingSearchEngines([postUrl]).catch(err => console.error('Ping error:', err));
 
       // Auto-post to Facebook
       const fbResult = await postToFacebook(post);
@@ -91,8 +102,11 @@ export async function PATCH(request: Request) {
 
     // Ping search engines if status changed to published
     if (updates.status === 'published') {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.ph';
+      const postUrl = `${siteUrl}/blog/${post.slug}`;
+      refreshSeoPaths(post.slug);
       // Fire and forget
-      pingSearchEngines().catch(err => console.error('Ping error:', err));
+      pingSearchEngines([postUrl]).catch(err => console.error('Ping error:', err));
 
       // Auto-post to Facebook if not already posted
       if (!post.facebook_post_id) {
@@ -131,6 +145,10 @@ export async function DELETE(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    revalidatePath('/blog');
+    revalidatePath('/sitemap.xml');
+    revalidatePath('/rss.xml');
 
     return NextResponse.json({ success: true });
   } catch (error) {
