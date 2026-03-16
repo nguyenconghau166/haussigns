@@ -62,6 +62,38 @@ export interface WriterOutput {
   meta_description: string;
   excerpt: string;
   suggested_tags: string[];
+  quality_score?: number;
+  quality_notes?: string[];
+}
+
+interface ContentBrief {
+  primary_keyword: string;
+  secondary_keywords: string[];
+  user_intent: string;
+  audience_persona: string;
+  pain_points: string[];
+  entity_map: string[];
+  outline: Array<{
+    heading: string;
+    intent: string;
+    key_points: string[];
+  }>;
+  people_also_ask: string[];
+  conversion_offer: string;
+}
+
+interface ContentQualityReport {
+  seo_score: number;
+  aio_score: number;
+  strengths: string[];
+  issues: string[];
+  revision_actions: string[];
+}
+
+interface InternalLinkRuleRecord {
+  keyword: string;
+  target_url: string;
+  priority?: number;
 }
 
 export interface VisualizerOutput {
@@ -92,6 +124,139 @@ async function getAllConfig(): Promise<Record<string, string>> {
   const config: Record<string, string> = {};
   data?.forEach((row: { key: string; value: string }) => { config[row.key] = row.value; });
   return config;
+}
+
+function parseJsonFromModel<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+
+  const cleaned = raw
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const candidates: string[] = [cleaned];
+
+  const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (objectMatch) candidates.push(objectMatch[0]);
+
+  const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+  if (arrayMatch) candidates.push(arrayMatch[0]);
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {
+      continue;
+    }
+  }
+
+  return fallback;
+}
+
+function estimateWordCount(html: string): number {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean).length;
+}
+
+function normalizeArticleHtml(html: string): string {
+  return html
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function countKeywordHits(text: string, keyword: string): number {
+  if (!keyword) return 0;
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+  const matches = text.match(regex);
+  return matches ? matches.length : 0;
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildFaqSchemaFromHtml(content: string): string | null {
+  const faqSectionMatch = content.match(/<section[^>]*data-faq="true"[^>]*>([\s\S]*?)<\/section>/i);
+  if (!faqSectionMatch) return null;
+
+  const sectionHtml = faqSectionMatch[1];
+  const qRegex = /<h3[^>]*>(.*?)<\/h3>[\s\S]*?<p[^>]*>(.*?)<\/p>/gi;
+  const items: Array<{ question: string; answer: string }> = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = qRegex.exec(sectionHtml)) !== null) {
+    const question = match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const answer = match[2].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    if (question && answer) {
+      items.push({ question, answer });
+    }
+  }
+
+  if (!items.length) return null;
+
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.slice(0, 5).map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  });
+}
+
+function injectInternalLinksIntoHtml(
+  html: string,
+  rules: InternalLinkRuleRecord[],
+  maxLinks = 3
+): { content: string; inserted: number } {
+  if (!html || !rules.length) return { content: html, inserted: 0 };
+
+  const placeholders: string[] = [];
+  const protectedHtml = html.replace(/(<a\b[^>]*>.*?<\/a>)|(<script\b[^>]*>[\s\S]*?<\/script>)|(<style\b[^>]*>[\s\S]*?<\/style>)|(<[^>]+>)/gi, (match) => {
+    placeholders.push(match);
+    return `###PL${placeholders.length - 1}###`;
+  });
+
+  let current = protectedHtml;
+  let inserted = 0;
+  const sorted = [...rules]
+    .filter((rule) => rule.keyword?.trim() && rule.target_url?.trim())
+    .sort((a, b) => (b.keyword.length || 0) - (a.keyword.length || 0));
+
+  for (const rule of sorted) {
+    if (inserted >= maxLinks) break;
+
+    const escaped = rule.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b(${escaped})\\b`, 'i');
+    if (!regex.test(current)) continue;
+
+    let replaced = false;
+    current = current.replace(regex, (match) => {
+      if (replaced || inserted >= maxLinks) return match;
+      replaced = true;
+      inserted += 1;
+      return `<a href="${rule.target_url}" class="internal-link" title="${escapeHtmlAttribute(match)}">${match}</a>`;
+    });
+  }
+
+  const restored = current.replace(/###PL(\d+)###/g, (_, index) => placeholders[parseInt(index, 10)]);
+  return { content: restored, inserted };
 }
 
 // =============================================
@@ -214,8 +379,6 @@ export async function runAgentEvaluator(batchId: string, topics: ResearchTopic[]
     .limit(50);
 
   const existingTitles = existingPosts?.map(p => p.title.toLowerCase()) || [];
-  const existingSlugs = existingPosts?.map(p => p.slug) || [];
-
   const systemPrompt = `Bạn là Chuyên gia Đánh giá Nội dung SEO cho ${companyName}.
 
 NHIỆM VỤ:
@@ -298,17 +461,21 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic): Pr
   const tone = config.writer_tone || 'Professional, Trustworthy';
   const language = config.content_language || 'en';
   const minWords = config.min_word_count || '800';
+  const minWordsNumber = parseInt(minWords, 10) || 800;
   const cta = config.contact_cta || `Call ${phone} for a free consultation`;
   const focusAreas = config.seo_focus_areas || 'Metro Manila';
   const model = config.writer_model || 'gpt-4o';
   const competitors = config.competitors || '';
+  const writerQualityThreshold = parseInt(config.writer_quality_threshold || '82', 10) || 82;
+  const supportingModel = config.researcher_model || 'gpt-4o-mini';
+  const promptVariantMode = config.writer_prompt_variant || 'expert';
 
-  // Get existing posts for context (avoid repetition)
   const { data: recentPosts } = await supabaseAdmin
     .from('posts')
-    .select('title, excerpt')
+    .select('title, slug, excerpt')
+    .eq('status', 'published')
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(12);
 
   const langMap: Record<string, string> = {
     'en': 'English - Professional business tone',
@@ -316,19 +483,105 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic): Pr
     'mix': 'Taglish - English-Tagalog mix, relatable local vibe'
   };
 
+  const internalLinkCandidates = (recentPosts || [])
+    .filter((p) => p.slug && p.title)
+    .slice(0, 6)
+    .map((p) => ({
+      title: p.title,
+      url: `/blog/${p.slug}`,
+      anchor_hint: p.title.toLowerCase().split(' ').slice(0, 4).join(' ')
+    }));
+
   const htmlFormatGuide = [
     'KHÔNG DÙNG Markdown (##, **, *, -, ```, >). TUYỆT ĐỐI KHÔNG.',
+    'Thêm mục lục ngắn gần đầu bài bằng <nav><ol><li>',
+    'Dùng id cho mỗi h2 để tăng khả năng điều hướng (ví dụ: <h2 id="material-options">...)',
     'Dùng thẻ h2 và h3 cho tiêu đề phần',
     'Dùng thẻ p cho mỗi đoạn văn',
     'Dùng thẻ ul/li hoặc ol/li cho danh sách',
     'Dùng thẻ strong và em cho nhấn mạnh',
     'Dùng thẻ blockquote cho trích dẫn',
     'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá',
+    'Dùng đúng 1 khối FAQ với 3-5 câu hỏi bằng <section data-faq="true"> và mỗi câu hỏi là <h3>',
+    'Chèn tối thiểu 2 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a>',
+    'Có 1 khối checklist ngắn cuối bài bằng <ul>',
     'Dùng thẻ figure/figcaption nếu cần chú thích',
     'Viết mượt mà, tự nhiên, đọc như bài báo, KHÔNG liệt kê khô khan',
   ].map(line => `- ${line}`).join('\n');
 
-  const systemPrompt = `Bạn là Senior Content Writer cho ${companyName}.
+  const variantInstructionMap: Record<string, string> = {
+    control: [
+      'Tập trung mạch bài dễ đọc và giàu thông tin thực dụng.',
+      'Ưu tiên clarity, cấu trúc đơn giản, tránh over-creative copy.',
+      'Nội dung hướng tới chuyển đổi nhẹ nhàng, đáng tin cậy.',
+    ].join('\n'),
+    expert: [
+      'Tập trung bài chuyên sâu dạng tư vấn kỹ thuật + chiến lược triển khai.',
+      'Mỗi section nên có insight khác biệt thay vì thông tin phổ thông.',
+      'Làm rõ các trade-off thực tế (chi phí, độ bền, tốc độ thi công, bảo trì).',
+    ].join('\n')
+  };
+
+  const briefSystemPrompt = `Bạn là SEO Strategist + AIO Strategist cho ${companyName}.
+
+NHIỆM VỤ:
+Tạo một content brief thực chiến cho chủ đề "${topic.keyword}" để writer viết bài dễ rank và dễ được AI systems trích dẫn.
+
+YÊU CẦU BRIEF:
+1. Primary keyword + nhóm secondary keyword có search intent rõ ràng
+2. Tách user intent (informational/commercial/transactional)
+3. Liệt kê pain points chính của khách hàng trước khi mua dịch vụ
+4. Tạo entity map (vật liệu, quy trình, địa điểm, thuật ngữ kỹ thuật)
+5. Outline 6-8 phần theo thứ tự hợp lý funnel
+6. Gợi ý 4-6 People Also Ask câu hỏi gần với chủ đề
+7. Gợi ý offer/CTA phù hợp
+
+OUTPUT JSON ONLY:
+{
+  "primary_keyword": "...",
+  "secondary_keywords": ["..."],
+  "user_intent": "...",
+  "audience_persona": "...",
+  "pain_points": ["..."],
+  "entity_map": ["..."],
+  "outline": [
+    { "heading": "...", "intent": "...", "key_points": ["..."] }
+  ],
+  "people_also_ask": ["..."],
+  "conversion_offer": "..."
+}`;
+
+  const briefResult = await generateContentResolved(
+    briefSystemPrompt,
+    `Create a deep brief for keyword: "${topic.keyword}". News angle: "${topic.news_angle}". Expanded keywords: ${topic.expanded_keywords?.join(', ')}.`,
+    supportingModel
+  );
+
+  const briefFallback: ContentBrief = {
+    primary_keyword: topic.keyword,
+    secondary_keywords: topic.expanded_keywords || [],
+    user_intent: 'transactional + informational',
+    audience_persona: 'Business owners and marketing managers in Metro Manila',
+    pain_points: ['Low storefront visibility', 'Unclear pricing', 'Durability concerns in outdoor conditions'],
+    entity_map: ['acrylic signage', 'stainless steel signage', 'LED modules', 'installation permits', 'Metro Manila retail zones'],
+    outline: [
+      {
+        heading: `What ${topic.keyword} means for local businesses`,
+        intent: 'clarify topic and context',
+        key_points: ['Business relevance', 'Common buyer problems', 'Expected outcomes']
+      }
+    ],
+    people_also_ask: [
+      `How much does ${topic.keyword} cost in Metro Manila?`,
+      `How long does ${topic.keyword} installation take?`,
+      `What materials are best for ${topic.keyword}?`
+    ],
+    conversion_offer: cta
+  };
+
+  const brief = parseJsonFromModel<ContentBrief>(briefResult, briefFallback);
+
+  const buildSystemPrompt = (variant: 'control' | 'expert') => `Bạn là Senior Content Writer cho ${companyName}.
 
 VỀ DOANH NGHIỆP:
 - Tên: ${companyName}
@@ -342,12 +595,23 @@ ${competitors ? `- Đối thủ: ${competitors}` : ''}
 NHIỆM VỤ:
 Viết bài SEO chuyên nghiệp về "${topic.keyword}" với góc nhìn: "${topic.news_angle}"
 
+PROMPT VARIANT: ${variant.toUpperCase()}
+${variantInstructionMap[variant]}
+
+CONTENT BRIEF (PHẢI TUÂN THỦ):
+${JSON.stringify(brief, null, 2)}
+
+INTERNAL LINKS CÓ THỂ DÙNG:
+${internalLinkCandidates.length ? JSON.stringify(internalLinkCandidates, null, 2) : 'Không có dữ liệu'}
+
 YÊU CẦU BÀI VIẾT:
-1. Tối thiểu ${minWords} từ
+1. Tối thiểu ${minWordsNumber} từ
 2. Ngôn ngữ: ${langMap[language] || langMap['en']}
 3. Giọng văn: ${tone}
 4. CẤU TRÚC:
    - Phần mở đầu hook (2-3 câu thu hút)
+   - Khối "Quick answer" ngắn (2-4 câu) ở đầu bài
+   - Mục lục mini với anchor link
    - Nội dung chính chia thành nhiều phần rõ ràng
    - Chi tiết kỹ thuật (vật liệu, quy trình, độ bền)
    - So sánh ưu nhược điểm nếu phù hợp
@@ -365,11 +629,19 @@ YÊU CẦU BÀI VIẾT:
    - Trong bài: 1-2 CTA nhẹ nhàng tự nhiên
 
 7. SEO:
-   - Từ khóa chính "${topic.keyword}" xuất hiện 3-5 lần
+   - Từ khóa chính "${brief.primary_keyword || topic.keyword}" xuất hiện 4-6 lần tự nhiên
    - Từ khóa phụ: ${topic.expanded_keywords?.join(', ')}
+   - Dùng entities từ brief.entity_map xuyên suốt bài
    - Sử dụng tên địa phương tự nhiên
+   - Chỉ có 1 thẻ h1 trong toàn bài
 
-8. ẢNH MINH HỌA TỰ ĐỘNG:
+8. AIO (Artificial Intelligence Optimization):
+   - Viết câu mở mỗi section dạng "định nghĩa + ngữ cảnh" rõ chủ thể
+   - Tạo các đoạn trả lời trực tiếp, ngắn gọn cho câu hỏi truy vấn
+   - Có ít nhất 1 bảng so sánh và 1 checklist ra quyết định
+   - FAQ phải trả lời rõ ràng, câu đầu đi thẳng vào ý chính
+
+9. ẢNH MINH HỌA TỰ ĐỘNG:
    - Chèn đúng 3 placeholder ảnh vào các vị trí chiến lược trong bài viết
    - Cú pháp: ${'<!-- IMAGE: chi tiết bằng tiếng Anh mô tả cảnh cụ thể cho AI tạo ảnh | Chú thích ngắn gọn hiển thị cho người đọc -->'}
    - Ví dụ: ${'<!-- IMAGE: close-up photo of illuminated 3D acrylic channel letters mounted on modern glass storefront in Makati CBD at night | Bảng hiệu chữ nổi Acrylic có đèn LED tại cửa hàng ở Makati -->'}
@@ -393,20 +665,142 @@ OUTPUT FORMAT (JSON only, no markdown wrapping):
   "suggested_tags": ["tag1", "tag2", "tag3"]
 }`;
 
-  try {
-    const result = await generateContentResolved(
+  const evaluateArticleQuality = async (article: WriterOutput): Promise<ContentQualityReport> => {
+    const articleText = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const qaSystemPrompt = `You are an SEO + AIO Quality Auditor.
+Evaluate article quality and return JSON only:
+{
+  "seo_score": 0,
+  "aio_score": 0,
+  "strengths": ["..."],
+  "issues": ["..."],
+  "revision_actions": ["..."]
+}
+
+Scoring focus:
+- SEO structure and keyword coverage
+- AIO answerability and entity clarity
+- Readability and conversion value
+- Technical formatting in HTML`;
+
+    const qaResultRaw = await generateContentResolved(
+      qaSystemPrompt,
+      `Primary keyword: ${brief.primary_keyword || topic.keyword}
+Secondary keywords: ${(brief.secondary_keywords || topic.expanded_keywords || []).join(', ')}
+Article title: ${article.title}
+Article HTML:
+${article.content}`,
+      supportingModel
+    );
+
+    const qaFallback: ContentQualityReport = {
+      seo_score: 75,
+      aio_score: 72,
+      strengths: ['Structured HTML article', 'Includes CTA'],
+      issues: ['Unable to run full QA analysis'],
+      revision_actions: []
+    };
+
+    let qaReport = parseJsonFromModel<ContentQualityReport>(qaResultRaw, qaFallback);
+    const primaryHits = countKeywordHits(articleText.toLowerCase(), (brief.primary_keyword || topic.keyword).toLowerCase());
+    if (primaryHits < 3) {
+      qaReport = {
+        ...qaReport,
+        seo_score: Math.max(0, qaReport.seo_score - 8),
+        issues: [...(qaReport.issues || []), 'Primary keyword usage is too low'],
+        revision_actions: [...(qaReport.revision_actions || []), 'Increase natural mentions of primary keyword to 4-6 occurrences']
+      };
+    }
+
+    return qaReport;
+  };
+
+  const generateCandidate = async (variant: 'control' | 'expert') => {
+    const systemPrompt = buildSystemPrompt(variant);
+    const draftResult = await generateContentResolved(
       systemPrompt,
-      `Viết bài cho từ khóa: "${topic.keyword}" - Lý do được chọn: ${topic.reason}`,
+      `Viết bài chuyên sâu cho từ khóa: "${topic.keyword}" - Lý do được chọn: ${topic.reason}`,
       model
     );
 
-    const cleaned = result?.replace(/```json/g, '').replace(/```/g, '').trim() || '{}';
-    const article: WriterOutput = JSON.parse(cleaned);
+    const fallbackArticle: WriterOutput = {
+      title: `${topic.keyword} Guide`,
+      content: `<h2 id="overview">Overview</h2><p>${topic.reason}</p><p>${cta}</p>`,
+      meta_title: `${topic.keyword} | ${companyName}`,
+      meta_description: `${topic.keyword} guide for businesses in ${focusAreas}.`,
+      excerpt: `${topic.keyword} practical guide for business owners.`,
+      suggested_tags: [topic.keyword]
+    };
+
+    let article = parseJsonFromModel<WriterOutput>(draftResult, fallbackArticle);
+    article.content = normalizeArticleHtml(article.content || '');
+
+    if (estimateWordCount(article.content) < minWordsNumber) {
+      const expansionPrompt = `Expand this HTML article so total is at least ${minWordsNumber} words while keeping structure and no markdown.
+Return JSON only in the same WriterOutput format.
+
+Current JSON:
+${JSON.stringify(article)}`;
+
+      const expandedResult = await generateContentResolved(systemPrompt, expansionPrompt, model);
+      const expandedArticle = parseJsonFromModel<WriterOutput>(expandedResult, article);
+      expandedArticle.content = normalizeArticleHtml(expandedArticle.content || article.content);
+      article = expandedArticle;
+    }
+
+    let qaReport = await evaluateArticleQuality(article);
+    if ((qaReport.seo_score + qaReport.aio_score) / 2 < writerQualityThreshold && qaReport.revision_actions.length > 0) {
+      const revisionPrompt = `Revise the article HTML to improve SEO and AIO quality.
+Keep claims realistic, keep the same topic, and keep JSON-only output (WriterOutput format).
+
+Required actions:
+${qaReport.revision_actions.map((x) => `- ${x}`).join('\n')}
+
+Current article JSON:
+${JSON.stringify(article)}`;
+
+      const revisedResult = await generateContentResolved(systemPrompt, revisionPrompt, model);
+      const revisedArticle = parseJsonFromModel<WriterOutput>(revisedResult, article);
+      revisedArticle.content = normalizeArticleHtml(revisedArticle.content || article.content);
+      article = revisedArticle;
+      qaReport = await evaluateArticleQuality(article);
+    }
+
+    const finalScore = Math.round((qaReport.seo_score + qaReport.aio_score) / 2);
+    article.quality_score = finalScore;
+    article.quality_notes = [`Prompt variant: ${variant}`, ...(qaReport.strengths || []), ...(qaReport.issues || []).slice(0, 3)];
+
+    return { article, qaReport, finalScore, variant };
+  };
+
+  try {
+    const variants: Array<'control' | 'expert'> =
+      promptVariantMode === 'ab_test'
+        ? ['control', 'expert']
+        : [promptVariantMode === 'control' ? 'control' : 'expert'];
+
+    const candidates = [];
+    for (const variant of variants) {
+      candidates.push(await generateCandidate(variant));
+    }
+
+    const best = candidates.sort((a, b) => b.finalScore - a.finalScore)[0];
+    const article = best.article;
 
     await logAgent(batchId, 'Writer', `Hoàn thành: "${article.title}"`, 'success', {
       title: article.title,
       word_count: article.content?.split(/\s+/).length || 0,
-      tags: article.suggested_tags
+      tags: article.suggested_tags,
+      quality_score: article.quality_score,
+      quality_notes: article.quality_notes,
+      prompt_variant_used: best.variant,
+      ab_test_mode: promptVariantMode === 'ab_test',
+      tested_variants: candidates.map((candidate) => ({
+        variant: candidate.variant,
+        final_score: candidate.finalScore,
+        seo_score: candidate.qaReport.seo_score,
+        aio_score: candidate.qaReport.aio_score
+      }))
     });
 
     return { success: true, data: article, message: `Viết xong: "${article.title}"` };
@@ -429,7 +823,9 @@ export async function runAgentVisualInspector(
 
   const config = await getAllConfig();
   const imageStyle = config.image_style || 'professional photography, modern urban setting';
-  const companyName = config.company_name || 'SignsHaus';
+  const enableFaqSchema = (config.enable_faq_schema || 'true') === 'true';
+  const autoInternalLinking = (config.auto_internal_linking || 'true') === 'true';
+  const maxInternalLinks = parseInt(config.internal_links_per_article || '3', 10) || 3;
 
   try {
     // 1. Generate featured image
@@ -472,11 +868,11 @@ export async function runAgentVisualInspector(
 
             // Replace placeholder with <figure> HTML tag — caption for display, NOT the raw prompt
             const figcaptionHtml = placeholder.caption
-              ? `<figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${placeholder.caption}</figcaption>`
+              ? `<figcaption class="article-figcaption">${placeholder.caption}</figcaption>`
               : '';
             finalContent = finalContent.replace(
               placeholder.fullMatch,
-              `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />${figcaptionHtml}</figure>`
+              `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" class="article-image" />${figcaptionHtml}</figure>`
             );
           } else {
             // Remove placeholder if image generation failed
@@ -516,7 +912,7 @@ export async function runAgentVisualInspector(
 
           if (imgUrl) {
             generatedImages.push({ location: item.insert_after_text, url: imgUrl, alt: item.alt_text });
-            const figureHtml = `<figure style="margin: 2em 0; text-align: center;"><img src="${imgUrl}" alt="${item.alt_text}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" /><figcaption style="margin-top: 0.75em; font-size: 0.9em; color: #64748b; font-style: italic;">${item.alt_text}</figcaption></figure>`;
+            const figureHtml = `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(item.alt_text)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${item.alt_text}</figcaption></figure>`;
 
             // Try to insert after the matching text
             const escapedText = item.insert_after_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -535,11 +931,36 @@ export async function runAgentVisualInspector(
       }
     }
 
-    // 3. Clean up: ensure all images have proper styling
-    finalContent = finalContent.replace(/<img(?![^>]*style=)/g, '<img style="max-width: 100%; height: auto; border-radius: 8px;"');
+    // 3. Clean up: ensure all images are responsive and FAQ schema exists if enabled
+    finalContent = finalContent
+      .replace(/<img(?![^>]*class=)(?![^>]*article-image)/g, '<img class="article-image"')
+      .replace(/<img(?![^>]*loading=)/g, '<img loading="lazy" decoding="async"');
+
+    const faqSchema = enableFaqSchema ? buildFaqSchemaFromHtml(finalContent) : null;
+    if (faqSchema && !/application\/ld\+json/i.test(finalContent)) {
+      finalContent += `<script type="application/ld+json">${faqSchema}</script>`;
+    }
 
     // 5. Save to DB as draft
     const slug = article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    let internalLinksInserted = 0;
+    if (autoInternalLinking) {
+      const { data: linkRules } = await supabaseAdmin
+        .from('internal_linking_rules')
+        .select('keyword, target_url, priority')
+        .order('priority', { ascending: false })
+        .limit(100);
+
+      const eligibleRules = (linkRules || []).filter((rule) => {
+        if (!rule.target_url) return false;
+        return !rule.target_url.endsWith(`/${slug}`);
+      }) as InternalLinkRuleRecord[];
+
+      const linked = injectInternalLinksIntoHtml(finalContent, eligibleRules, maxInternalLinks);
+      finalContent = linked.content;
+      internalLinksInserted = linked.inserted;
+    }
 
     const { data: post, error } = await supabaseAdmin.from('posts').upsert({
       title: article.title,
@@ -550,7 +971,7 @@ export async function runAgentVisualInspector(
       meta_description: article.meta_description,
       featured_image: featuredImageUrl,
       status: 'draft',
-      seo_score: 85,
+      seo_score: article.quality_score || 86,
       tags: article.suggested_tags,
       lang: (await getConfig('content_language', 'en')) as 'en' | 'tl',
       created_at: new Date().toISOString()
@@ -561,7 +982,9 @@ export async function runAgentVisualInspector(
     await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
       post_id: post?.id,
       featured_image: featuredImageUrl,
-      inline_images_count: generatedImages.length
+      inline_images_count: generatedImages.length,
+      internal_links_inserted: internalLinksInserted,
+      faq_schema_attached: Boolean(faqSchema)
     });
 
     return {

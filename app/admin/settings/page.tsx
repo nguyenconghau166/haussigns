@@ -479,6 +479,25 @@ export default function SettingsPage() {
                   placeholder="800"
                   hint="Mỗi bài viết phải có ít nhất bao nhiêu từ"
                 />
+                <SelectField
+                  label="Chế độ Prompt Writer"
+                  value={settings.writer_prompt_variant || 'expert'}
+                  onChange={(v) => handleChange('writer_prompt_variant', v)}
+                  options={[
+                    { value: 'expert', label: 'Expert (Chuyên sâu)' },
+                    { value: 'control', label: 'Control (Cân bằng)' },
+                    { value: 'ab_test', label: 'A/B Test tự động' },
+                  ]}
+                  hint="A/B Test sẽ tạo 2 biến thể bài viết và tự chọn bài có điểm SEO+AIO cao hơn"
+                />
+                <InputField
+                  label="Ngưỡng chất lượng Writer (0-100)"
+                  value={settings.writer_quality_threshold || '82'}
+                  onChange={(v) => handleChange('writer_quality_threshold', v)}
+                  type="number"
+                  placeholder="82"
+                  hint="Nếu điểm trung bình SEO+AIO dưới ngưỡng, hệ thống sẽ tự revision thêm 1 vòng"
+                />
                 <InputField
                   label="Đối tượng mục tiêu"
                   value={settings.target_audience}
@@ -513,6 +532,34 @@ export default function SettingsPage() {
                   onChange={(v) => handleChange('image_style', v)}
                   placeholder="professional photography, modern urban setting..."
                   hint="Mô tả phong cách ảnh AI sẽ tạo"
+                />
+                <SelectField
+                  label="Auto FAQ Schema"
+                  value={settings.enable_faq_schema || 'true'}
+                  onChange={(v) => handleChange('enable_faq_schema', v)}
+                  options={[
+                    { value: 'true', label: 'Bật' },
+                    { value: 'false', label: 'Tắt' },
+                  ]}
+                  hint="Khi bài có khối FAQ, hệ thống sẽ tự chèn JSON-LD FAQPage"
+                />
+                <SelectField
+                  label="Auto Internal Linking"
+                  value={settings.auto_internal_linking || 'true'}
+                  onChange={(v) => handleChange('auto_internal_linking', v)}
+                  options={[
+                    { value: 'true', label: 'Bật' },
+                    { value: 'false', label: 'Tắt' },
+                  ]}
+                  hint="Tự chèn internal link dựa trên bảng internal_linking_rules khi lưu draft"
+                />
+                <InputField
+                  label="Số internal links tối đa / bài"
+                  value={settings.internal_links_per_article || '3'}
+                  onChange={(v) => handleChange('internal_links_per_article', v)}
+                  type="number"
+                  placeholder="3"
+                  hint="Nên giữ 2-5 links để tự nhiên và không spam"
                 />
               </CardContent>
             </Card>

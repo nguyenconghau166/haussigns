@@ -301,6 +301,136 @@ body {
   color: var(--color-text-light);
 }
 
+/* ===== Blog Article ===== */
+.prose-blog {
+  color: #1e293b;
+  font-size: 1.05rem;
+  line-height: 1.85;
+}
+
+.prose-blog h1,
+.prose-blog h2,
+.prose-blog h3,
+.prose-blog h4 {
+  color: #0f172a;
+  line-height: 1.25;
+  margin-top: 1.8em;
+  margin-bottom: 0.7em;
+  scroll-margin-top: 6rem;
+}
+
+.prose-blog h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.35em;
+}
+
+.prose-blog h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.prose-blog p {
+  margin: 1em 0;
+}
+
+.prose-blog nav {
+  margin: 1.25rem 0 1.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+}
+
+.prose-blog nav ol,
+.prose-blog nav ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.prose-blog ul,
+.prose-blog ol {
+  margin: 1rem 0;
+  padding-left: 1.35rem;
+}
+
+.prose-blog li {
+  margin: 0.35rem 0;
+}
+
+.prose-blog a {
+  color: #c2410c;
+  text-decoration: underline;
+  text-decoration-color: rgba(194, 65, 12, 0.35);
+  text-underline-offset: 3px;
+}
+
+.prose-blog a:hover {
+  color: #9a3412;
+  text-decoration-color: rgba(154, 52, 18, 0.55);
+}
+
+.prose-blog blockquote {
+  margin: 1.3rem 0;
+  border-left: 4px solid #f59e0b;
+  background: #fffbeb;
+  padding: 0.9rem 1rem;
+  color: #78350f;
+}
+
+.prose-blog table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.prose-blog th,
+.prose-blog td {
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.prose-blog th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.article-figure {
+  margin: 2rem 0;
+}
+
+.article-image {
+  width: 100%;
+  height: auto;
+  border-radius: 0.9rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.45);
+}
+
+.article-figcaption {
+  margin-top: 0.7rem;
+  color: #64748b;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .prose-blog {
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .prose-blog h2 {
+    font-size: 1.4rem;
+  }
+}
+
 /* ===== Section Pattern ===== */
 .pattern-dots {
   background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
