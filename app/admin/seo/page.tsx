@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getSeoPages, analyzeUrlAction } from '@/app/actions/seo';
+import { getSeoPages, analyzeUrlAction, bulkAnalyzeFromSitemapAction, rescanOutdatedPagesAction } from '@/app/actions/seo';
 import { Search, Plus, ExternalLink, RefreshCw, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function SeoDashboard() {
@@ -10,6 +10,12 @@ export default function SeoDashboard() {
     const [loading, setLoading] = useState(true);
     const [analyzing, setAnalyzing] = useState(false);
     const [newUrl, setNewUrl] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [migrating, setMigrating] = useState(false);
+    const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
+    const [bulkLimit, setBulkLimit] = useState(25);
+    const [rescanLoading, setRescanLoading] = useState(false);
+    const [outdatedDays, setOutdatedDays] = useState(7);
 
     useEffect(() => {
         loadPages();
@@ -18,12 +24,36 @@ export default function SeoDashboard() {
     async function loadPages() {
         try {
             setLoading(true);
+            setErrorMessage('');
             const data = await getSeoPages();
             setPages(data || []);
         } catch (error) {
             console.error("Failed to load pages", error);
+            if (error instanceof Error) {
+                setErrorMessage(error.message);
+            } else {
+                setErrorMessage('Failed to load SEO data.');
+            }
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function runMigration() {
+        setMigrating(true);
+        try {
+            const res = await fetch('/api/admin/migrate-v15');
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.error || 'Migration failed');
+                return;
+            }
+            await loadPages();
+        } catch (error) {
+            console.error(error);
+            alert('Migration failed');
+        } finally {
+            setMigrating(false);
         }
     }
 
@@ -46,6 +76,52 @@ export default function SeoDashboard() {
         }
     }
 
+    async function handleBulkScan() {
+        setBulkAnalyzing(true);
+        try {
+            const res = await bulkAnalyzeFromSitemapAction(bulkLimit);
+            if (!res.success) {
+                alert(res.error || 'Bulk scan failed');
+                return;
+            }
+
+            await loadPages();
+            const failedCount = res.failed ?? 0;
+            const failurePart = failedCount > 0 ? `, ${failedCount} failed` : '';
+            alert(
+                `Sitemap scan complete. Scanned ${res.scanned} URLs, skipped ${res.existing} existing pages, analyzed ${res.analyzed}${failurePart}.`
+            );
+        } catch (error) {
+            console.error(error);
+            alert('Bulk scan failed');
+        } finally {
+            setBulkAnalyzing(false);
+        }
+    }
+
+    async function handleRescanOutdated() {
+        setRescanLoading(true);
+        try {
+            const res = await rescanOutdatedPagesAction(outdatedDays, bulkLimit);
+            if (!res.success) {
+                alert(res.error || 'Re-scan failed');
+                return;
+            }
+
+            await loadPages();
+            const failedCount = res.failed ?? 0;
+            const failurePart = failedCount > 0 ? `, ${failedCount} failed` : '';
+            alert(
+                `Outdated re-scan complete. Tracked ${res.tracked}, stale ${res.stale}, re-analyzed ${res.reanalyzed}${failurePart}.`
+            );
+        } catch (error) {
+            console.error(error);
+            alert('Re-scan failed');
+        } finally {
+            setRescanLoading(false);
+        }
+    }
+
     // Calculate generic stats
     const avgSeo = pages.length ? Math.round(pages.reduce((acc, p) => acc + (p.seo_score || 0), 0) / pages.length) : 0;
     const avgAio = pages.length ? Math.round(pages.reduce((acc, p) => acc + (p.aio_score || 0), 0) / pages.length) : 0;
@@ -53,9 +129,45 @@ export default function SeoDashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-4 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900">SEO & AIO Dashboard</h1>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-end">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            className="px-3 py-2 border rounded-md w-24 text-sm"
+                            value={bulkLimit}
+                            onChange={(e) => setBulkLimit(Number(e.target.value || 25))}
+                        />
+                        <button
+                            onClick={handleBulkScan}
+                            disabled={bulkAnalyzing || loading || bulkLimit < 1}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {bulkAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                            Scan Sitemap
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            className="px-3 py-2 border rounded-md w-24 text-sm"
+                            value={outdatedDays}
+                            onChange={(e) => setOutdatedDays(Number(e.target.value || 7))}
+                        />
+                        <button
+                            onClick={handleRescanOutdated}
+                            disabled={rescanLoading || loading || outdatedDays < 1}
+                            className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {rescanLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            Re-scan {outdatedDays}d+
+                        </button>
+                    </div>
                     <input
                         type="text"
                         placeholder="/about or https://..."
@@ -119,6 +231,25 @@ export default function SeoDashboard() {
                     <p className="text-xs text-gray-400 mt-2">Pages tracked</p>
                 </div>
             </div>
+
+            {errorMessage && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-900 p-4 rounded-xl flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 mt-0.5" />
+                        <div>
+                            <p className="font-semibold">SEO data unavailable</p>
+                            <p className="text-sm">{errorMessage}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={runMigration}
+                        disabled={migrating}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 whitespace-nowrap"
+                    >
+                        {migrating ? 'Initializing...' : 'Run v15 Migration'}
+                    </button>
+                </div>
+            )}
 
             {/* Pages Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

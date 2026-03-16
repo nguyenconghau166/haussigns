@@ -3,6 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+const ALLOWED_CATEGORIES = new Set(['Technical', 'Content', 'AIO', 'Schema']);
+const ALLOWED_PRIORITIES = new Set(['High', 'Medium', 'Low']);
+
 export interface SeoResult {
     title: string;
     metaDescription: string;
@@ -20,24 +23,84 @@ export interface Suggestion {
     priority: 'High' | 'Medium' | 'Low';
 }
 
+function normalizeSuggestion(raw: Partial<Suggestion>): Suggestion {
+    const category = ALLOWED_CATEGORIES.has(raw.category || '')
+        ? (raw.category as Suggestion['category'])
+        : 'AIO';
+    const priority = ALLOWED_PRIORITIES.has(raw.priority || '')
+        ? (raw.priority as Suggestion['priority'])
+        : 'Medium';
+
+    return {
+        category,
+        issue: (raw.issue || '').trim() || 'Optimization opportunity',
+        suggestion: (raw.suggestion || '').trim() || 'Review this page and improve structure/content clarity.',
+        priority,
+    };
+}
+
+function extractTextContent(html: string): string {
+    return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function parseJsonFromModel(text: string): Record<string, unknown> | null {
+    const normalized = text
+        .replace(/```json/gi, '```')
+        .trim();
+    const fenced = normalized.match(/```([\s\S]*?)```/);
+    const rawPayload = fenced ? fenced[1] : normalized;
+    const objectMatch = rawPayload.match(/\{[\s\S]*\}/);
+    if (!objectMatch) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(objectMatch[0]);
+    } catch {
+        return null;
+    }
+}
+
 export async function analyzePage(url: string): Promise<SeoResult> {
     try {
-        const response = await fetch(url);
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            throw new Error('Unsupported URL protocol');
+        }
+
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(20000),
+            headers: {
+                'User-Agent': 'SignsHausBot/1.0 (+https://signs.haus)',
+                Accept: 'text/html,application/xhtml+xml',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Target returned HTTP ${response.status}`);
+        }
+
         const html = await response.text();
 
         // 1. Basic Extraction (Regex for now as we don't have cheerio)
         const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
-        const title = titleMatch ? titleMatch[1] : "";
+        const title = titleMatch ? titleMatch[1].trim() : "";
 
-        const metaDescMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i);
-        const metaDescription = metaDescMatch ? metaDescMatch[1] : "";
+        const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i)
+            || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i);
+        const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : "";
 
         const h1Match = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
-        const h1 = h1Match ? h1Match[1] : "";
+        const h1 = h1Match ? h1Match[1].trim() : "";
 
         // Simple word count (strip tags)
-        const textContent = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        const wordCount = textContent.split(" ").length;
+        const textContent = extractTextContent(html);
+        const wordCount = textContent ? textContent.split(" ").length : 0;
 
         // 2. Rule-based SEO Score
         let seoScore = 100;
@@ -90,14 +153,16 @@ export async function analyzePage(url: string): Promise<SeoResult> {
 
             const result = await model.generateContent(prompt);
             const responseText = result.response.text();
-            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            const aiData = parseJsonFromModel(responseText);
 
-            if (jsonMatch) {
-                const aiData = JSON.parse(jsonMatch[0]);
-                aioScore = aiData.aioScore || 50;
-                if (aiData.suggestions && Array.isArray(aiData.suggestions)) {
-                    suggestions.push(...aiData.suggestions);
+            if (aiData) {
+                const maybeScore = Number(aiData.aioScore);
+                aioScore = Number.isFinite(maybeScore) ? maybeScore : 50;
+                if (Array.isArray(aiData.suggestions)) {
+                    suggestions.push(...aiData.suggestions.map((item) => normalizeSuggestion(item as Partial<Suggestion>)));
                 }
+            } else {
+                aioScore = 50;
             }
         } catch (error) {
             console.error("AI Analysis failed:", error);
@@ -105,14 +170,16 @@ export async function analyzePage(url: string): Promise<SeoResult> {
             suggestions.push({ category: 'AIO', issue: 'Analysis Failed', suggestion: 'Could not perform AI analysis at this time.', priority: 'Low' });
         }
 
+        const normalizedSuggestions = suggestions.map((s) => normalizeSuggestion(s));
+
         return {
             title,
             metaDescription,
             h1,
             wordCount,
             seoScore: Math.max(0, seoScore),
-            aioScore: Math.max(0, aioScore),
-            suggestions
+            aioScore: Math.max(0, Math.min(100, Math.round(aioScore))),
+            suggestions: normalizedSuggestions
         };
 
     } catch (error) {
