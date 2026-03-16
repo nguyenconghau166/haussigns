@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, MessageSquare, Phone } from 'lucide-react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
 import { cn } from '@/lib/utils';
+import { trackContactClick } from '@/lib/tracking';
 
 declare global {
     interface Window {
@@ -101,6 +102,7 @@ export default function FloatingChat() {
                             <motion.a
                                 variants={itemVariants}
                                 href={messenger}
+                                onClick={() => trackContactClick({ method: 'messenger', location: 'floating_chat', value: messenger })}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 pl-4 pr-3 py-2.5 bg-white rounded-full shadow-lg border border-slate-100 hover:bg-blue-50 transition-colors group"
@@ -116,6 +118,7 @@ export default function FloatingChat() {
                             <motion.a
                                 variants={itemVariants}
                                 href={viber}
+                                onClick={() => trackContactClick({ method: 'viber', location: 'floating_chat', value: viber })}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 pl-4 pr-3 py-2.5 bg-white rounded-full shadow-lg border border-slate-100 hover:bg-purple-50 transition-colors group"
@@ -131,6 +134,7 @@ export default function FloatingChat() {
                             <motion.a
                                 variants={itemVariants}
                                 href={`tel:${phone}`}
+                                onClick={() => trackContactClick({ method: 'phone', location: 'floating_chat', value: phone })}
                                 className="flex items-center gap-3 pl-4 pr-3 py-2.5 bg-white rounded-full shadow-lg border border-slate-100 hover:bg-amber-50 transition-colors group"
                             >
                                 <span className="text-sm font-medium text-slate-700 group-hover:text-amber-600">Call Now</span>

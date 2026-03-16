@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Phone, Mail, MapPin, Clock, Send, MessageCircle, Loader2 } from 'lucide-react';
 import FileUploader from '@/components/FileUploader';
 import { useSiteSettings } from '@/lib/useSiteSettings';
+import { trackContactClick, trackLeadSubmit } from '@/lib/tracking';
 
 interface ContactClientProps {
     page: any;
@@ -32,6 +33,7 @@ export default function ContactClient({ page }: ContactClientProps) {
             value: phone,
             href: `tel:${phone?.replace(/[^0-9+]/g, '')}`,
             description: 'Call us for immediate assistance',
+            trackingMethod: 'phone' as const,
         },
         {
             icon: Mail,
@@ -68,6 +70,7 @@ export default function ContactClient({ page }: ContactClientProps) {
             });
 
             if (res.ok) {
+                trackLeadSubmit('contact_form');
                 setSuccess(true);
                 setFormData({ name: '', phone: '', email: '', type: '', message: '', file_url: '' });
             } else {
@@ -83,6 +86,10 @@ export default function ContactClient({ page }: ContactClientProps) {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleContactClick = (method: 'phone' | 'viber' | 'messenger', location: string, value?: string) => {
+        trackContactClick({ method, location, value });
     };
 
     return (
@@ -140,6 +147,11 @@ export default function ContactClient({ page }: ContactClientProps) {
                                 <motion.a
                                     key={info.title}
                                     href={info.href}
+                                    onClick={() => {
+                                        if (info.trackingMethod) {
+                                            handleContactClick(info.trackingMethod, 'contact_info_card', info.value);
+                                        }
+                                    }}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.4, delay: index * 0.1 }}
@@ -282,6 +294,7 @@ export default function ContactClient({ page }: ContactClientProps) {
                                     <div className="space-y-3">
                                         <a
                                             href={`tel:${phone?.replace(/[^0-9+]/g, '')}`}
+                                            onClick={() => handleContactClick('phone', 'contact_quick_panel', phone)}
                                             className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
                                         >
                                             <Phone className="h-4 w-4 text-green-400" />
@@ -290,6 +303,7 @@ export default function ContactClient({ page }: ContactClientProps) {
                                         {viber && viber !== '#' && (
                                             <a
                                                 href={viber}
+                                                onClick={() => handleContactClick('viber', 'contact_quick_panel', viber)}
                                                 className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"
                                             >
                                                 <MessageCircle className="h-4 w-4 text-purple-400" />
@@ -299,6 +313,7 @@ export default function ContactClient({ page }: ContactClientProps) {
                                         {messenger && messenger !== '#' && (
                                             <a
                                                 href={messenger}
+                                                onClick={() => handleContactClick('messenger', 'contact_quick_panel', messenger)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-3 rounded-xl bg-white/10 p-3 text-sm font-medium text-white hover:bg-white/20 transition-colors border border-white/10"

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Facebook, Instagram, Mail, MapPin, Phone, MessageCircle, MessageSquare } from 'lucide-react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
+import { trackContactClick } from '@/lib/tracking';
 
 
 const SERVICES_LINKS = [
@@ -104,7 +105,11 @@ export default function Footer() {
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-amber-500 shrink-0" />
-                  <a href={`tel:${phone}`} className="hover:text-amber-500 transition-colors">
+                  <a
+                    href={`tel:${phone}`}
+                    onClick={() => trackContactClick({ method: 'phone', location: 'footer_contact', value: phone })}
+                    className="hover:text-amber-500 transition-colors"
+                  >
                     {phone}
                   </a>
                 </li>
@@ -178,22 +183,24 @@ export default function Footer() {
             </a>
           )}
           {messenger && (
-            <a
-              href={messenger}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-900 transition-all"
+              <a
+                href={messenger}
+                onClick={() => trackContactClick({ method: 'messenger', location: 'footer_social', value: messenger })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-900 transition-all"
               aria-label="Messenger"
             >
               <MessageCircle className="h-5 w-5" />
             </a>
           )}
           {viber && (
-            <a
-              href={viber}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-900 transition-all"
+              <a
+                href={viber}
+                onClick={() => trackContactClick({ method: 'viber', location: 'footer_social', value: viber })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-900 transition-all"
               aria-label="Viber"
             >
               <MessageSquare className="h-5 w-5" />

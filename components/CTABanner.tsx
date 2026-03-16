@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Phone } from 'lucide-react';
+import { trackContactClick } from '@/lib/tracking';
 
 export default function CTABanner() {
     return (
@@ -46,6 +47,7 @@ export default function CTABanner() {
                         </Link>
                         <a
                             href="tel:+639171234567"
+                            onClick={() => trackContactClick({ method: 'phone', location: 'cta_banner', value: '+639171234567' })}
                             className="btn-secondary text-base !px-8 !py-3.5 group"
                         >
                             <Phone className="mr-2 h-4 w-4" />

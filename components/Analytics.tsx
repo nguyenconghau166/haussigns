@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 
 declare global {
   interface Window {
-    gtag: (command: string, targetId: string, config?: Record<string, unknown>) => void;
+    gtag?: (...args: unknown[]) => void;
+    fbq?: (...args: unknown[]) => void;
   }
 }
 
@@ -28,6 +29,8 @@ export default function Analytics({
   const gaId = googleAnalyticsId || process.env.NEXT_PUBLIC_GA_ID;
   const fbId = facebookPixelId || process.env.NEXT_PUBLIC_FB_PIXEL_ID;
   const ttId = tiktokPixelId || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
+  const adsId = googleAdsId || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+  const gtagScriptId = gaId || adsId;
 
   useEffect(() => {
     // Track internal analytics
@@ -36,21 +39,33 @@ export default function Analytics({
       body: JSON.stringify({ pathname }),
     }).catch(() => { });
 
-    if (pathname && window.gtag && gaId) {
-      window.gtag('config', gaId, {
-        page_path: pathname,
-      });
+    if (pathname && window.gtag) {
+      if (gaId) {
+        window.gtag('config', gaId, {
+          page_path: pathname,
+        });
+      }
+
+      if (adsId) {
+        window.gtag('config', adsId, {
+          page_path: pathname,
+        });
+      }
     }
-  }, [pathname, searchParams, gaId]);
+
+    if (pathname && window.fbq && fbId) {
+      window.fbq('track', 'PageView');
+    }
+  }, [pathname, searchParams, gaId, adsId, fbId]);
 
   return (
     <>
       {/* Google Analytics 4 */}
-      {gaId && (
+      {gtagScriptId && (
         <>
           <Script
             strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            src={`https://www.googletagmanager.com/gtag/js?id=${gtagScriptId}`}
           />
           <Script
             id="google-analytics"
@@ -60,9 +75,8 @@ export default function Analytics({
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${gaId}', {
-                  page_path: window.location.pathname,
-                });
+                ${gaId ? `gtag('config', '${gaId}', { page_path: window.location.pathname });` : ''}
+                ${adsId ? `gtag('config', '${adsId}');` : ''}
               `,
             }}
           />
@@ -112,21 +126,6 @@ export default function Analytics({
                ttq.page();
              }(window, document, 'ttq');
            `,
-          }}
-        />
-      )}
-      {/* Google Ads */}
-      {googleAdsId && (
-        <Script
-          id="google-ads"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${googleAdsId}');
-            `,
           }}
         />
       )}
