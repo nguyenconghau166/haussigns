@@ -860,10 +860,29 @@ export async function runAgentVisualInspector(
   const autoInternalLinking = (config.auto_internal_linking || 'true') === 'true';
   const maxInternalLinks = parseInt(config.internal_links_per_article || '3', 10) || 3;
 
+  const generateImageWithRetries = async (prompts: string[]): Promise<string | null> => {
+    const uniquePrompts = Array.from(new Set(prompts.map((prompt) => prompt.trim()).filter(Boolean)));
+
+    for (const prompt of uniquePrompts) {
+      try {
+        const imageUrl = await generateProjectImage(prompt);
+        if (imageUrl) return imageUrl;
+      } catch (err) {
+        await logAgent(batchId, 'Visual Inspector', 'Loi tao anh, thu prompt du phong', 'failed', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
+
+    return null;
+  };
+
   try {
     // 1. Generate featured image
-    const imgPrompt = `${imageStyle}, ${topic.keyword} signage in a modern Manila commercial building, professional quality, no text overlays, clean composition, cinematic lighting`;
-    const featuredImageUrl = await generateProjectImage(imgPrompt);
+    let featuredImageUrl = await generateImageWithRetries([
+      `${imageStyle}, ${topic.keyword} signage in a modern Manila commercial building, professional quality, no text overlays, clean composition, cinematic lighting`,
+      `${imageStyle}, realistic commercial signage project photo for ${topic.keyword}, natural lighting, no text overlays, no watermarks`
+    ]);
 
     // 2. Find IMAGE placeholders and generate images for them
     let finalContent = article.content;
@@ -889,7 +908,10 @@ export async function runAgentVisualInspector(
         try {
           const imgPrompt = `${imageStyle}, ${placeholder.prompt}, professional signage photography, realistic, no text overlays, no watermarks, clean composition, cinematic lighting`;
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
-          const imgUrl = await generateProjectImage(imgPrompt);
+          const imgUrl = await generateImageWithRetries([
+            imgPrompt,
+            `${imageStyle}, realistic signage installation photo related to ${topic.keyword}, no text overlays, no watermarks`
+          ]);
 
           if (imgUrl) {
             const altText = placeholder.caption || placeholder.prompt;
@@ -907,6 +929,21 @@ export async function runAgentVisualInspector(
               placeholder.fullMatch,
               `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" class="article-image" />${figcaptionHtml}</figure>`
             );
+          } else if (featuredImageUrl) {
+            const altText = placeholder.caption || placeholder.prompt;
+            generatedImages.push({
+              location: placeholder.prompt,
+              url: featuredImageUrl,
+              alt: altText
+            });
+
+            const figcaptionHtml = placeholder.caption
+              ? `<figcaption class="article-figcaption">${placeholder.caption}</figcaption>`
+              : '';
+            finalContent = finalContent.replace(
+              placeholder.fullMatch,
+              `<figure class="article-figure"><img src="${featuredImageUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" class="article-image" />${figcaptionHtml}</figure>`
+            );
           } else {
             // Remove placeholder if image generation failed
             finalContent = finalContent.replace(placeholder.fullMatch, '');
@@ -916,7 +953,7 @@ export async function runAgentVisualInspector(
           finalContent = finalContent.replace(placeholder.fullMatch, '');
         }
       }
-    } else if (article.content && article.content.length > 1500) {
+    } else {
       // Fallback: If Writer didn't include placeholders, use AI analysis
       await logAgent(batchId, 'Visual Inspector', 'Không có placeholder, phân tích vị trí chèn ảnh...', 'running');
 
@@ -941,7 +978,10 @@ export async function runAgentVisualInspector(
         for (const item of suggestions) {
           if (!item.insert_after_text || !item.image_prompt) continue;
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
-          const imgUrl = await generateProjectImage(item.image_prompt);
+          const imgUrl = await generateImageWithRetries([
+            item.image_prompt,
+            `${imageStyle}, realistic signage photo for ${topic.keyword}, no text overlays, no watermarks`
+          ]);
 
           if (imgUrl) {
             generatedImages.push({ location: item.insert_after_text, url: imgUrl, alt: item.alt_text });
@@ -963,6 +1003,25 @@ export async function runAgentVisualInspector(
         await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
       }
     }
+
+    if (generatedImages.length === 0) {
+      const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword}`;
+      const fallbackInlineImage = await generateImageWithRetries([
+        `${imageStyle}, realistic signage project photo for ${topic.keyword}, clean composition, no text overlays, no watermarks`,
+        `${imageStyle}, modern signage installation in Metro Manila, realistic photo`
+      ]);
+
+      if (fallbackInlineImage) {
+        generatedImages.push({ location: 'fallback', url: fallbackInlineImage, alt: fallbackAlt });
+        finalContent += `<figure class="article-figure"><img src="${fallbackInlineImage}" alt="${escapeHtmlAttribute(fallbackAlt)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${fallbackAlt}</figcaption></figure>`;
+      }
+    }
+
+    if (!featuredImageUrl) {
+      featuredImageUrl = generatedImages[0]?.url || null;
+    }
+
+    const resolvedFeaturedImage = featuredImageUrl || '/logo-web.png';
 
     // 3. Clean up: ensure all images are responsive and FAQ schema exists if enabled
     finalContent = finalContent
@@ -1002,7 +1061,7 @@ export async function runAgentVisualInspector(
       excerpt: article.excerpt,
       meta_title: article.meta_title,
       meta_description: article.meta_description,
-      featured_image: featuredImageUrl,
+      featured_image: resolvedFeaturedImage,
       status: 'draft',
       seo_score: article.quality_score || 86,
       tags: article.suggested_tags,
@@ -1014,7 +1073,7 @@ export async function runAgentVisualInspector(
 
     await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
       post_id: post?.id,
-      featured_image: featuredImageUrl,
+      featured_image: resolvedFeaturedImage,
       inline_images_count: generatedImages.length,
       internal_links_inserted: internalLinksInserted,
       faq_schema_attached: Boolean(faqSchema)
@@ -1023,7 +1082,7 @@ export async function runAgentVisualInspector(
     return {
       success: true,
       data: {
-        featured_image_url: featuredImageUrl,
+        featured_image_url: resolvedFeaturedImage,
         image_suggestions: [],
         generated_images: generatedImages,
         post_id: post?.id

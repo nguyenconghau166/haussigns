@@ -220,6 +220,13 @@ export default function PostsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <Link
+                    href={`/admin/posts/${post.id}`}
+                    className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                    title="Chinh sua"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Link>
                   {post.status === 'draft' && (
                     <button
                       onClick={() => handlePublish(post.id)}
