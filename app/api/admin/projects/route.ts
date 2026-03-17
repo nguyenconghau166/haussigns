@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { title, slug, client, location, year, description, featured_image, gallery_images, categories } = body;
+        const { title, slug, client, location, year, description, content, featured_image, cover_image, gallery_images, categories } = body;
 
         // 1. Create Project
         const { data: project, error: projectError } = await supabaseAdmin
@@ -39,7 +39,9 @@ export async function POST(req: Request) {
                 location,
                 year,
                 description,
-                featured_image,
+                content,
+                featured_image: cover_image || featured_image,
+                cover_image: cover_image || featured_image,
                 gallery_images
             })
             .select()

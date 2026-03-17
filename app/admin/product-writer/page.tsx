@@ -54,6 +54,9 @@ interface ProductResult {
     long_description: string;
     call_to_action: string;
     seo_keywords: string[];
+    meta_title?: string;
+    meta_description?: string;
+    page_title_suggestions?: string[];
 }
 
 export default function ProductWriterPage() {
@@ -282,6 +285,25 @@ export default function ProductWriterPage() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {(result.meta_title || result.meta_description) && (
+                                    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">SEO Metadata</h3>
+                                        {result.meta_title && <p className="text-sm text-slate-700"><strong>Meta Title:</strong> {result.meta_title}</p>}
+                                        {result.meta_description && <p className="text-sm text-slate-700"><strong>Meta Description:</strong> {result.meta_description}</p>}
+                                    </div>
+                                )}
+
+                                {Array.isArray(result.page_title_suggestions) && result.page_title_suggestions.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Page Title Suggestions</h3>
+                                        <ul className="space-y-2">
+                                            {result.page_title_suggestions.map((title, i) => (
+                                                <li key={i} className="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">{title}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     ) : (

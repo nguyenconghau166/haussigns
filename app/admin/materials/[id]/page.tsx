@@ -82,6 +82,7 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
     try {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: `Detailed guide about ${aiTopic || name} for signage`,
           lang: 'en',
@@ -90,7 +91,11 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
         })
       });
       const data = await res.json();
+      if (data.title) setName(data.title);
+      if (data.description) setDescription(data.description);
       if (data.content) setContent(data.content);
+      if (Array.isArray(data.pros) && data.pros.length > 0) setPros(data.pros);
+      if (Array.isArray(data.cons) && data.cons.length > 0) setCons(data.cons);
     } catch (e) {
       alert('AI Error');
     } finally {

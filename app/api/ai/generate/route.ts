@@ -2,121 +2,166 @@ import { NextResponse } from 'next/server';
 import { generateSmartContent } from '@/lib/ai/service';
 import { generateProjectImage } from '@/lib/image-gen';
 
+type ContentType = 'industry' | 'material' | 'post' | 'page' | 'project' | 'generic';
+
+interface GeneratedPayload {
+  title?: string;
+  short_description?: string;
+  content_html?: string;
+  meta_title?: string;
+  meta_description?: string;
+  key_points?: string[];
+  pros?: string[];
+  cons?: string[];
+  recommended_solutions?: string[];
+}
+
+function parseJsonFromModel<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+
+  const cleaned = raw
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const candidates: string[] = [cleaned];
+  const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (objectMatch) candidates.push(objectMatch[0]);
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {
+      continue;
+    }
+  }
+
+  return fallback;
+}
+
+function getContentType(contentType?: string, slug?: string): ContentType {
+  if (contentType === 'industry' || contentType === 'material' || contentType === 'post' || contentType === 'page' || contentType === 'project') {
+    return contentType;
+  }
+
+  if (slug === 'about' || slug === 'services' || slug === 'contact' || slug === 'portfolio') {
+    return 'page';
+  }
+
+  return 'generic';
+}
+
 export async function POST(request: Request) {
   try {
     const { topic, lang, tone, slug, pageContext, contentType } = await request.json();
+    const normalizedType = getContentType(contentType, slug);
 
-    let systemPrompt = `You are an expert Signage Contractor in Metro Manila, Philippines. 
+    const language = lang === 'tl'
+      ? 'Tagalog'
+      : lang === 'mix'
+        ? 'Taglish (English-Tagalog Mix)'
+        : 'English';
+
+    const typePromptMap: Record<ContentType, string> = {
+      industry: `
+      PAGE TYPE: Industry page for signage services.
+      Must include:
+      1) Industry pain points and buying criteria.
+      2) Recommended signage formats (3-5 items).
+      3) Compliance/maintenance considerations.
+      4) Clear CTA for consultation/ocular inspection.
+      Return 4-6 recommended_solutions.
+      `,
+      material: `
+      PAGE TYPE: Material guide.
+      Must include:
+      1) What this material is and where it performs best.
+      2) Real-world durability and maintenance notes.
+      3) Balanced pros and cons (minimum 3 each).
+      4) Best use cases by business context.
+      Return pros and cons arrays.
+      `,
+      project: `
+      PAGE TYPE: Project case study.
+      Must include:
+      1) Client context + constraints.
+      2) Solution architecture (materials, fabrication, installation).
+      3) Outcome and impact.
+      4) Lessons learned and CTA.
+      `,
+      page: `
+      PAGE TYPE: Core service/business page.
+      Must include:
+      1) Clear promise in first paragraph.
+      2) Process and differentiators.
+      3) Practical FAQs.
+      4) Strong intent-matching CTA.
+      `,
+      post: `
+      PAGE TYPE: Informational post.
+      Must include hook, deep explanation, examples, and practical close.
+      `,
+      generic: `
+      PAGE TYPE: Commercial informational page.
+      Must include practical guidance, transparent tradeoffs, and CTA.
+      `
+    };
+
+    const systemPrompt = `You are an expert Signage Contractor in Metro Manila, Philippines.
     You have 20 years of experience in fabrication (Acrylic, Stainless, Panaflex).
-    Your goal is to write high-ranking SEO content that is helpful, technical, but easy to understand.
+    Your goal is to write high-quality, people-first SEO content that is helpful, specific, and technically reliable.
     Target Audience: Business owners (SME), Corporate Purchasing Heads, Store Managers in Manila.
-    Language: ${lang === 'tl' ? 'Tagalog' : lang === 'mix' ? 'Taglish (English-Tagalog Mix)' : 'English'}.
+    Language: ${language}.
     Tone: ${tone}.`;
 
-    // Tailor prompt based on content type or page slug
-    if (contentType === 'industry') {
-      systemPrompt += `
-      CONTEXT: You are writing a service page dedicated to a specific Industry.
-      Structure:
-      - Introduction: How high-quality signage impacts this specific industry.
-      - Recommended Signage Types: Briefly suggest 3-4 types of signs (e.g. Channel Letters, Pylons, Indoor LED) best suited for them.
-      - Why SignsHaus: Focus on our experience, reliable fabrication, and installation speed.
-      - Call to Action: Encourage them to contact us for an ocular inspection.
-      `;
-    } else if (contentType === 'material') {
-      systemPrompt += `
-      CONTEXT: You are writing an educational guide about a specific Signage Material.
-      Structure:
-      - Introduction: What is this material and why is it popular in signage.
-      - Properties & Durability: Discuss weather resistance, maintenance, indoor vs outdoor suitability.
-      - Pros & Cons: A balanced view of the material.
-      - Best Applications: Where should clients use this material (e.g., storefronts, office lobbies).
-      - Call to Action: Invite them to consult with SignsHaus for their next project using this material.
-      `;
-    } else if (contentType === 'post') {
-      systemPrompt += `
-      CONTEXT: You are writing an engaging blog post or news article.
-      Structure:
-      - Engaging Hook: Start with an interesting fact or current trend in Metro Manila.
-      - Deep Dive: Explore the topic thoroughly with actionable advice or insights for business owners.
-      - Examples/Scenarios: Provide relatable examples.
-      - Conclusion: Summarize the main points.
-      - Call to Action: Seamlessly transition into how SignsHaus can help them achieve this.
-      `;
-    } else if (slug === 'about') {
-      systemPrompt += `
-      CONTEXT: You are writing the "About Us" page for SignsHaus.
-      Structure:
-      - Introduction: Brief history and mission (Established in [Year], trusted by big brands).
-      - Our Values: Quality, Speed, Reliability.
-      - Why Choose Us: In-house fabrication, skilled team, warranty.
-      - Call to Action: Invite them to visit the workshop or contact for a quote.
-      - Tone: Trustworthy, Experienced, Professional.
-      `;
-    } else if (slug === 'services') {
-      systemPrompt += `
-      CONTEXT: You are writing the main "Our Services" page.
-      Structure:
-      - Introduction: Overview of our fabrication capabilities.
-      - Key Services (Bullet points or short paragraphs): Acrylic Build-up, Stainless Steel, Lightboxes, Panaflex, Vehicle Wraps, etc.
-      - Process: Design -> Fabrication -> Installation.
-      - Quality Assurance: We use high-quality LEDs and materials.
-      - Call to Action.
-      `;
-    } else if (slug === 'contact') {
-      systemPrompt += `
-      CONTEXT: You are writing the "Contact Us" page intro.
-      Structure:
-      - Warm, welcoming invitation to reach out.
-      - Mention we cover all of Metro Manila and nearby provinces.
-      - Encourage requesting a Free Ocular Inspection / Quote.
-      - Mention response time (usually within 24 hours).
-      - Keep it short and inviting (2-3 paragraphs max).
-      `;
-    } else if (slug === 'portfolio') {
-      systemPrompt += `
-       CONTEXT: You are writing the intro for the "Our Portfolio" page.
-       Structure:
-       - Proud statement about our past works.
-       - Mention we serve various industries (Restaurants, Corporate, Retail, Malls).
-       - Mention quality of finish and attention to detail.
-       - Encourage users to browse the gallery below.
-       - Keep it short (1-2 paragraphs).
-       `;
-    } else {
-      // Default / Generic Page
-      systemPrompt += `
-      Structure:
-      - Engaging Introduction (Hook)
-      - Technical Details (Materials, Process)
-      - Benefits
-      - Price Range Estimate (in PHP) if applicable
-      - FAQ Section
-      - Strong Call to Action (Contact SignsHaus).
-      `;
-    }
+    const outputPrompt = `
+    ${typePromptMap[normalizedType]}
 
-    systemPrompt += `
+    QUALITY RULES (People-first + E-E-A-T):
+    - Be specific and practical. Avoid generic filler and repeated claims.
+    - Include concrete constraints/tradeoffs where relevant.
+    - Keep statements realistic; do not fabricate certifications or guarantees.
+    - Make heading hierarchy clear and scannable.
+
     IMAGE PLACEHOLDERS:
-    - Insert exactly 2-3 image placeholders at strategic points (unless it's a short page like Contact/Portfolio, then 0-1).
+    - Insert exactly 2 image placeholders for long pages.
+    - For short pages (contact, portfolio-like), insert 0-1 placeholder.
     - Syntax: <!-- IMAGE: detailed english scene description for AI image generation | Short display caption -->
-    - Example: <!-- IMAGE: professional acrylic LED signage installed on modern office building facade in Makati at night, warm lighting | Acrylic LED Signage on a Commercial Building -->
-    - IMPORTANT: The part before | must be a DETAILED, SPECIFIC scene description related to the paragraph above (type of sign, material, specific setting). The part after | is a SHORT reader-friendly caption.
-    - Place them after paragraphs describing visuals, materials or processes
-    
-    CRITICAL FORMAT RULES:
-    - Output CLEAN HTML only. NO Markdown whatsoever.
-    - Use h2 and h3 tags for section headings (NOT ## or ###)
-    - Use p tags for paragraphs (NOT plain text)
-    - Use ul/li or ol/li for lists (NOT - or *)
-    - Use strong and em for emphasis (NOT ** or *)
-    - Use blockquote for quotes (NOT >)
-    - Use table/thead/tbody/tr/th/td for price tables
-    - Write naturally like a published newspaper article, NOT a dry list`;
+    - Prompt before | must match paragraph context.
 
-    const userPrompt = `Write a comprehensive article about: "${topic}". Focus on durability, price, and visual appeal. Mention locations like Makati, BGC, Quezon City naturally.`;
+    OUTPUT FORMAT: Return JSON only:
+    {
+      "title": "Page H1 title",
+      "short_description": "1-2 sentence summary for cards/snippets",
+      "content_html": "Full HTML content (h2/h3/p/ul/li/table allowed)",
+      "meta_title": "SEO title <= 60 chars",
+      "meta_description": "SEO description <= 155 chars",
+      "key_points": ["Point 1", "Point 2", "Point 3"],
+      "pros": ["Only for material pages"],
+      "cons": ["Only for material pages"],
+      "recommended_solutions": ["For industry pages, 4-6 entries"]
+    }`;
 
-    let content = await generateSmartContent(systemPrompt, userPrompt) || '';
+    const userPrompt = `Topic: "${topic}"
+Page Context: "${pageContext || slug || normalizedType}"
+Mention locations naturally when relevant: Makati, BGC, Quezon City.
+Focus on durability, budget sensitivity, and visual impact.
+Return valid JSON only.`;
+
+    const raw = await generateSmartContent(systemPrompt + outputPrompt, userPrompt) || '';
+    const generated = parseJsonFromModel<GeneratedPayload>(raw, {
+      title: topic,
+      short_description: '',
+      content_html: '',
+      meta_title: '',
+      meta_description: '',
+      key_points: [],
+      pros: [],
+      cons: [],
+      recommended_solutions: []
+    });
+
+    let content = generated.content_html || '';
 
     // Process IMAGE placeholders — generate actual images
     const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
@@ -153,7 +198,17 @@ export async function POST(request: Request) {
       content = content.replace(r.fullMatch, r.html);
     }
 
-    return NextResponse.json({ content });
+    return NextResponse.json({
+      content,
+      title: generated.title || topic,
+      description: generated.short_description || '',
+      meta_title: generated.meta_title || '',
+      meta_description: generated.meta_description || '',
+      key_points: Array.isArray(generated.key_points) ? generated.key_points : [],
+      pros: Array.isArray(generated.pros) ? generated.pros : [],
+      cons: Array.isArray(generated.cons) ? generated.cons : [],
+      recommended_solutions: Array.isArray(generated.recommended_solutions) ? generated.recommended_solutions : []
+    });
   } catch (error) {
     console.error('AI Generation Error:', error);
     return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });

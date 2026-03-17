@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Save, ArrowLeft, Loader2, Image as ImageIcon, Wand2 } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, Wand2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
@@ -21,6 +21,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('');
   const [image, setImage] = useState('');
+  const [recommended, setRecommended] = useState<string[]>([]);
 
   // AI
   const [aiLoading, setAiLoading] = useState(false);
@@ -38,6 +39,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           setContent(data.industry.content || '');
           setIcon(data.industry.icon || '');
           setImage(data.industry.image || '');
+          setRecommended(Array.isArray(data.industry.recommended) ? data.industry.recommended : []);
           setAiTopic(data.industry.title);
         }
       })
@@ -51,7 +53,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, slug, description, content, icon, image
+          title, slug, description, content, icon, image, recommended
         })
       });
       alert('Lưu thành công!');
@@ -68,6 +70,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
     try {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: `Signage solutions for ${aiTopic || title}`,
           lang: 'en',
@@ -76,12 +79,23 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         })
       });
       const data = await res.json();
+      if (data.title) setTitle(data.title);
+      if (data.description) setDescription(data.description);
       if (data.content) setContent(data.content);
+      if (Array.isArray(data.recommended_solutions) && data.recommended_solutions.length > 0) {
+        setRecommended(data.recommended_solutions);
+      }
     } catch (e) {
       alert('AI Error');
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleRecommendedChange = (index: number, value: string) => {
+    const next = [...recommended];
+    next[index] = value;
+    setRecommended(next);
   };
 
   if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
@@ -123,6 +137,36 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               <div>
                 <label className="block text-sm font-medium mb-1">Mô tả ngắn</label>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2 border rounded-lg h-20" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Recommended Signage</label>
+                <div className="space-y-2">
+                  {recommended.map((item, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        value={item}
+                        onChange={(e) => handleRecommendedChange(index, e.target.value)}
+                        className="flex-1 p-2 border rounded-lg text-sm"
+                        placeholder="e.g. LED Channel Letters"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRecommended(recommended.filter((_, i) => i !== index))}
+                        className="text-red-500"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setRecommended([...recommended, ''])}
+                    className="text-xs flex items-center gap-1 text-slate-500 hover:text-slate-900"
+                  >
+                    <Plus className="h-3 w-3" /> Thêm gợi ý biển hiệu
+                  </button>
+                </div>
               </div>
             </CardContent>
           </Card>

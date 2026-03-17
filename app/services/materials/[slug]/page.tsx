@@ -6,6 +6,37 @@ import Footer from '@/components/Footer';
 import { Loader2, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
+function slugifyHeading(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function addHeadingIds(html: string): { html: string; toc: { id: string; text: string }[] } {
+  const toc: { id: string; text: string }[] = [];
+  const used = new Set<string>();
+
+  const result = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (match, attrs, inner) => {
+    const text = inner.replace(/<[^>]*>/g, '').trim();
+    if (!text) return match;
+    const base = slugifyHeading(text) || 'section';
+    let id = base;
+    let count = 1;
+    while (used.has(id)) {
+      count += 1;
+      id = `${base}-${count}`;
+    }
+    used.add(id);
+    toc.push({ id, text });
+    return `<h2${attrs} id="${id}">${inner}</h2>`;
+  });
+
+  return { html: result, toc };
+}
+
 export default function MaterialDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const [item, setItem] = useState<any>(null);
@@ -46,6 +77,8 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ slug:
     );
   }
 
+  const enriched = addHeadingIds(item.content || '<p>Detailed specification coming soon.</p>');
+
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <Navbar />
@@ -80,12 +113,27 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ slug:
         <div className="container grid lg:grid-cols-3 gap-12">
             <div className="lg:col-span-2">
                 <div 
-                    className="prose prose-lg prose-slate max-w-none mb-12"
-                    dangerouslySetInnerHTML={{ __html: item.content || '<p>Detailed specification coming soon.</p>' }}
+                    className="prose-blog max-w-none mb-12"
+                    dangerouslySetInnerHTML={{ __html: enriched.html }}
                 />
             </div>
             
             <div className="space-y-8">
+                {enriched.toc.length > 0 && (
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                    <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">On this page</h3>
+                    <ul className="space-y-2 text-sm">
+                      {enriched.toc.map((section) => (
+                        <li key={section.id}>
+                          <a href={`#${section.id}`} className="text-slate-600 hover:text-amber-700 transition-colors">
+                            {section.text}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Pros/Cons Widget */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-6">
                     <div>

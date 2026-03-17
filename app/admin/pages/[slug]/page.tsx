@@ -70,6 +70,9 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
       const data = await res.json();
       if (data.content) {
         setContent(data.content);
+        if (data.title) setTitle(data.title);
+        if (data.meta_title) setMetaTitle(data.meta_title);
+        if (data.meta_description) setMetaDescription(data.meta_description);
         // Suggest image prompt
         setAiImagePrompt(`Professional photo of ${aiTopic || title}, modern style, high quality, 8k`);
       }
@@ -215,7 +218,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                     className="w-full mt-1 p-2 text-sm border rounded-lg"
                   >
                     <option value="en">English</option>
-                    <option value="tl">Vietnamese</option>
+                    <option value="tl">Tagalog</option>
                     <option value="mix">Song ngữ</option>
                   </select>
                 </div>

@@ -14,6 +14,43 @@ interface ProjectPageProps {
     };
 }
 
+function slugifyHeading(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/<[^>]*>/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+}
+
+function addHeadingIds(html: string): { html: string; toc: { id: string; text: string }[] } {
+    const toc: { id: string; text: string }[] = [];
+    const used = new Set<string>();
+
+    const result = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (_match, attrs, inner) => {
+        const text = inner.replace(/<[^>]*>/g, '').trim();
+        if (!text) return _match;
+        const base = slugifyHeading(text) || 'section';
+        let id = base;
+        let count = 1;
+        while (used.has(id)) {
+            count += 1;
+            id = `${base}-${count}`;
+        }
+        used.add(id);
+        toc.push({ id, text });
+        return `<h2${attrs} id="${id}">${inner}</h2>`;
+    });
+
+    return { html: result, toc };
+}
+
+function estimateReadTime(content: string): number {
+    const plain = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const words = plain ? plain.split(' ').length : 0;
+    return Math.max(1, Math.ceil(words / 220));
+}
+
 async function getProject(slug: string) {
     const { data: project, error } = await supabase
         .from('projects')
@@ -55,6 +92,9 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
         notFound();
     }
 
+    const enriched = addHeadingIds(project.content || '');
+    const readTime = estimateReadTime(project.content || project.description || '');
+
     return (
         <main className="min-h-screen bg-white pt-24 pb-20">
             {/* Back Link */}
@@ -82,6 +122,10 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
                         <p className="text-xl text-slate-600 mb-8 leading-relaxed">
                             {project.description}
                         </p>
+
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide mb-8">
+                            Case Study • {readTime} min read
+                        </div>
 
                         <div className="grid grid-cols-2 gap-6 border-t border-slate-100 pt-8">
                             <div>
@@ -118,6 +162,31 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
                         />
                     </div>
                 </div>
+
+                {project.content && (
+                    <div className="grid lg:grid-cols-4 gap-10 mb-16">
+                        <div className="lg:col-span-3">
+                            <div
+                                className="prose-blog max-w-none"
+                                dangerouslySetInnerHTML={{ __html: enriched.html }}
+                            />
+                        </div>
+                        <aside className="lg:col-span-1">
+                            <div className="sticky top-28 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">On this page</h3>
+                                <ul className="space-y-2 text-sm">
+                                    {enriched.toc.map((section) => (
+                                        <li key={section.id}>
+                                            <a href={`#${section.id}`} className="text-slate-600 hover:text-amber-700 transition-colors">
+                                                {section.text}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </aside>
+                    </div>
+                )}
 
                 {/* Gallery */}
                 {project.gallery_images && project.gallery_images.length > 0 && (

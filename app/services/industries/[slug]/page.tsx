@@ -7,6 +7,37 @@ import { Loader2, ArrowRight, CheckCircle, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { ShoppingBag, Building2, Utensils, Stethoscope, Hotel, GraduationCap } from 'lucide-react';
 
+function slugifyHeading(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function addHeadingIds(html: string): { html: string; toc: { id: string; text: string }[] } {
+  const toc: { id: string; text: string }[] = [];
+  const used = new Set<string>();
+
+  const result = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (match, attrs, inner) => {
+    const text = inner.replace(/<[^>]*>/g, '').trim();
+    if (!text) return match;
+    const base = slugifyHeading(text) || 'section';
+    let id = base;
+    let count = 1;
+    while (used.has(id)) {
+      count += 1;
+      id = `${base}-${count}`;
+    }
+    used.add(id);
+    toc.push({ id, text });
+    return `<h2${attrs} id="${id}">${inner}</h2>`;
+  });
+
+  return { html: result, toc };
+}
+
 const ICON_MAP: Record<string, any> = {
   ShoppingBag, Building2, Utensils, Stethoscope, Hotel, GraduationCap
 };
@@ -54,6 +85,7 @@ export default function IndustryDetailPage({ params }: { params: Promise<{ slug:
   }
 
   const IconComponent = ICON_MAP[item.icon] || Layers;
+  const enriched = addHeadingIds(item.content || '<p>Detailed content coming soon.</p>');
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
@@ -89,12 +121,27 @@ export default function IndustryDetailPage({ params }: { params: Promise<{ slug:
         <div className="container grid lg:grid-cols-3 gap-12">
             <div className="lg:col-span-2">
                 <div 
-                    className="prose prose-lg prose-slate max-w-none"
-                    dangerouslySetInnerHTML={{ __html: item.content || '<p>Detailed content coming soon.</p>' }}
+                    className="prose-blog max-w-none"
+                    dangerouslySetInnerHTML={{ __html: enriched.html }}
                 />
             </div>
             
             <div className="space-y-8">
+                {enriched.toc.length > 0 && (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                        <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">On this page</h3>
+                        <ul className="space-y-2 text-sm">
+                            {enriched.toc.map((section) => (
+                                <li key={section.id}>
+                                    <a href={`#${section.id}`} className="text-slate-600 hover:text-amber-700 transition-colors">
+                                        {section.text}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
                 {/* Recommended Widget */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                     <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">

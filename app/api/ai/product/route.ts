@@ -13,6 +13,41 @@ async function getAllConfig(): Promise<Record<string, string>> {
 
 type ContentGoal = 'catalog' | 'seo' | 'social' | 'technical';
 
+interface ProductGenerationResult {
+    title: string;
+    short_description: string;
+    long_description: string;
+    features_list: string[];
+    seo_keywords: string[];
+    call_to_action: string;
+    meta_title?: string;
+    meta_description?: string;
+    page_title_suggestions?: string[];
+}
+
+function parseJsonFromModel<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+
+    const cleaned = raw
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+    const candidates: string[] = [cleaned];
+    const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (objectMatch) candidates.push(objectMatch[0]);
+
+    for (const candidate of candidates) {
+        try {
+            return JSON.parse(candidate) as T;
+        } catch {
+            continue;
+        }
+    }
+
+    return fallback;
+}
+
 const GOAL_PROMPTS: Record<ContentGoal, (context: any) => string> = {
     catalog: (ctx) => `
 FOCUS: Professional Catalog Listing
@@ -86,6 +121,11 @@ IMAGE PLACEHOLDER:
 - Syntax: <!-- IMAGE: detailed english scene description for AI image generation | Short display caption -->
 - Example: <!-- IMAGE: close-up of premium brushed stainless steel signage letter with LED backlight on dark wall | Premium Stainless Steel Channel Letters -->
 
+QUALITY RULES:
+- Keep it people-first: practical, specific, and decision-supportive.
+- Avoid keyword stuffing and generic marketing filler.
+- Include tradeoffs or constraints where relevant.
+
 CRITICAL FORMAT RULES:
 - Output CLEAN HTML only. NO Markdown whatsoever.
 - Use p tags for paragraphs, strong/em for emphasis.
@@ -99,7 +139,10 @@ OUTPUT FORMAT (JSON only):
   "long_description": "Main content body in HTML. ${selectedGoal === 'social' ? 'Short text with emojis.' : 'Detailed HTML content.'}",
   "features_list": ["Feature 1", "Feature 2", "Feature 3"],
   "seo_keywords": ["keyword1", "keyword2", "keyword3"],
-  "call_to_action": "Closing statement or CTA"
+  "call_to_action": "Closing statement or CTA",
+  "meta_title": "SEO title <= 60 chars",
+  "meta_description": "SEO description <= 155 chars",
+  "page_title_suggestions": ["Title Option 1", "Title Option 2", "Title Option 3"]
 }`;
 
         const userPrompt = `Item Name: ${productName}
@@ -114,12 +157,18 @@ Write content that achieves the goal: ${selectedGoal}.`;
 
         const responseText = await generateSmartContent(baseSystemPrompt, userPrompt, undefined, generationOptions) || "";
 
-        // Clean markdown if AI adds it
-        const content = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const result = parseJsonFromModel<ProductGenerationResult>(responseText, {
+            title: productName,
+            short_description: '',
+            long_description: '',
+            features_list: [],
+            seo_keywords: [],
+            call_to_action: ''
+        });
 
-        if (!content) throw new Error('Failed to generate content');
-
-        const result = JSON.parse(content);
+        if (!result.long_description) {
+            throw new Error('Failed to generate content');
+        }
 
         // Process IMAGE placeholders in long_description
         if (result.long_description && selectedGoal !== 'social') {
@@ -152,7 +201,15 @@ Write content that achieves the goal: ${selectedGoal}.`;
             }
         }
 
-        return NextResponse.json({ success: true, data: result });
+        return NextResponse.json({
+            success: true,
+            data: {
+                ...result,
+                features_list: Array.isArray(result.features_list) ? result.features_list : [],
+                seo_keywords: Array.isArray(result.seo_keywords) ? result.seo_keywords : [],
+                page_title_suggestions: Array.isArray(result.page_title_suggestions) ? result.page_title_suggestions : []
+            }
+        });
     } catch (error: any) {
         console.error('Writer Error:', error);
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });

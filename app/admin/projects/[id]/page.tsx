@@ -78,25 +78,24 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
 
         setGeneratingAI(true);
         try {
-            const res = await fetch('/api/admin/ai/generate-project', {
+            const res = await fetch('/api/ai/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: formData.title,
-                    client: formData.client,
-                    location: formData.location || 'Metro Manila',
-                    type: formData.type,
-                    challenges: formData.challenges
+                    topic: `${formData.title} project for ${formData.client}`,
+                    pageContext: `Location: ${formData.location || 'Metro Manila'}. Type: ${formData.type}. Challenges: ${formData.challenges || 'N/A'}`,
+                    lang: 'en',
+                    tone: 'professional',
+                    contentType: 'project'
                 })
             });
 
             const data = await res.json();
-            if (data.description) {
+            if (data.content || data.description) {
                 setFormData(prev => ({
                     ...prev,
-                    description: data.description,
-                    // Convert plain text AI result to simple HTML paragraph for rich editor
-                    content: prev.content ? prev.content : `<p>${data.description}</p>`
+                    description: data.description || prev.description,
+                    content: data.content || prev.content
                 }));
             } else {
                 alert('Failed to generate content: ' + (data.error || 'Unknown error'));
