@@ -14,7 +14,7 @@ export default function Testimonials({ testimonials = [] }: { testimonials?: Tes
     if (!testimonials || testimonials.length === 0) return null;
 
     return (
-        <section className="py-20 md:py-28 bg-slate-50 relative overflow-hidden">
+        <section className="py-20 md:py-28 bg-slate-50 dark:bg-slate-900 relative overflow-hidden">
             {/* Background accents */}
             <div className="absolute top-0 left-1/4 w-64 h-64 bg-amber-100/50 rounded-full blur-3xl" />
             <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl" />
@@ -31,10 +31,10 @@ export default function Testimonials({ testimonials = [] }: { testimonials?: Tes
                     <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-amber-600 mb-3">
                         Testimonials
                     </span>
-                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+                    <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-4xl md:text-5xl">
                         What Our Clients Say
                     </h2>
-                    <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500">
+                    <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500 dark:text-slate-400">
                         Trusted by hundreds of businesses across Metro Manila.
                     </p>
                 </motion.div>
@@ -48,7 +48,7 @@ export default function Testimonials({ testimonials = [] }: { testimonials?: Tes
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: '-60px' }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
-                            className="relative rounded-2xl bg-white border border-slate-200/80 p-7 md:p-8 shadow-sm hover:shadow-lg transition-shadow duration-300"
+                            className="relative rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 p-7 md:p-8 shadow-sm hover:shadow-lg transition-shadow duration-300"
                         >
                             {/* Quote icon */}
                             <Quote className="h-8 w-8 text-amber-200 mb-4" />
@@ -61,7 +61,7 @@ export default function Testimonials({ testimonials = [] }: { testimonials?: Tes
                             </div>
 
                             {/* Content */}
-                            <p className="text-sm md:text-base text-slate-600 leading-relaxed mb-6">
+                            <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
                                 &ldquo;{testimonial.content}&rdquo;
                             </p>
 
@@ -71,7 +71,7 @@ export default function Testimonials({ testimonials = [] }: { testimonials?: Tes
                                     {testimonial.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-slate-900">{testimonial.name}</p>
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{testimonial.name}</p>
                                     <p className="text-xs text-slate-400">{testimonial.role}</p>
                                 </div>
                             </div>

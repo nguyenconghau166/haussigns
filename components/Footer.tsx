@@ -45,7 +45,7 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href="/" className="inline-block">
               <span className="text-2xl font-extrabold tracking-tight">
-                Signs<span className="gradient-text">Haus</span>
+                Haus <span className="gradient-text">Signs</span>
               </span>
             </Link>
             <p className="mt-4 text-sm text-slate-400 leading-relaxed max-w-xs">
@@ -155,7 +155,7 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="container pt-8 mt-12 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-slate-500 text-sm">
-          © {new Date().getFullYear()} SignsHaus. All rights reserved.
+          © {new Date().getFullYear()} Haus Signs. All rights reserved.
         </p>
 
         {/* Social Links */}

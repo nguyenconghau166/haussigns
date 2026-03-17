@@ -50,7 +50,7 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
   if (!services || services.length === 0) return null;
 
   return (
-    <section className="py-20 md:py-28 bg-white relative overflow-hidden">
+    <section className="py-20 md:py-28 bg-white dark:bg-slate-950 relative overflow-hidden">
       {/* Subtle background pattern */}
       <div className="absolute inset-0 pattern-dots opacity-40" />
 
@@ -66,10 +66,10 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
           <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-amber-600 mb-3">
             What We Do
           </span>
-          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-4xl md:text-5xl">
             Our Expertise
           </h2>
-          <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500">
+          <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500 dark:text-slate-400">
             We specialize in all types of indoor and outdoor signage fabrication,
             from concept to installation.
           </p>
@@ -90,7 +90,7 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
               <motion.div key={service.slug} variants={cardVariants}>
                 <Link
                   href={`/services/types/${service.slug}`}
-                  className="group relative flex flex-col rounded-2xl border border-slate-200/80 bg-white p-7 transition-all duration-300 hover:shadow-xl hover:border-amber-200/60 hover:-translate-y-1"
+                  className="group relative flex flex-col rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-800/50 p-7 transition-all duration-300 hover:shadow-xl hover:border-amber-200/60 dark:hover:border-amber-500/30 hover:-translate-y-1"
                 >
                   {/* Gradient hover background */}
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-50/0 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -102,12 +102,12 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
                     </div>
 
                     {/* Title */}
-                    <h3 className="mb-2 text-lg font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                    <h3 className="mb-2 text-lg font-bold text-slate-900 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
                       {service.title}
                     </h3>
 
                     {/* Description */}
-                    <p className="text-sm text-slate-500 leading-relaxed">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                       {service.description}
                     </p>
 
