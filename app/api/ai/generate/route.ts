@@ -16,6 +16,16 @@ interface GeneratedPayload {
   recommended_solutions?: string[];
 }
 
+interface AIBrief {
+  intent?: string;
+  persona?: string;
+  funnelStage?: string;
+  tone?: string;
+  mustInclude?: string;
+  avoidClaims?: string;
+  entityFocus?: string;
+}
+
 function parseJsonFromModel<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
 
@@ -53,8 +63,9 @@ function getContentType(contentType?: string, slug?: string): ContentType {
 
 export async function POST(request: Request) {
   try {
-    const { topic, lang, tone, slug, pageContext, contentType } = await request.json();
+    const { topic, lang, tone, slug, pageContext, contentType, aiBrief } = await request.json();
     const normalizedType = getContentType(contentType, slug);
+    const brief = (aiBrief || {}) as AIBrief;
 
     const language = lang === 'tl'
       ? 'Tagalog'
@@ -116,6 +127,15 @@ export async function POST(request: Request) {
 
     const outputPrompt = `
     ${typePromptMap[normalizedType]}
+
+    AUDIENCE BRIEF:
+    - Search intent: ${brief.intent || 'commercial'}
+    - Persona: ${brief.persona || 'Business owner / purchasing manager'}
+    - Funnel stage: ${brief.funnelStage || 'consideration'}
+    - Preferred tone: ${brief.tone || tone}
+    - Must include: ${brief.mustInclude || 'N/A'}
+    - Claims to avoid: ${brief.avoidClaims || 'Do not use unsupported superlatives'}
+    - Entity focus: ${brief.entityFocus || 'N/A'}
 
     QUALITY RULES (People-first + E-E-A-T):
     - Be specific and practical. Avoid generic filler and repeated claims.

@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
 interface ProductEditorProps {
     params: Promise<{
@@ -23,6 +25,7 @@ export default function ProductEditor({ params }: ProductEditorProps) {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [aiBrief, setAiBrief] = useState(defaultAIBrief);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -76,7 +79,8 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                     productName: formData.name,
                     features: featuresInput, // Use raw input as context
                     type: 'product',
-                    language: 'en' // Default to EN for now, can add selector
+                    language: 'en', // Default to EN for now, can add selector
+                    aiBrief
                 })
             });
             const data = await res.json();
@@ -126,7 +130,8 @@ export default function ProductEditor({ params }: ProductEditorProps) {
             if (res.ok) {
                 router.push('/admin/products');
             } else {
-                alert('Failed to save');
+                const err = await res.json();
+                alert(err.error || 'Failed to save');
             }
         } catch (error) {
             console.error(error);
@@ -208,6 +213,8 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                                 placeholder="Full product details..."
                             />
                         </div>
+
+                        <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
                     </div>
                 </div>
 
@@ -243,6 +250,34 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                             Save Product
                         </Button>
                     </div>
+
+                    <ContentQualityCard
+                        payload={{
+                            title: formData.name,
+                            description: formData.description,
+                            content: formData.content,
+                            contentType: 'product',
+                            entityId: isNew ? undefined : id,
+                            entityTable: 'products'
+                        }}
+                        autoFixPayload={{
+                            title: formData.name,
+                            description: formData.description,
+                            content: formData.content,
+                            contentType: 'product',
+                            aiBrief,
+                            entityId: isNew ? undefined : id,
+                            entityTable: 'products'
+                        }}
+                        onAutoFixApply={(next) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                name: next.title || prev.name,
+                                description: next.description || prev.description,
+                                content: next.content || prev.content
+                            }));
+                        }}
+                    />
                 </div>
             </form>
         </div>

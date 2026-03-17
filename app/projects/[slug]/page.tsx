@@ -94,9 +94,41 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
 
     const enriched = addHeadingIds(project.content || '');
     const readTime = estimateReadTime(project.content || project.description || '');
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
+    const pageUrl = `${siteUrl}/projects/${project.slug}`;
+    const projectSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: project.title,
+        description: project.description || '',
+        image: project.featured_image ? [project.featured_image] : [],
+        author: {
+            '@type': 'Organization',
+            name: 'SignsHaus'
+        },
+        publisher: {
+            '@type': 'Organization',
+            name: 'SignsHaus'
+        },
+        about: project.categories,
+        datePublished: project.created_at,
+        dateModified: project.updated_at || project.created_at,
+        mainEntityOfPage: pageUrl
+    };
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+            { '@type': 'ListItem', position: 2, name: 'Projects', item: `${siteUrl}/projects` },
+            { '@type': 'ListItem', position: 3, name: project.title, item: pageUrl }
+        ]
+    };
 
     return (
         <main className="min-h-screen bg-white pt-24 pb-20">
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(projectSchema) }} />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
             {/* Back Link */}
             <div className="container px-4 mb-8">
                 <Link href="/projects" className="inline-flex items-center text-slate-500 hover:text-slate-900 transition-colors">

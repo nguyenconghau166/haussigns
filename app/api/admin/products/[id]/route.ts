@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { enforcePublishGate } from '@/lib/publish-gate';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -18,6 +19,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
     const { name, slug, description, content, cover_image, is_published, features, gallery_images } = body;
+
+    if (is_published === true) {
+        const gate = await enforcePublishGate({
+            title: name || '',
+            description: description || '',
+            content: content || '',
+            contentType: 'product',
+            entityId: id,
+            entityTable: 'products'
+        });
+
+        if (!gate.allowed) {
+            return NextResponse.json({
+                error: `Publish blocked: Content quality score ${gate.qa.overall} is below required ${gate.minScore}.`,
+                qa: gate.qa,
+                minScore: gate.minScore
+            }, { status: 422 });
+        }
+    }
 
     const { data, error } = await supabaseAdmin
         .from('products')

@@ -7,6 +7,8 @@ import { Save, ArrowLeft, Loader2, Wand2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
+import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
 export default function EditIndustry({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -26,6 +28,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   // AI
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
+  const [aiBrief, setAiBrief] = useState(defaultAIBrief);
 
   useEffect(() => {
     fetch(`/api/admin/industries/${id}`)
@@ -49,13 +52,18 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`/api/admin/industries/${id}`, {
+      const res = await fetch(`/api/admin/industries/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title, slug, description, content, icon, image, recommended
         })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Lỗi khi lưu!');
+        return;
+      }
       alert('Lưu thành công!');
       router.refresh();
     } catch (error) {
@@ -75,7 +83,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           topic: `Signage solutions for ${aiTopic || title}`,
           lang: 'en',
           tone: 'professional',
-          contentType: 'industry'
+          contentType: 'industry',
+          aiBrief
         })
       });
       const data = await res.json();
@@ -202,8 +211,37 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               >
                 {aiLoading ? 'Đang viết...' : 'Tự động viết nội dung'}
               </button>
+
+              <div className="mt-4">
+                <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+              </div>
             </CardContent>
           </Card>
+
+          <ContentQualityCard
+            payload={{
+              title,
+              description,
+              content,
+              contentType: 'industry',
+              entityId: id,
+              entityTable: 'industries'
+            }}
+            autoFixPayload={{
+              title,
+              description,
+              content,
+              contentType: 'industry',
+              aiBrief,
+              entityId: id,
+              entityTable: 'industries'
+            }}
+            onAutoFixApply={(next) => {
+              if (next.title) setTitle(next.title);
+              if (next.description) setDescription(next.description);
+              if (next.content) setContent(next.content);
+            }}
+          />
 
           <Card>
             <CardHeader>

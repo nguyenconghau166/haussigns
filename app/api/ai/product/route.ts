@@ -84,7 +84,7 @@ FOCUS: Technical Datasheet / Spec Sheet
 
 export async function POST(request: Request) {
     try {
-        const { productName, features, audience, tone, language, type, goal = 'catalog' } = await request.json();
+        const { productName, features, audience, tone, language, type, goal = 'catalog', aiBrief } = await request.json();
 
         if (!productName || !features) {
             return NextResponse.json({ error: 'Name and Features are required' }, { status: 400 });
@@ -113,6 +113,15 @@ CONTEXT:
 - Tone: ${tone || 'Professional'}
 - Language: ${langMap[language] || 'English'}
 - Content Goal: ${selectedGoal.toUpperCase()}
+
+AUDIENCE BRIEF:
+- Search intent: ${aiBrief?.intent || 'commercial'}
+- Persona: ${aiBrief?.persona || audience || 'Business owner'}
+- Funnel stage: ${aiBrief?.funnelStage || 'consideration'}
+- Preferred tone: ${aiBrief?.tone || tone || 'Professional'}
+- Must include: ${aiBrief?.mustInclude || 'N/A'}
+- Claims to avoid: ${aiBrief?.avoidClaims || 'No unsupported guarantees'}
+- Entity focus: ${aiBrief?.entityFocus || 'N/A'}
 
 ${GOAL_PROMPTS[selectedGoal]({ companyName, keywords: features, tone })}
 

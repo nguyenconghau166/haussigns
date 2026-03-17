@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PenTool, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
 // Helper components defined outside to prevent focus loss
 const InputField = ({ label, value, onChange, placeholder }: { label: string, value: string, onChange: (v: string) => void, placeholder?: string }) => (
@@ -63,6 +65,7 @@ export default function ProductWriterPage() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ProductResult | null>(null);
     const [copied, setCopied] = useState(false);
+    const [aiBrief, setAiBrief] = useState(defaultAIBrief);
 
     const [formData, setFormData] = useState({
         productName: '',
@@ -88,7 +91,7 @@ export default function ProductWriterPage() {
             const res = await fetch('/api/ai/product', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({ ...formData, aiBrief })
             });
             const data = await res.json();
             if (data.success) {
@@ -222,6 +225,39 @@ export default function ProductWriterPage() {
                             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                             {loading ? 'Generating...' : formData.type === 'product' ? 'Generate Product Copy' : 'Generate Material Info'}
                         </button>
+
+                        <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+
+                        <ContentQualityCard
+                            payload={{
+                                title: result?.title || formData.productName,
+                                description: result?.short_description || '',
+                                content: result?.long_description || '',
+                                metaTitle: result?.meta_title || '',
+                                metaDescription: result?.meta_description || '',
+                                contentType: 'product'
+                            }}
+                            autoFixPayload={{
+                                title: result?.title || formData.productName,
+                                description: result?.short_description || '',
+                                content: result?.long_description || '',
+                                metaTitle: result?.meta_title || '',
+                                metaDescription: result?.meta_description || '',
+                                contentType: 'product',
+                                aiBrief
+                            }}
+                            onAutoFixApply={(next) => {
+                                if (!result) return;
+                                setResult({
+                                    ...result,
+                                    title: next.title || result.title,
+                                    short_description: next.description || result.short_description,
+                                    long_description: next.content || result.long_description,
+                                    meta_title: next.meta_title || result.meta_title,
+                                    meta_description: next.meta_description || result.meta_description
+                                });
+                            }}
+                        />
                     </CardContent>
                 </Card>
 

@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
+import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
 export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -31,6 +33,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
   const [aiLang, setAiLang] = useState('en');
   const [aiTone, setAiTone] = useState('professional');
   const [aiImagePrompt, setAiImagePrompt] = useState('');
+  const [aiBrief, setAiBrief] = useState(defaultAIBrief);
 
   useEffect(() => {
     fetch(`/api/admin/pages/${slug}`)
@@ -64,7 +67,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           tone: aiTone,
           slug: page.slug, // Pass slug for context
           pageContext: page.title, // Pass title for context
-          contentType: 'page'
+          contentType: 'page',
+          aiBrief
         }),
       });
       const data = await res.json();
@@ -108,7 +112,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`/api/admin/pages/${slug}`, {
+      const res = await fetch(`/api/admin/pages/${slug}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,6 +124,11 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           is_published: isPublished
         })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Lỗi khi lưu!');
+        return;
+      }
       alert('Đã lưu thành công!');
       router.refresh();
     } catch (error) {
@@ -244,6 +253,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 Viết nội dung (Draft)
               </button>
 
+              <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+
               <hr className="border-slate-100 my-2" />
 
               <div>
@@ -299,6 +310,37 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
               </div>
             </CardContent>
           </Card>
+
+          <ContentQualityCard
+            payload={{
+              title,
+              description: metaDescription || '',
+              content,
+              metaTitle,
+              metaDescription,
+              contentType: 'page',
+              entityId: slug,
+              entityTable: 'site_pages'
+            }}
+            autoFixPayload={{
+              title,
+              description: metaDescription || '',
+              content,
+              metaTitle,
+              metaDescription,
+              contentType: 'page',
+              aiBrief,
+              entityId: slug,
+              entityTable: 'site_pages'
+            }}
+            onAutoFixApply={(next) => {
+              if (next.title) setTitle(next.title);
+              if (next.description) setMetaDescription(next.description);
+              if (next.content) setContent(next.content);
+              if (next.meta_title) setMetaTitle(next.meta_title);
+              if (next.meta_description) setMetaDescription(next.meta_description);
+            }}
+          />
 
           <Card>
             <CardHeader>

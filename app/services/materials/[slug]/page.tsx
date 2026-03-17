@@ -78,9 +78,39 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ slug:
   }
 
   const enriched = addHeadingIds(item.content || '<p>Detailed specification coming soon.</p>');
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
+  const pageUrl = `${siteUrl}/services/materials/${item.slug}`;
+  const materialSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.name,
+    description: item.description || item.best_for || '',
+    image: item.image ? [item.image] : [],
+    brand: {
+      '@type': 'Brand',
+      name: 'SignsHaus'
+    },
+    category: 'Signage Material',
+    additionalProperty: [
+      ...(Array.isArray(item.pros) ? item.pros.map((v: string) => ({ '@type': 'PropertyValue', name: 'Pro', value: v })) : []),
+      ...(Array.isArray(item.cons) ? item.cons.map((v: string) => ({ '@type': 'PropertyValue', name: 'Consideration', value: v })) : [])
+    ],
+    url: pageUrl
+  };
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'Materials', item: `${siteUrl}/services/materials` },
+      { '@type': 'ListItem', position: 3, name: item.name, item: pageUrl }
+    ]
+  };
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(materialSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <Navbar />
 
       {/* Hero */}

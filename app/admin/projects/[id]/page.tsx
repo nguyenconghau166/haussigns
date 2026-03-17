@@ -9,6 +9,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
 interface ProjectEditorProps {
     params: Promise<{
@@ -23,6 +25,7 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [generatingAI, setGeneratingAI] = useState(false);
+    const [aiBrief, setAiBrief] = useState(defaultAIBrief);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -86,7 +89,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                     pageContext: `Location: ${formData.location || 'Metro Manila'}. Type: ${formData.type}. Challenges: ${formData.challenges || 'N/A'}`,
                     lang: 'en',
                     tone: 'professional',
-                    contentType: 'project'
+                    contentType: 'project',
+                    aiBrief
                 })
             });
 
@@ -260,6 +264,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                             </div>
                         </div>
 
+                        <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Detailed Content</label>
                             <RichTextEditor
@@ -315,6 +321,34 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                             </>
                         )}
                     </Button>
+
+                    <ContentQualityCard
+                        payload={{
+                            title: formData.title,
+                            description: formData.description,
+                            content: formData.content,
+                            contentType: 'project',
+                            entityId: id,
+                            entityTable: 'projects'
+                        }}
+                        autoFixPayload={{
+                            title: formData.title,
+                            description: formData.description,
+                            content: formData.content,
+                            contentType: 'project',
+                            aiBrief,
+                            entityId: id,
+                            entityTable: 'projects'
+                        }}
+                        onAutoFixApply={(next) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                title: next.title || prev.title,
+                                description: next.description || prev.description,
+                                content: next.content || prev.content
+                            }));
+                        }}
+                    />
                 </div>
             </form>
         </div>

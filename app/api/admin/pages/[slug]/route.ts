@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { enforcePublishGate } from '@/lib/publish-gate';
 
 // GET: Fetch page by slug
 export async function GET(
@@ -21,6 +22,27 @@ export async function PUT(
   try {
     const { slug } = await params;
     const body = await request.json();
+
+    if (body.is_published === true) {
+      const gate = await enforcePublishGate({
+        title: body.title || slug,
+        description: body.meta_description || '',
+        content: body.content || '',
+        metaTitle: body.meta_title || '',
+        metaDescription: body.meta_description || '',
+        contentType: 'page',
+        entityId: slug,
+        entityTable: 'site_pages'
+      });
+
+      if (!gate.allowed) {
+        return NextResponse.json({
+          error: `Publish blocked: Content quality score ${gate.qa.overall} is below required ${gate.minScore}.`,
+          qa: gate.qa,
+          minScore: gate.minScore
+        }, { status: 422 });
+      }
+    }
     
     const { error } = await supabaseAdmin
       .from('site_pages')

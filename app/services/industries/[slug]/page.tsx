@@ -86,9 +86,40 @@ export default function IndustryDetailPage({ params }: { params: Promise<{ slug:
 
   const IconComponent = ICON_MAP[item.icon] || Layers;
   const enriched = addHeadingIds(item.content || '<p>Detailed content coming soon.</p>');
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
+  const pageUrl = `${siteUrl}/services/industries/${item.slug}`;
+  const serviceSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    serviceType: `Signage solutions for ${item.title}`,
+    provider: {
+      '@type': 'Organization',
+      name: 'SignsHaus',
+      url: siteUrl
+    },
+    areaServed: 'Metro Manila',
+    description: item.description || '',
+    image: item.image ? [item.image] : [],
+    offers: {
+      '@type': 'Offer',
+      availability: 'https://schema.org/InStock'
+    },
+    url: pageUrl
+  };
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'Industries', item: `${siteUrl}/services/industries` },
+      { '@type': 'ListItem', position: 3, name: item.title, item: pageUrl }
+    ]
+  };
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <Navbar />
 
       {/* Hero */}

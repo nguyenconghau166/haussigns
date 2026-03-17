@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { enforcePublishGate } from '@/lib/publish-gate';
 
 export async function GET() {
   const { data, error } = await supabaseAdmin
@@ -14,6 +15,25 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    if (body.is_published === true) {
+      const gate = await enforcePublishGate({
+        title: body.name || '',
+        description: body.description || '',
+        content: body.content || '',
+        contentType: 'material',
+        entityTable: 'materials'
+      });
+
+      if (!gate.allowed) {
+        return NextResponse.json({
+          error: `Publish blocked: Content quality score ${gate.qa.overall} is below required ${gate.minScore}.`,
+          qa: gate.qa,
+          minScore: gate.minScore
+        }, { status: 422 });
+      }
+    }
+
     const { data, error } = await supabaseAdmin.from('materials').insert(body).select();
     if (error) throw error;
     return NextResponse.json({ material: data[0] });
