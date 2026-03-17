@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { Menu, X, Phone, ShoppingBag, LayoutGrid, Hammer, FileText, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import SearchOverlay from './SearchOverlay';
+
+const SearchOverlay = dynamic(() => import('./SearchOverlay'), {
+  ssr: false,
+});
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/' },

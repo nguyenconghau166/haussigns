@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 
 // GET: Fetch all settings
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
         .from('ai_config')
         .upsert({ key, value: String(value) });
     }
+
+    revalidateTag('site-settings', 'max');
 
     return NextResponse.json({ success: true });
   } catch (error) {

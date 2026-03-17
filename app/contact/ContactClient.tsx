@@ -8,6 +8,7 @@ import { Phone, Mail, MapPin, Clock, Send, MessageCircle, Loader2 } from 'lucide
 import FileUploader from '@/components/FileUploader';
 import { useSiteSettings } from '@/lib/useSiteSettings';
 import { trackContactClick, trackLeadSubmit } from '@/lib/tracking';
+import { extractSafeMapEmbedUrl, sanitizeHtml } from '@/lib/security';
 
 interface ContactClientProps {
     page: any;
@@ -15,6 +16,8 @@ interface ContactClientProps {
 
 export default function ContactClient({ page }: ContactClientProps) {
     const { phone, email, address, workingHours, viber, messenger, mapEmbedUrl } = useSiteSettings();
+    const safeMapUrl = extractSafeMapEmbedUrl(mapEmbedUrl);
+    const safePageContent = sanitizeHtml(page?.content || '');
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -126,12 +129,12 @@ export default function ContactClient({ page }: ContactClientProps) {
             </section>
 
             {/* Page Content */}
-            {page?.content && (
+            {safePageContent && (
                 <section className="py-16 md:py-24 bg-white border-b border-slate-100">
                     <div className="container max-w-4xl px-4">
                         <div
                             className="prose prose-lg prose-slate max-w-none text-center"
-                            dangerouslySetInnerHTML={{ __html: page.content }}
+                            dangerouslySetInnerHTML={{ __html: safePageContent }}
                         />
                     </div>
                 </section>
@@ -334,22 +337,15 @@ export default function ContactClient({ page }: ContactClientProps) {
                                         <span className="text-amber-600 font-medium">Open {workingHours}</span>
                                     </p>
 
-                                    {mapEmbedUrl ? (
-                                        mapEmbedUrl.startsWith('<iframe') ? (
-                                            <div
-                                                className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
-                                                dangerouslySetInnerHTML={{ __html: mapEmbedUrl }}
-                                            />
-                                        ) : (
-                                            <iframe
-                                                src={mapEmbedUrl}
-                                                className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
-                                                style={{ border: 0 }}
-                                                allowFullScreen
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer-when-downgrade"
-                                            />
-                                        )
+                                    {safeMapUrl ? (
+                                        <iframe
+                                            src={safeMapUrl}
+                                            className="w-full h-48 rounded-lg overflow-hidden border border-slate-200"
+                                            style={{ border: 0 }}
+                                            allowFullScreen
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                        />
                                     ) : (
                                         <div className="w-full h-48 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs">
                                             Map not available

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
@@ -36,10 +37,17 @@ export default function Hero() {
       {/* Right Side Image (Desktop) */}
       <div className="hidden lg:block absolute inset-y-0 right-0 w-1/2 z-0">
         {heroImage && (
-          <div className="relative w-full h-full">
-            <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
-            {/* Gradient Blend: Dark on left (from text), transparent on right */}
-            <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
+            <div className="relative w-full h-full">
+              <Image
+                src={heroImage}
+                alt="Hero"
+                fill
+                priority
+                sizes="(max-width: 1024px) 0px, 50vw"
+                className="object-cover"
+              />
+              {/* Gradient Blend: Dark on left (from text), transparent on right */}
+              <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
             {/* Bottom blend */}
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-900 to-transparent" />
           </div>
@@ -89,7 +97,13 @@ export default function Hero() {
               <div className="col-span-5 lg:hidden relative rounded-xl overflow-hidden aspect-[4/3] shadow-lg border border-slate-800/50">
                 {heroImage && (
                   <div className="w-full h-full relative">
-                    <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+                    <Image
+                      src={heroImage}
+                      alt="Hero"
+                      fill
+                      sizes="(max-width: 1024px) 41vw, 0px"
+                      className="object-cover"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-900/50 to-transparent" />
                   </div>
                 )}

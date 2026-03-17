@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { useEffect } from 'react';
+import { sanitizeTrackingId } from '@/lib/security';
 
 declare global {
   interface Window {
@@ -26,10 +27,10 @@ export default function Analytics({
   const searchParams = useSearchParams();
 
   // Prefer props, fallback to env
-  const gaId = googleAnalyticsId || process.env.NEXT_PUBLIC_GA_ID;
-  const fbId = facebookPixelId || process.env.NEXT_PUBLIC_FB_PIXEL_ID;
-  const ttId = tiktokPixelId || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
-  const adsId = googleAdsId || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+  const gaId = sanitizeTrackingId(googleAnalyticsId || process.env.NEXT_PUBLIC_GA_ID);
+  const fbId = sanitizeTrackingId(facebookPixelId || process.env.NEXT_PUBLIC_FB_PIXEL_ID);
+  const ttId = sanitizeTrackingId(tiktokPixelId || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID);
+  const adsId = sanitizeTrackingId(googleAdsId || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID);
   const gtagScriptId = gaId || adsId;
 
   useEffect(() => {

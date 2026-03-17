@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { unstable_cache } from 'next/cache';
 import { Suspense } from "react";
 import Analytics from "@/components/Analytics";
 import { SettingsProvider } from "@/components/SettingsProvider";
-import FloatingChat from "@/components/FloatingChat";
+import FloatingChatLoader from '@/components/FloatingChatLoader';
 import JsonLd from "@/components/JsonLd";
 import { createClient } from '@supabase/supabase-js';
 import "./globals.css";
-
-// Force dynamic rendering so settings (hero image, SEO, etc.) are always fresh
-export const dynamic = 'force-dynamic';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,45 +15,80 @@ const inter = Inter({
   display: "swap",
 });
 
-// Create a single supabase client for fetching config similarly to lib/supabase but for server component use
-// We can use the library one if it was just a simple import, but let's be safe and use direct init if needed
-// Actually, let's use the env vars directly since we are on server
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function getAnalyticsConfig() {
-  try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data } = await supabase.from('ai_config').select('*').in('key', ['google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id', 'google_ads_id']);
+const PUBLIC_CLIENT_SETTING_KEYS = new Set([
+  'hero_title',
+  'hero_subtitle',
+  'hero_image',
+  'company_name',
+  'site_description',
+  'site_logo',
+  'business_phone',
+  'business_email',
+  'business_address',
+  'working_hours',
+  'contact_google_map',
+  'social_facebook',
+  'social_instagram',
+  'social_viber_number',
+  'social_messenger_user',
+  'social_facebook_page_id',
+]);
 
-    const config: Record<string, string> = {};
-    data?.forEach((row: { key: string; value: string }) => { config[row.key] = row.value; });
+type ConfigRow = { key: string; value: string };
 
-    return {
-      googleAnalyticsId: config.google_analytics_id,
-      facebookPixelId: config.facebook_pixel_id,
-      tiktokPixelId: config.tiktok_pixel_id,
-      googleAdsId: config.google_ads_id
-    };
-  } catch (e) {
-    console.error('Failed to fetch analytics config:', e);
-    return {};
-  }
-}
+const getConfigRows = unstable_cache(
+  async () => {
+    if (!supabaseUrl || !supabaseAnonKey) return [] as ConfigRow[];
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data, error } = await supabase.from('ai_config').select('key, value');
+
+    if (error) {
+      console.error('Failed to fetch site config:', error);
+      return [] as ConfigRow[];
+    }
+
+    return (data || []) as ConfigRow[];
+  },
+  ['ai-config:rows'],
+  { revalidate: 300, tags: ['site-settings'] }
+);
 
 async function getSettings() {
-  try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data } = await supabase.from('ai_config').select('*');
+  const rows = await getConfigRows();
+  const settings: Record<string, string> = {};
 
-    const settings: Record<string, string> = {};
-    data?.forEach((row: { key: string; value: string }) => { settings[row.key] = row.value; });
+  rows.forEach((row) => {
+    settings[row.key] = row.value;
+  });
 
-    return settings;
-  } catch (e) {
-    console.error('Failed to fetch settings:', e);
-    return {};
-  }
+  return settings;
+}
+
+function getClientSafeSettings(settings: Record<string, string>) {
+  const safe: Record<string, string> = {};
+
+  Object.entries(settings).forEach(([key, value]) => {
+    if (PUBLIC_CLIENT_SETTING_KEYS.has(key) || key.startsWith('whyus_')) {
+      safe[key] = value;
+    }
+  });
+
+  return safe;
+}
+
+async function getAnalyticsConfig() {
+  const settings = await getSettings();
+
+  return {
+    googleAnalyticsId: settings.google_analytics_id,
+    facebookPixelId: settings.facebook_pixel_id,
+    tiktokPixelId: settings.tiktok_pixel_id,
+    googleAdsId: settings.google_ads_id,
+  };
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -65,7 +98,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = settings.seo_title || "SignsHaus — Premium Signage Maker in Metro Manila";
   const description = settings.seo_description || "Professional signage fabrication & installation in Metro Manila. Acrylic build-up, stainless steel, LED neon, panaflex lightbox. Free ocular inspection. Get a quote today!";
   const ogImage = settings.seo_og_image || "/images/og-image.jpg";
-  const favicon = settings.site_favicon ? `${settings.site_favicon}?v=${Date.now()}` : "/logo-web.png?v=2";
+  const favicon = settings.site_favicon || "/logo-web.png";
 
   return {
     title: {
@@ -127,18 +160,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const analyticsConfig = await getAnalyticsConfig();
-  const settings = await getSettings();
+  const [analyticsConfig, settings] = await Promise.all([getAnalyticsConfig(), getSettings()]);
+  const clientSafeSettings = getClientSafeSettings(settings);
 
   return (
     <html lang="en" className="scroll-smooth">
       <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)]`}>
         <Suspense>
-          <SettingsProvider initialSettings={settings}>
+          <SettingsProvider initialSettings={clientSafeSettings}>
             <Analytics {...analyticsConfig} />
             <JsonLd />
             {children}
-            <FloatingChat />
+            <FloatingChatLoader />
           </SettingsProvider>
         </Suspense>
       </body>

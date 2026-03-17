@@ -33,6 +33,7 @@ export const getTestimonials = async (limit?: number) => fetchData<Record<string
 export const getProjects = async (limit?: number) => fetchData<Record<string, unknown>>('projects', limit);
 export const getServices = async (limit?: number) => fetchData<Record<string, unknown>>('services', limit);
 export const getPosts = async (limit?: number) => fetchData<Record<string, unknown>>('posts', limit);
+export const getMaterials = async (limit?: number) => fetchData<Record<string, unknown>>('materials', limit);
 
 export const getServiceBySlug = async (slug: string) => {
     const supabase = getSupabase();

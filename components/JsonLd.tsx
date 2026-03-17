@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useSiteSettings } from '@/lib/useSiteSettings';
+import { safeJsonLdStringify } from '@/lib/security';
 
 export default function JsonLd() {
     const {
@@ -82,7 +83,7 @@ export default function JsonLd() {
         <Script
             id="json-ld"
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(schema) }}
         />
     );
 }

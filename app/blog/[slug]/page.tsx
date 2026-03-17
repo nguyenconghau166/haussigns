@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { formatDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { safeJsonLdStringify, sanitizeHtml } from '@/lib/security';
 
 export const revalidate = 60;
 
@@ -141,7 +142,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!postData) notFound();
 
   const categoryName = normalizeCategoryName(postData);
-  const contentHtml = postData.content || '';
+  const contentHtml = sanitizeHtml(postData.content || '');
   const readingTime = estimateReadingTime(contentHtml);
   const headings = extractHeadings(contentHtml);
   const relatedPosts = await getRelatedPosts(postData.id);
@@ -326,7 +327,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         )}
       </main>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }} />
       <Footer />
     </div>
   );

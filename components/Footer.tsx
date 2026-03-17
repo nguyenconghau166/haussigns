@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Facebook, Instagram, Mail, MapPin, Phone, MessageCircle, MessageSquare } from 'lucide-react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
 import { trackContactClick } from '@/lib/tracking';
+import { extractSafeMapEmbedUrl } from '@/lib/security';
 
 
 const SERVICES_LINKS = [
@@ -32,6 +33,7 @@ export default function Footer() {
     messenger,
     mapEmbedUrl
   } = useSiteSettings();
+  const safeMapUrl = extractSafeMapEmbedUrl(mapEmbedUrl);
 
   return (
     <footer className="bg-slate-900 text-slate-300 border-t border-slate-800">
@@ -123,24 +125,17 @@ export default function Footer() {
 
               {/* Footer Map */}
               <div className="rounded-xl overflow-hidden border border-slate-700/50 bg-slate-800/50 min-h-[160px] h-full">
-                {mapEmbedUrl ? (
-                  mapEmbedUrl.startsWith('<iframe') ? (
-                    <div
-                      className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:filter [&>iframe]:grayscale hover:[&>iframe]:filter-none transition-all duration-500"
-                      dangerouslySetInnerHTML={{ __html: mapEmbedUrl }}
-                    />
-                  ) : (
-                    <iframe
-                      src={mapEmbedUrl}
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      className="w-full h-full filter grayscale hover:filter-none transition-all duration-500"
-                    />
-                  )
+                {safeMapUrl ? (
+                  <iframe
+                    src={safeMapUrl}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="w-full h-full filter grayscale hover:filter-none transition-all duration-500"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-600 text-xs">
                     Map not configured

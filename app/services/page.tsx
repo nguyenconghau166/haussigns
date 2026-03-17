@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import CTABanner from '@/components/CTABanner';
 import { Metadata } from 'next';
 import ServiceGrid from '@/components/ServiceGrid';
+import { sanitizeHtml } from '@/lib/security';
 
 export const revalidate = 0;
 
@@ -30,6 +31,7 @@ export default async function ServicesPage() {
         getPage('services'),
         getServices()
     ]);
+    const safeContent = sanitizeHtml(page?.content || '');
 
     return (
         <main className="min-h-screen flex flex-col bg-white">
@@ -59,12 +61,12 @@ export default async function ServicesPage() {
             </section>
 
             {/* Page Content */}
-            {page?.content && (
+            {safeContent && (
                 <section className="py-16 md:py-24 bg-white">
                     <div className="container max-w-4xl">
                         <div
                             className="prose prose-lg prose-slate max-w-none"
-                            dangerouslySetInnerHTML={{ __html: page.content }}
+                            dangerouslySetInnerHTML={{ __html: safeContent }}
                         />
                     </div>
                 </section>

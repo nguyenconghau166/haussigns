@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { Loader2, ArrowRight, CheckCircle, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { ShoppingBag, Building2, Utensils, Stethoscope, Hotel, GraduationCap } from 'lucide-react';
+import { safeJsonLdStringify, sanitizeHtml } from '@/lib/security';
 
 function slugifyHeading(value: string): string {
   return value
@@ -85,7 +86,7 @@ export default function IndustryDetailPage({ params }: { params: Promise<{ slug:
   }
 
   const IconComponent = ICON_MAP[item.icon] || Layers;
-  const enriched = addHeadingIds(item.content || '<p>Detailed content coming soon.</p>');
+  const enriched = addHeadingIds(sanitizeHtml(item.content || '<p>Detailed content coming soon.</p>'));
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
   const pageUrl = `${siteUrl}/services/industries/${item.slug}`;
   const serviceSchema = {
@@ -118,8 +119,8 @@ export default function IndustryDetailPage({ params }: { params: Promise<{ slug:
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(serviceSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }} />
       <Navbar />
 
       {/* Hero */}

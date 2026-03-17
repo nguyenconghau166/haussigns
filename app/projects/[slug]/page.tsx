@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, MapPin, Calendar, Building2, ExternalLink } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+import { safeJsonLdStringify, sanitizeHtml } from '@/lib/security';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -92,7 +93,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
         notFound();
     }
 
-    const enriched = addHeadingIds(project.content || '');
+    const enriched = addHeadingIds(sanitizeHtml(project.content || ''));
     const readTime = estimateReadTime(project.content || project.description || '');
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
     const pageUrl = `${siteUrl}/projects/${project.slug}`;
@@ -127,8 +128,8 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
 
     return (
         <main className="min-h-screen bg-white pt-24 pb-20">
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(projectSchema) }} />
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(projectSchema) }} />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }} />
             {/* Back Link */}
             <div className="container px-4 mb-8">
                 <Link href="/projects" className="inline-flex items-center text-slate-500 hover:text-slate-900 transition-colors">

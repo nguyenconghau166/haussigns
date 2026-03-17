@@ -4,8 +4,11 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CTABanner from '@/components/CTABanner';
 import { motion } from 'framer-motion';
+import { sanitizeHtml } from '@/lib/security';
 
 export default function AboutClient({ page }: { page: any }) {
+    const safeContent = sanitizeHtml(page?.content || '');
+
     if (!page) {
         return (
             <div className="min-h-screen flex flex-col bg-white">
@@ -58,7 +61,7 @@ export default function AboutClient({ page }: { page: any }) {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                         className="prose prose-lg prose-slate max-w-none"
-                        dangerouslySetInnerHTML={{ __html: page.content || '' }}
+                        dangerouslySetInnerHTML={{ __html: safeContent }}
                     />
                 </div>
             </section>

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { sanitizeHtml } from '@/lib/security';
 
 interface PortfolioClientProps {
     page: any;
@@ -14,6 +15,7 @@ interface PortfolioClientProps {
 
 export default function PortfolioClient({ page, initialProjects }: PortfolioClientProps) {
     const [filter, setFilter] = useState('All');
+    const safeContent = sanitizeHtml(page?.content || '');
 
     // Extract unique categories
     const categories = ['All', ...Array.from(new Set(initialProjects.map((p: any) => p.category))).filter(Boolean) as string[]];
@@ -38,12 +40,12 @@ export default function PortfolioClient({ page, initialProjects }: PortfolioClie
             </section>
 
             {/* Page Content */}
-            {page?.content && (
+            {safeContent && (
                 <section className="py-16 md:py-24 bg-white border-b border-slate-100">
                     <div className="container max-w-4xl px-4">
                         <div
                             className="prose prose-lg prose-slate max-w-none text-center"
-                            dangerouslySetInnerHTML={{ __html: page.content }}
+                            dangerouslySetInnerHTML={{ __html: safeContent }}
                         />
                     </div>
                 </section>
