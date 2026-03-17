@@ -229,31 +229,36 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
 
 // --- MAIN ROUTER ---
 export async function generateProjectImage(prompt: string): Promise<string | null> {
-  // Read provider preference: 'nanobanana', 'google', 'dalle'
-  let provider = await getConfig('image_provider');
+  // Read provider preference: 'nanobanana' | 'google' | 'banana' | 'dalle'
+  let provider = (await getConfig('image_provider')).toLowerCase();
 
-  // Auto-detect provider if not set
+  const hasGeminiKey = Boolean(await getConfig('GEMINI_API_KEY')) || Boolean(await getConfig('google_api_key'));
+  const hasBanana = Boolean(await getConfig('banana_endpoint'));
+  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY) || Boolean(await getConfig('openai_api_key'));
+
+  // Auto-detect primary provider if not set
   if (!provider) {
-    const googleKey = await getConfig('GEMINI_API_KEY'); // Changed from google_api_key to match gemini.ts convention if needed, or stick to what's in DB. Let's stick to what was likely intended or standard.
-    // Actually, looking at gemini.ts, it uses GEMINI_API_KEY. Let's try to be consistent.
-    // But image-gen.ts used 'google_api_key'. I will check ai_config keys later if needed, but for now let's support both or switch to the one that is likely there.
-    // The previous code had 'google_api_key'. I will keep it but add a fallback to 'GEMINI_API_KEY'.
-    const googleKey2 = await getConfig('google_api_key');
-    const geminiKey = await getConfig('GEMINI_API_KEY');
-
-    if (googleKey2 || geminiKey) provider = 'nanobanana';
-    else if (await getConfig('banana_api_key')) provider = 'banana';
+    if (hasGeminiKey || hasBanana) provider = 'nanobanana';
     else provider = 'dalle';
   }
 
-  console.log(`Generating image using provider: ${provider}`);
+  const runProvider = async (name: string): Promise<ImageGenResult> => {
+    if (name === 'nanobanana' || name === 'google' || name === 'banana') {
+      return generateWithGeminiNative(prompt);
+    }
+    return generateWithDallE(prompt);
+  };
 
-  let result: ImageGenResult;
+  const fallbackCandidates = [provider, hasGeminiKey || hasBanana ? 'nanobanana' : '', hasOpenAI ? 'dalle' : ''];
+  const providerOrder = Array.from(new Set(fallbackCandidates.filter(Boolean)));
 
-  if (provider === 'nanobanana' || provider === 'google' || provider === 'banana') {
-    result = await generateWithGeminiNative(prompt);
-  } else {
-    result = await generateWithDallE(prompt);
+  let result: ImageGenResult = { success: false, error: 'No provider executed' };
+
+  for (const providerName of providerOrder) {
+    console.log(`Generating image using provider: ${providerName}`);
+    result = await runProvider(providerName);
+    if (result.success && result.url) break;
+    console.warn(`Image provider failed (${providerName}): ${result.error || 'Unknown error'}`);
   }
 
   if (result.success && result.url) {

@@ -210,12 +210,18 @@ export async function executePipeline(options: ExecutePipelineOptions = {}): Pro
           message: visualizer.message,
           data: {
             post_id: visualizerData.post_id,
-            image_count: (visualizerData.generated_images?.length || 0) + 1
+            image_count:
+              (visualizerData.generated_images?.length || 0)
+              + (visualizerData.featured_image_url ? 1 : 0)
+              + (visualizerData.thumbnail_image_url && visualizerData.thumbnail_image_url !== visualizerData.featured_image_url ? 1 : 0)
           }
         });
 
         articlesCreated++;
-        imagesGenerated += (visualizerData.generated_images?.length || 0) + 1;
+        imagesGenerated +=
+          (visualizerData.generated_images?.length || 0)
+          + (visualizerData.featured_image_url ? 1 : 0)
+          + (visualizerData.thumbnail_image_url && visualizerData.thumbnail_image_url !== visualizerData.featured_image_url ? 1 : 0);
       } catch (topicError) {
         const topicErrorMsg = topicError instanceof Error ? topicError.message : String(topicError || 'Unknown topic error');
         emit({ agent: 'Writer', step: 'complete', status: 'failed', message: `Lỗi xử lý chủ đề "${topic.keyword}": ${topicErrorMsg}` });

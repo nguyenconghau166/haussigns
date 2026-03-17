@@ -131,6 +131,7 @@ interface InternalLinkRuleRecord {
 
 export interface VisualizerOutput {
   featured_image_url: string | null;
+  thumbnail_image_url?: string | null;
   image_suggestions: string[];
   post_id: string;
   generated_images?: {
@@ -218,6 +219,17 @@ function escapeHtmlAttribute(value: string): string {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function buildPhotorealisticPrompt(baseContext: string, shotIntent: string): string {
+  return [
+    'Photorealistic commercial photography',
+    baseContext,
+    shotIntent,
+    'real camera, natural light behavior, realistic materials and textures',
+    'no illustration, no CGI, no 3D render, no anime, no painting style',
+    'no text overlay, no watermark, no logo distortion, no blur'
+  ].join(', ');
 }
 
 function buildFaqSchemaFromHtml(content: string): string | null {
@@ -859,6 +871,8 @@ export async function runAgentVisualInspector(
   const enableFaqSchema = (config.enable_faq_schema || 'true') === 'true';
   const autoInternalLinking = (config.auto_internal_linking || 'true') === 'true';
   const maxInternalLinks = parseInt(config.internal_links_per_article || '3', 10) || 3;
+  const minInlineImages = Math.max(1, parseInt(config.pipeline_min_inline_images || '2', 10) || 2);
+  const baseImageContext = `${imageStyle}, topic: ${topic.keyword}, article: ${article.title}, location: Metro Manila`;
 
   const generateImageWithRetries = async (prompts: string[]): Promise<string | null> => {
     const uniquePrompts = Array.from(new Set(prompts.map((prompt) => prompt.trim()).filter(Boolean)));
@@ -878,11 +892,18 @@ export async function runAgentVisualInspector(
   };
 
   try {
-    // 1. Generate featured image
-    let featuredImageUrl = await generateImageWithRetries([
-      `${imageStyle}, ${topic.keyword} signage in a modern Manila commercial building, professional quality, no text overlays, clean composition, cinematic lighting`,
-      `${imageStyle}, realistic commercial signage project photo for ${topic.keyword}, natural lighting, no text overlays, no watermarks`
-    ]);
+    // 1. Generate featured image + thumbnail image (must be realistic and relevant)
+    const featuredPrompts = [
+      buildPhotorealisticPrompt(baseImageContext, `${topic.keyword} signage on a real storefront facade, medium-wide shot, strong composition`),
+      buildPhotorealisticPrompt(baseImageContext, `completed signage installation for ${topic.keyword}, daylight exterior shot`)
+    ];
+    let featuredImageUrl = await generateImageWithRetries(featuredPrompts);
+
+    const thumbnailPrompts = [
+      buildPhotorealisticPrompt(baseImageContext, `tight framing hero thumbnail of the same signage concept, subject centered, high contrast`),
+      buildPhotorealisticPrompt(baseImageContext, `clean close-up crop-friendly thumbnail of signage details and lighting`)
+    ];
+    let thumbnailImageUrl = await generateImageWithRetries(thumbnailPrompts);
 
     // 2. Find IMAGE placeholders and generate images for them
     let finalContent = article.content;
@@ -906,11 +927,11 @@ export async function runAgentVisualInspector(
 
       for (const placeholder of placeholders) {
         try {
-          const imgPrompt = `${imageStyle}, ${placeholder.prompt}, professional signage photography, realistic, no text overlays, no watermarks, clean composition, cinematic lighting`;
+          const imgPrompt = buildPhotorealisticPrompt(baseImageContext, placeholder.prompt);
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
           const imgUrl = await generateImageWithRetries([
             imgPrompt,
-            `${imageStyle}, realistic signage installation photo related to ${topic.keyword}, no text overlays, no watermarks`
+            buildPhotorealisticPrompt(baseImageContext, `real installation photo related to ${topic.keyword}`)
           ]);
 
           if (imgUrl) {
@@ -965,7 +986,7 @@ export async function runAgentVisualInspector(
         [
           {
             "insert_after_text": "a short unique sentence from the article to insert image after",
-            "image_prompt": "${imageStyle}, specific realistic signage photo...",
+            "image_prompt": "specific photorealistic signage photo relevant to the nearby paragraph",
             "alt_text": "description for seo"
           }
         ]`;
@@ -979,8 +1000,8 @@ export async function runAgentVisualInspector(
           if (!item.insert_after_text || !item.image_prompt) continue;
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
           const imgUrl = await generateImageWithRetries([
-            item.image_prompt,
-            `${imageStyle}, realistic signage photo for ${topic.keyword}, no text overlays, no watermarks`
+            buildPhotorealisticPrompt(baseImageContext, item.image_prompt),
+            buildPhotorealisticPrompt(baseImageContext, `real signage photo for ${topic.keyword}`)
           ]);
 
           if (imgUrl) {
@@ -1004,24 +1025,37 @@ export async function runAgentVisualInspector(
       }
     }
 
-    if (generatedImages.length === 0) {
-      const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword}`;
+    while (generatedImages.length < minInlineImages) {
+      const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword} (${generatedImages.length + 1})`;
       const fallbackInlineImage = await generateImageWithRetries([
-        `${imageStyle}, realistic signage project photo for ${topic.keyword}, clean composition, no text overlays, no watermarks`,
-        `${imageStyle}, modern signage installation in Metro Manila, realistic photo`
+        buildPhotorealisticPrompt(baseImageContext, `real signage project photo focused on ${topic.keyword}`),
+        buildPhotorealisticPrompt(baseImageContext, 'modern signage installation in Metro Manila')
       ]);
 
-      if (fallbackInlineImage) {
-        generatedImages.push({ location: 'fallback', url: fallbackInlineImage, alt: fallbackAlt });
-        finalContent += `<figure class="article-figure"><img src="${fallbackInlineImage}" alt="${escapeHtmlAttribute(fallbackAlt)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${fallbackAlt}</figcaption></figure>`;
-      }
+      if (!fallbackInlineImage) break;
+
+      generatedImages.push({ location: `fallback-${generatedImages.length + 1}`, url: fallbackInlineImage, alt: fallbackAlt });
+      finalContent += `<figure class="article-figure"><img src="${fallbackInlineImage}" alt="${escapeHtmlAttribute(fallbackAlt)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${fallbackAlt}</figcaption></figure>`;
     }
 
     if (!featuredImageUrl) {
       featuredImageUrl = generatedImages[0]?.url || null;
     }
 
-    const resolvedFeaturedImage = featuredImageUrl || '/logo-web.png';
+    if (!thumbnailImageUrl) {
+      thumbnailImageUrl = featuredImageUrl;
+    }
+
+    if (!featuredImageUrl) {
+      throw new Error('Khong tao duoc anh thumb/featured cho bai viet. Pipeline dung de tranh bai khong co anh.');
+    }
+
+    if (generatedImages.length < minInlineImages) {
+      throw new Error(`Khong tao du ${minInlineImages} anh minh hoa noi dung. Pipeline dung de dam bao chat luong hinh anh.`);
+    }
+
+    const resolvedFeaturedImage = featuredImageUrl;
+    const resolvedThumbnailImage = thumbnailImageUrl;
 
     // 3. Clean up: ensure all images are responsive and FAQ schema exists if enabled
     finalContent = finalContent
@@ -1062,6 +1096,7 @@ export async function runAgentVisualInspector(
       meta_title: article.meta_title,
       meta_description: article.meta_description,
       featured_image: resolvedFeaturedImage,
+      cover_image: resolvedThumbnailImage,
       status: 'draft',
       seo_score: article.quality_score || 86,
       tags: article.suggested_tags,
@@ -1074,6 +1109,7 @@ export async function runAgentVisualInspector(
     await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
       post_id: post?.id,
       featured_image: resolvedFeaturedImage,
+      thumbnail_image: resolvedThumbnailImage,
       inline_images_count: generatedImages.length,
       internal_links_inserted: internalLinksInserted,
       faq_schema_attached: Boolean(faqSchema)
@@ -1083,11 +1119,12 @@ export async function runAgentVisualInspector(
       success: true,
       data: {
         featured_image_url: resolvedFeaturedImage,
+        thumbnail_image_url: resolvedThumbnailImage,
         image_suggestions: [],
         generated_images: generatedImages,
         post_id: post?.id
       } as VisualizerOutput,
-      message: `Lưu bản nháp thành công. Ảnh cover + ${generatedImages.length} ảnh minh họa.`
+      message: `Lưu bản nháp thành công. Ảnh thumb + ${generatedImages.length} ảnh minh họa.`
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
