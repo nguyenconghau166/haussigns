@@ -18,13 +18,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const body = await req.json();
-    const { name, slug, description, content, cover_image, is_published, features, gallery_images } = body;
+    const { name, slug, description, content, meta_title, meta_description, cover_image, is_published, features, gallery_images } = body;
 
     if (is_published === true) {
         const gate = await enforcePublishGate({
             title: name || '',
             description: description || '',
             content: content || '',
+            metaTitle: meta_title || '',
+            metaDescription: meta_description || '',
             contentType: 'product',
             entityId: id,
             entityTable: 'products'
@@ -41,7 +43,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { data, error } = await supabaseAdmin
         .from('products')
-        .update({ name, slug, description, content, cover_image, is_published, features, gallery_images, updated_at: new Date().toISOString() })
+        .update({
+            name,
+            slug,
+            description,
+            content,
+            meta_title,
+            meta_description,
+            cover_image,
+            is_published,
+            features,
+            gallery_images,
+            updated_at: new Date().toISOString()
+        })
         .eq('id', id)
         .select()
         .single();

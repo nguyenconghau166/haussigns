@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 type ContentType = 'material' | 'industry' | 'project' | 'page' | 'product';
@@ -31,6 +31,7 @@ interface QualityResponse {
 interface ContentQualityCardProps {
   payload: QualityRequestPayload;
   autoFixPayload?: Record<string, unknown>;
+  autoAnalyzeSignal?: number;
   onAutoFixApply?: (result: {
     title?: string;
     description?: string;
@@ -40,11 +41,12 @@ interface ContentQualityCardProps {
   }) => void;
 }
 
-export default function ContentQualityCard({ payload, autoFixPayload, onAutoFixApply }: ContentQualityCardProps) {
+export default function ContentQualityCard({ payload, autoFixPayload, autoAnalyzeSignal, onAutoFixApply }: ContentQualityCardProps) {
   const [loading, setLoading] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [result, setResult] = useState<QualityResponse | null>(null);
   const [history, setHistory] = useState<number[]>([]);
+  const lastAutoSignal = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const run = async () => {
@@ -58,13 +60,17 @@ export default function ContentQualityCard({ payload, autoFixPayload, onAutoFixA
       const res = await fetch(`/api/admin/content-qa/history?${params.toString()}`);
       const data = await res.json();
       if (res.ok && Array.isArray(data.history)) {
-        setHistory(data.history.map((r: any) => r.score_overall).reverse());
+        setHistory(
+          data.history
+            .map((row: unknown) => (typeof row === 'object' && row !== null && 'score_overall' in row ? Number((row as { score_overall: unknown }).score_overall) : 0))
+            .reverse()
+        );
       }
     };
     run();
   }, [payload.entityId, payload.entityTable, payload.contentType]);
 
-  const runAnalysis = async () => {
+  const runAnalysis = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/content-qa', {
@@ -77,7 +83,15 @@ export default function ContentQualityCard({ payload, autoFixPayload, onAutoFixA
     } finally {
       setLoading(false);
     }
-  };
+  }, [payload]);
+
+  useEffect(() => {
+    if (typeof autoAnalyzeSignal !== 'number') return;
+    if (lastAutoSignal.current === autoAnalyzeSignal) return;
+    lastAutoSignal.current = autoAnalyzeSignal;
+    if (!payload.title || !payload.content) return;
+    runAnalysis();
+  }, [autoAnalyzeSignal, payload.content, payload.title, runAnalysis]);
 
   const color = result && result.overall >= 80
     ? 'text-emerald-600'

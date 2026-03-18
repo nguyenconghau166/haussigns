@@ -26,6 +26,7 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
     const [saving, setSaving] = useState(false);
     const [generatingAI, setGeneratingAI] = useState(false);
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+    const [qaSignal, setQaSignal] = useState(0);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -38,6 +39,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
         featured_image: '',
         cover_image: '', // New field, sync with featured_image for now
         gallery_images: [] as string[],
+        meta_title: '',
+        meta_description: '',
         categories: [] as string[],
         type: 'Signage', // For AI context
         challenges: '' // For AI context
@@ -56,15 +59,18 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
             const res = await fetch(`/api/admin/projects/${id}`);
             const data = await res.json();
             if (data.project) {
-                setFormData({
+                setFormData((prev) => ({
+                    ...prev,
                     ...data.project,
                     categories: data.project.categories || [],
                     type: 'Signage', // Default
                     challenges: '',
                     // Fallback content if empty
                     content: data.project.content || data.project.description || '',
-                    cover_image: data.project.cover_image || data.project.featured_image || ''
-                });
+                    cover_image: data.project.cover_image || data.project.featured_image || '',
+                    meta_title: data.project.meta_title || '',
+                    meta_description: data.project.meta_description || ''
+                }));
             }
         } catch (error) {
             console.error('Error fetching project:', error);
@@ -99,8 +105,11 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                 setFormData(prev => ({
                     ...prev,
                     description: data.description || prev.description,
-                    content: data.content || prev.content
+                    content: data.content || prev.content,
+                    meta_title: data.meta_title || prev.meta_title,
+                    meta_description: data.meta_description || prev.meta_description
                 }));
+                setQaSignal((prev) => prev + 1);
             } else {
                 alert('Failed to generate content: ' + (data.error || 'Unknown error'));
             }
@@ -304,6 +313,28 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                         </div>
                     </div>
 
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                        <h2 className="font-semibold text-lg text-slate-900 border-b pb-2 mb-4">SEO</h2>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Meta Title</label>
+                            <Input
+                                value={formData.meta_title}
+                                onChange={e => setFormData({ ...formData, meta_title: e.target.value })}
+                                placeholder="50-60 characters"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Meta Description</label>
+                            <textarea
+                                rows={4}
+                                value={formData.meta_description}
+                                onChange={e => setFormData({ ...formData, meta_description: e.target.value })}
+                                placeholder="140-155 characters"
+                                className="w-full text-sm p-2 border rounded"
+                            />
+                        </div>
+                    </div>
+
                     <Button
                         type="submit"
                         disabled={saving}
@@ -327,6 +358,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                             title: formData.title,
                             description: formData.description,
                             content: formData.content,
+                            metaTitle: formData.meta_title,
+                            metaDescription: formData.meta_description,
                             contentType: 'project',
                             entityId: id,
                             entityTable: 'projects'
@@ -335,6 +368,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                             title: formData.title,
                             description: formData.description,
                             content: formData.content,
+                            metaTitle: formData.meta_title,
+                            metaDescription: formData.meta_description,
                             contentType: 'project',
                             aiBrief,
                             entityId: id,
@@ -345,9 +380,12 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                                 ...prev,
                                 title: next.title || prev.title,
                                 description: next.description || prev.description,
-                                content: next.content || prev.content
+                                content: next.content || prev.content,
+                                meta_title: next.meta_title || prev.meta_title,
+                                meta_description: next.meta_description || prev.meta_description
                             }));
                         }}
+                        autoAnalyzeSignal={qaSignal}
                     />
                 </div>
             </form>

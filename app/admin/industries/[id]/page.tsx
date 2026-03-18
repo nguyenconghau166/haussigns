@@ -21,6 +21,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDescription, setMetaDescription] = useState('');
   const [icon, setIcon] = useState('');
   const [image, setImage] = useState('');
   const [recommended, setRecommended] = useState<string[]>([]);
@@ -29,6 +31,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+  const [qaSignal, setQaSignal] = useState(0);
 
   useEffect(() => {
     fetch(`/api/admin/industries/${id}`)
@@ -40,6 +43,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           setSlug(data.industry.slug);
           setDescription(data.industry.description || '');
           setContent(data.industry.content || '');
+          setMetaTitle(data.industry.meta_title || '');
+          setMetaDescription(data.industry.meta_description || '');
           setIcon(data.industry.icon || '');
           setImage(data.industry.image || '');
           setRecommended(Array.isArray(data.industry.recommended) ? data.industry.recommended : []);
@@ -56,7 +61,15 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, slug, description, content, icon, image, recommended
+          title,
+          slug,
+          description,
+          content,
+          meta_title: metaTitle,
+          meta_description: metaDescription,
+          icon,
+          image,
+          recommended
         })
       });
       const data = await res.json();
@@ -91,8 +104,13 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
       if (data.title) setTitle(data.title);
       if (data.description) setDescription(data.description);
       if (data.content) setContent(data.content);
+      if (data.meta_title) setMetaTitle(data.meta_title);
+      if (data.meta_description) setMetaDescription(data.meta_description);
       if (Array.isArray(data.recommended_solutions) && data.recommended_solutions.length > 0) {
         setRecommended(data.recommended_solutions);
+      }
+      if (data.content || data.description || data.title) {
+        setQaSignal((prev) => prev + 1);
       }
     } catch (e) {
       alert('AI Error');
@@ -223,6 +241,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               title,
               description,
               content,
+              metaTitle,
+              metaDescription,
               contentType: 'industry',
               entityId: id,
               entityTable: 'industries'
@@ -231,6 +251,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               title,
               description,
               content,
+              metaTitle,
+              metaDescription,
               contentType: 'industry',
               aiBrief,
               entityId: id,
@@ -240,8 +262,37 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               if (next.title) setTitle(next.title);
               if (next.description) setDescription(next.description);
               if (next.content) setContent(next.content);
+              if (next.meta_title) setMetaTitle(next.meta_title);
+              if (next.meta_description) setMetaDescription(next.meta_description);
             }}
+            autoAnalyzeSignal={qaSignal}
           />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">SEO</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Meta title</label>
+                <input
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm"
+                  placeholder="50-60 characters"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Meta description</label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm h-20"
+                  placeholder="140-155 characters"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

@@ -15,13 +15,15 @@ export async function GET() {
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { name, slug, description, content, cover_image, is_published, features, gallery_images } = body;
+    const { name, slug, description, content, meta_title, meta_description, cover_image, is_published, features, gallery_images } = body;
 
     if (is_published === true) {
         const gate = await enforcePublishGate({
             title: name || '',
             description: description || '',
             content: content || '',
+            metaTitle: meta_title || '',
+            metaDescription: meta_description || '',
             contentType: 'product',
             entityTable: 'products'
         });
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabaseAdmin
         .from('products')
-        .insert([{ name, slug, description, content, cover_image, is_published, features, gallery_images }])
+        .insert([{ name, slug, description, content, meta_title, meta_description, cover_image, is_published, features, gallery_images }])
         .select()
         .single();
 

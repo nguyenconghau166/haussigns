@@ -20,6 +20,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDescription, setMetaDescription] = useState('');
   const [image, setImage] = useState('');
   const [bestFor, setBestFor] = useState('');
   const [pros, setPros] = useState<string[]>([]);
@@ -29,6 +31,7 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+  const [qaSignal, setQaSignal] = useState(0);
 
   useEffect(() => {
     fetch(`/api/admin/materials/${id}`)
@@ -40,6 +43,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
           setSlug(m.slug);
           setDescription(m.description || '');
           setContent(m.content || '');
+          setMetaTitle(m.meta_title || '');
+          setMetaDescription(m.meta_description || '');
           setImage(m.image || '');
           setBestFor(m.best_for || '');
           setPros(Array.isArray(m.pros) ? m.pros : []);
@@ -57,7 +62,16 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name, slug, description, content, image, best_for: bestFor, pros, cons
+          name,
+          slug,
+          description,
+          content,
+          meta_title: metaTitle,
+          meta_description: metaDescription,
+          image,
+          best_for: bestFor,
+          pros,
+          cons
         })
       });
       const data = await res.json();
@@ -103,8 +117,13 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
       if (data.title) setName(data.title);
       if (data.description) setDescription(data.description);
       if (data.content) setContent(data.content);
+      if (data.meta_title) setMetaTitle(data.meta_title);
+      if (data.meta_description) setMetaDescription(data.meta_description);
       if (Array.isArray(data.pros) && data.pros.length > 0) setPros(data.pros);
       if (Array.isArray(data.cons) && data.cons.length > 0) setCons(data.cons);
+      if (data.content || data.description || data.title) {
+        setQaSignal((prev) => prev + 1);
+      }
     } catch (e) {
       alert('AI Error');
     } finally {
@@ -224,6 +243,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
               title: name,
               description,
               content,
+              metaTitle,
+              metaDescription,
               contentType: 'material',
               entityId: id,
               entityTable: 'materials'
@@ -232,6 +253,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
               title: name,
               description,
               content,
+              metaTitle,
+              metaDescription,
               contentType: 'material',
               aiBrief,
               entityId: id,
@@ -241,8 +264,37 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
               if (next.title) setName(next.title);
               if (next.description) setDescription(next.description);
               if (next.content) setContent(next.content);
+              if (next.meta_title) setMetaTitle(next.meta_title);
+              if (next.meta_description) setMetaDescription(next.meta_description);
             }}
+            autoAnalyzeSignal={qaSignal}
           />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">SEO</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Meta title</label>
+                <input
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm"
+                  placeholder="50-60 characters"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Meta description</label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  className="w-full p-2 border rounded-lg text-sm h-20"
+                  placeholder="140-155 characters"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

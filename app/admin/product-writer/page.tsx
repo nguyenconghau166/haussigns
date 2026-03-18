@@ -66,6 +66,7 @@ export default function ProductWriterPage() {
     const [result, setResult] = useState<ProductResult | null>(null);
     const [copied, setCopied] = useState(false);
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+    const [qaSignal, setQaSignal] = useState(0);
 
     const [formData, setFormData] = useState({
         productName: '',
@@ -96,6 +97,7 @@ export default function ProductWriterPage() {
             const data = await res.json();
             if (data.success) {
                 setResult(data.data);
+                setQaSignal((prev) => prev + 1);
             } else {
                 alert(data.error || 'Failed to generate');
             }
@@ -257,6 +259,7 @@ export default function ProductWriterPage() {
                                     meta_description: next.meta_description || result.meta_description
                                 });
                             }}
+                            autoAnalyzeSignal={qaSignal}
                         />
                     </CardContent>
                 </Card>

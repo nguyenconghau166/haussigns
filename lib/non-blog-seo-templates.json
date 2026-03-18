@@ -1,0 +1,43 @@
+{
+  "defaults": {
+    "service": {
+      "label": "Service Page",
+      "sections": [
+        "Clear promise in the intro",
+        "Process and differentiators",
+        "Pricing approach or pricing principles",
+        "FAQ with 3-5 practical questions",
+        "Mid-page and final CTA"
+      ]
+    },
+    "about": {
+      "label": "About Page",
+      "sections": [
+        "Who we are",
+        "Mission and vision",
+        "Core values",
+        "Trust proof points",
+        "FAQ with 3-5 practical questions"
+      ]
+    },
+    "solution": {
+      "label": "Solution Page",
+      "sections": [
+        "Current pain points",
+        "Solution approach",
+        "Key features",
+        "Business outcomes",
+        "Use cases and FAQ"
+      ]
+    }
+  },
+  "qaChecklist": [
+    "SEO title length is 50-60 chars",
+    "Meta description length is 140-155 chars",
+    "SEO title and H1 are not identical",
+    "Only one H1 is used",
+    "Primary keyword appears in H1, intro, one H2, and conclusion",
+    "At least two contextual internal links",
+    "Final CTA is clear and action-oriented"
+  ]
+}

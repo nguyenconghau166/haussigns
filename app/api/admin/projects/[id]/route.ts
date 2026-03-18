@@ -41,7 +41,7 @@ export async function PUT(req: Request, props: RouteParams) {
     const params = await props.params;
     try {
         const body = await req.json();
-        const { title, slug, client, location, year, description, content, featured_image, cover_image, gallery_images, categories } = body;
+        const { title, slug, client, location, year, description, content, meta_title, meta_description, featured_image, cover_image, gallery_images, categories } = body;
 
         // 1. Update Project Fields
         const { error: updateError } = await supabaseAdmin
@@ -54,6 +54,8 @@ export async function PUT(req: Request, props: RouteParams) {
                 year,
                 description,
                 content,
+                meta_title,
+                meta_description,
                 featured_image: cover_image || featured_image,
                 cover_image: cover_image || featured_image,
                 gallery_images,

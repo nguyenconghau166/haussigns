@@ -11,6 +11,7 @@ import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
+import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
 export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -34,6 +35,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
   const [aiTone, setAiTone] = useState('professional');
   const [aiImagePrompt, setAiImagePrompt] = useState('');
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+  const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
+  const [qaSignal, setQaSignal] = useState(0);
 
   useEffect(() => {
     fetch(`/api/admin/pages/${slug}`)
@@ -68,7 +71,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
           slug: page.slug, // Pass slug for context
           pageContext: page.title, // Pass title for context
           contentType: 'page',
-          aiBrief
+          aiBrief,
+          seoPromptTemplate
         }),
       });
       const data = await res.json();
@@ -79,6 +83,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
         if (data.meta_description) setMetaDescription(data.meta_description);
         // Suggest image prompt
         setAiImagePrompt(`Professional photo of ${aiTopic || title}, modern style, high quality, 8k`);
+        setQaSignal((prev) => prev + 1);
       }
     } catch (err) {
       console.error(err);
@@ -253,6 +258,18 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 Viết nội dung (Draft)
               </button>
 
+              <NonBlogSeoTemplatePanel
+                slug={page.slug}
+                onPromptChange={setSeoPromptTemplate}
+                onApplyToBrief={({ mustInclude, entityFocus }) => {
+                  setAiBrief((prev) => ({
+                    ...prev,
+                    mustInclude,
+                    entityFocus: entityFocus || prev.entityFocus
+                  }));
+                }}
+              />
+
               <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
 
               <hr className="border-slate-100 my-2" />
@@ -340,6 +357,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
               if (next.meta_title) setMetaTitle(next.meta_title);
               if (next.meta_description) setMetaDescription(next.meta_description);
             }}
+            autoAnalyzeSignal={qaSignal}
           />
 
           <Card>

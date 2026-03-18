@@ -35,6 +35,8 @@ export async function PUT(
         title: body.name || '',
         description: body.description || '',
         content: body.content || '',
+        metaTitle: body.meta_title || '',
+        metaDescription: body.meta_description || '',
         contentType: 'material',
         entityId: id,
         entityTable: 'materials'

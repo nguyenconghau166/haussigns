@@ -63,7 +63,7 @@ function getContentType(contentType?: string, slug?: string): ContentType {
 
 export async function POST(request: Request) {
   try {
-    const { topic, lang, tone, slug, pageContext, contentType, aiBrief } = await request.json();
+    const { topic, lang, tone, slug, pageContext, contentType, aiBrief, seoPromptTemplate } = await request.json();
     const normalizedType = getContentType(contentType, slug);
     const brief = (aiBrief || {}) as AIBrief;
 
@@ -125,8 +125,13 @@ export async function POST(request: Request) {
     Language: ${language}.
     Tone: ${tone}.`;
 
+    const templatePrompt = typeof seoPromptTemplate === 'string' ? seoPromptTemplate.trim() : '';
+
     const outputPrompt = `
     ${typePromptMap[normalizedType]}
+
+    NON-BLOG SEO TEMPLATE:
+    ${templatePrompt || 'Use default SEO behavior for this content type.'}
 
     AUDIENCE BRIEF:
     - Search intent: ${brief.intent || 'commercial'}

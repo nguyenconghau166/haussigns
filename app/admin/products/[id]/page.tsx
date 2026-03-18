@@ -26,12 +26,15 @@ export default function ProductEditor({ params }: ProductEditorProps) {
     const [saving, setSaving] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+    const [qaSignal, setQaSignal] = useState(0);
 
     const [formData, setFormData] = useState({
         name: '',
         slug: '',
         description: '', // Short description
         content: '', // Rich text
+        meta_title: '',
+        meta_description: '',
         cover_image: '',
         gallery_images: [] as string[],
         features: [] as string[], // JSON array in DB
@@ -55,10 +58,13 @@ export default function ProductEditor({ params }: ProductEditorProps) {
             const res = await fetch(`/api/admin/products/${id}`);
             const data = await res.json();
             if (data.product) {
-                setFormData({
+                setFormData((prev) => ({
+                    ...prev,
                     ...data.product,
-                    features: data.product.features || []
-                });
+                    features: data.product.features || [],
+                    meta_title: data.product.meta_title || '',
+                    meta_description: data.product.meta_description || ''
+                }));
                 setFeaturesInput((data.product.features || []).join('\n'));
             }
         } catch (error) {
@@ -89,8 +95,11 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                 setFormData(prev => ({
                     ...prev,
                     description: result.short_description,
-                    content: `<h2>${result.title}</h2><p>${result.long_description.replace(/\n/g, '<br>')}</p><h3>Key Features</h3><ul>${result.features_list.map((f: string) => `<li>${f}</li>`).join('')}</ul><blockquote>${result.call_to_action}</blockquote>`
+                    content: `<h2>${result.title}</h2><p>${result.long_description.replace(/\n/g, '<br>')}</p><h3>Key Features</h3><ul>${result.features_list.map((f: string) => `<li>${f}</li>`).join('')}</ul><blockquote>${result.call_to_action}</blockquote>`,
+                    meta_title: result.meta_title || prev.meta_title,
+                    meta_description: result.meta_description || prev.meta_description
                 }));
+                setQaSignal((prev) => prev + 1);
                 // Also update features list if AI structured them better? 
                 // For now, let's keep user manual input separate or overwrite if they want.
                 if (result.features_list) {
@@ -234,6 +243,26 @@ export default function ProductEditor({ params }: ProductEditorProps) {
 
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                         <h2 className="font-semibold text-lg">Publishing</h2>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Meta title</label>
+                            <Input
+                                value={formData.meta_title}
+                                onChange={e => setFormData({ ...formData, meta_title: e.target.value })}
+                                placeholder="50-60 characters"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Meta description</label>
+                            <Textarea
+                                rows={4}
+                                value={formData.meta_description}
+                                onChange={e => setFormData({ ...formData, meta_description: e.target.value })}
+                                placeholder="140-155 characters"
+                            />
+                        </div>
+
                         <div className="flex items-center gap-2">
                             <input
                                 type="checkbox"
@@ -256,6 +285,8 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                             title: formData.name,
                             description: formData.description,
                             content: formData.content,
+                            metaTitle: formData.meta_title,
+                            metaDescription: formData.meta_description,
                             contentType: 'product',
                             entityId: isNew ? undefined : id,
                             entityTable: 'products'
@@ -264,6 +295,8 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                             title: formData.name,
                             description: formData.description,
                             content: formData.content,
+                            metaTitle: formData.meta_title,
+                            metaDescription: formData.meta_description,
                             contentType: 'product',
                             aiBrief,
                             entityId: isNew ? undefined : id,
@@ -274,9 +307,12 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                                 ...prev,
                                 name: next.title || prev.name,
                                 description: next.description || prev.description,
-                                content: next.content || prev.content
+                                content: next.content || prev.content,
+                                meta_title: next.meta_title || prev.meta_title,
+                                meta_description: next.meta_description || prev.meta_description
                             }));
                         }}
+                        autoAnalyzeSignal={qaSignal}
                     />
                 </div>
             </form>
