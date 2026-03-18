@@ -121,6 +121,15 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
             );
           })}
         </motion.div>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/services/types"
+            className="inline-flex items-center rounded-full border border-slate-200 px-6 py-2 font-medium text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-white dark:hover:bg-slate-800"
+          >
+            View All Services
+          </Link>
+        </div>
       </div>
     </section>
   );

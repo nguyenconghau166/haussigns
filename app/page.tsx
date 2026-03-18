@@ -12,12 +12,12 @@ export const revalidate = 300;
 
 export default async function Home() {
   const [products, services, projects, testimonials, posts, materials] = await Promise.all([
-    getProducts(8),
-    getServices(),
-    getProjects(8),
+    getProducts(6),
+    getServices(6),
+    getProjects(6),
     getTestimonials(4),
-    getPosts(3),
-    getMaterials(8),
+    getPosts(6),
+    getMaterials(6),
   ]);
 
   return (

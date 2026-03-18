@@ -18,7 +18,7 @@ export default function ProjectGallery({ projects = [] }: { projects?: Project[]
   return (
     <section className="py-20 bg-white dark:bg-slate-950">
       <div className="container px-4">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+        <div className="mb-12">
           <div>
             <span className="text-yellow-600 dark:text-amber-400 font-bold tracking-wider text-sm uppercase">Our Portfolio</span>
             <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mt-2">Recent Masterpieces</h2>
@@ -26,9 +26,6 @@ export default function ProjectGallery({ projects = [] }: { projects?: Project[]
               See how we help brands stand out across Metro Manila. From sketch to installation.
             </p>
           </div>
-          <Link href="/projects" className="px-6 py-2 border border-slate-200 dark:border-slate-700 rounded-full font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-900 dark:text-white">
-            View All Projects
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-[800px] md:h-[600px]">
@@ -56,6 +53,12 @@ export default function ProjectGallery({ projects = [] }: { projects?: Project[]
               </div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link href="/projects" className="inline-flex items-center px-6 py-2 border border-slate-200 dark:border-slate-700 rounded-full font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-900 dark:text-white">
+            View All Projects
+          </Link>
         </div>
       </div>
     </section>

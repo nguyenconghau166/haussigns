@@ -96,7 +96,7 @@ export default function HomePageClient({
 
       <section className="py-16 md:py-24 bg-slate-50 dark:bg-slate-900">
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
+          <div className="mb-12">
             <div>
               <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2">
                 Our Blog
@@ -104,18 +104,21 @@ export default function HomePageClient({
               <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">Latest Insights</h2>
               <p className="mt-2 text-slate-500 dark:text-slate-400">Tips, guides, and industry news for business owners.</p>
             </div>
-            <Link
-              href="/blog"
-              className="group flex items-center font-semibold text-slate-900 dark:text-white hover:text-yellow-600 dark:hover:text-amber-400 transition-colors"
-            >
-              View All Articles <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {posts.map((post) => (
               <BlogCard key={post.slug} post={post} />
             ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              href="/blog"
+              className="group inline-flex items-center font-semibold text-slate-900 dark:text-white hover:text-yellow-600 dark:hover:text-amber-400 transition-colors"
+            >
+              View All Articles <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
           </div>
         </div>
       </section>
