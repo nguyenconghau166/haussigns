@@ -13,9 +13,9 @@ import ContentQualityCard from '@/components/admin/ContentQualityCard';
 export default function EditIndustry({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const isNew = id === 'create' || id === 'new';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [industry, setIndustry] = useState<any>(null);
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -33,12 +33,22 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
   const [qaSignal, setQaSignal] = useState(0);
 
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
   useEffect(() => {
+    if (isNew) {
+      setLoading(false);
+      return;
+    }
+
     fetch(`/api/admin/industries/${id}`)
       .then(res => res.json())
       .then(data => {
         if (data.industry) {
-          setIndustry(data.industry);
           setTitle(data.industry.title);
           setSlug(data.industry.slug);
           setDescription(data.industry.description || '');
@@ -52,33 +62,39 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
         }
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isNew]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/industries/${id}`, {
-        method: 'PUT',
+      const payload = {
+        title,
+        slug: slug || slugify(title),
+        description,
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+        icon,
+        image,
+        recommended
+      };
+
+      const res = await fetch(isNew ? '/api/admin/industries' : `/api/admin/industries/${id}`, {
+        method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          slug,
-          description,
-          content,
-          meta_title: metaTitle,
-          meta_description: metaDescription,
-          icon,
-          image,
-          recommended
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || 'Lỗi khi lưu!');
         return;
       }
-      alert('Lưu thành công!');
-      router.refresh();
+      alert(isNew ? 'Tạo mới thành công!' : 'Lưu thành công!');
+      if (isNew) {
+        router.push('/admin/industries');
+      } else {
+        router.refresh();
+      }
     } catch (error) {
       alert('Lỗi khi lưu!');
     } finally {
@@ -134,7 +150,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           <Link href="/admin/industries" className="p-2 hover:bg-slate-100 rounded-full">
             <ArrowLeft className="h-5 w-5 text-slate-500" />
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900">Chỉnh sửa: {title}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{isNew ? 'Tạo ngành hàng mới' : `Chỉnh sửa: ${title}`}</h1>
         </div>
         <button
           onClick={handleSave}
@@ -142,7 +158,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Lưu thay đổi
+          {isNew ? 'Tạo ngành hàng' : 'Lưu thay đổi'}
         </button>
       </div>
 
@@ -244,7 +260,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               metaTitle,
               metaDescription,
               contentType: 'industry',
-              entityId: id,
+              entityId: isNew ? undefined : id,
               entityTable: 'industries'
             }}
             autoFixPayload={{
@@ -255,7 +271,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               metaDescription,
               contentType: 'industry',
               aiBrief,
-              entityId: id,
+              entityId: isNew ? undefined : id,
               entityTable: 'industries'
             }}
             onAutoFixApply={(next) => {
