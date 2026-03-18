@@ -213,6 +213,31 @@ function countKeywordHits(text: string, keyword: string): number {
   return matches ? matches.length : 0;
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function countWordsFromHtml(html: string): number {
+  if (!html) return 0;
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text ? text.split(' ').length : 0;
+}
+
+function estimateInlineImageTarget(params: {
+  html: string;
+  min: number;
+  max: number;
+}): number {
+  const words = countWordsFromHtml(params.html);
+  const headingCount = (params.html.match(/<h2\b|<h3\b/gi) || []).length;
+
+  const byLength = Math.ceil(words / 700);
+  const byStructure = Math.floor(headingCount / 3);
+  const rawTarget = Math.max(1, byLength + byStructure);
+
+  return clampNumber(rawTarget, params.min, params.max);
+}
+
 function escapeHtmlAttribute(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -626,6 +651,13 @@ OUTPUT JSON ONLY:
 
   const brief = parseJsonFromModel<ContentBrief>(briefResult, briefFallback);
 
+  const plannedInlineImages = clampNumber(
+    Math.ceil(minWordsNumber / 700) + Math.floor((brief.outline?.length || 0) / 4),
+    2,
+    5
+  );
+  const plannedInlineImageRange = `${Math.max(1, plannedInlineImages - 1)}-${plannedInlineImages + 1}`;
+
   const buildSystemPrompt = (variant: 'control' | 'expert') => `Bạn là Senior Content Writer cho ${companyName}.
 
 VỀ DOANH NGHIỆP:
@@ -687,7 +719,7 @@ YÊU CẦU BÀI VIẾT:
    - FAQ phải trả lời rõ ràng, câu đầu đi thẳng vào ý chính
 
 9. ẢNH MINH HỌA TỰ ĐỘNG:
-   - Chèn đúng 3 placeholder ảnh vào các vị trí chiến lược trong bài viết
+   - Chèn ${plannedInlineImageRange} placeholder ảnh (linh hoạt theo độ dài và độ phức tạp bài), không cố định số lượng
    - Cú pháp: ${'<!-- IMAGE: chi tiết bằng tiếng Anh mô tả cảnh cụ thể cho AI tạo ảnh | Chú thích ngắn gọn hiển thị cho người đọc -->'}
    - Ví dụ: ${'<!-- IMAGE: close-up photo of illuminated 3D acrylic channel letters mounted on modern glass storefront in Makati CBD at night | Bảng hiệu chữ nổi Acrylic có đèn LED tại cửa hàng ở Makati -->'}
    - QUAN TRỌNG: Phần trước dấu | là prompt chi tiết tiếng Anh để AI tạo ảnh thực tế, PHẢI mô tả cảnh cụ thể liên quan đến nội dung đoạn văn phía trên (loại biển, vật liệu, địa điểm cụ thể). Phần sau dấu | là chú thích ngắn gọn (tiếng Việt hoặc tiếng Anh theo ngôn ngữ bài viết)
@@ -872,6 +904,12 @@ export async function runAgentVisualInspector(
   const autoInternalLinking = (config.auto_internal_linking || 'true') === 'true';
   const maxInternalLinks = parseInt(config.internal_links_per_article || '3', 10) || 3;
   const minInlineImages = Math.max(1, parseInt(config.pipeline_min_inline_images || '2', 10) || 2);
+  const maxInlineImages = Math.max(minInlineImages, parseInt(config.pipeline_max_inline_images || '5', 10) || 5);
+  const targetInlineImages = estimateInlineImageTarget({
+    html: article.content || '',
+    min: minInlineImages,
+    max: maxInlineImages
+  });
   const baseImageContext = `${imageStyle}, topic: ${topic.keyword}, article: ${article.title}, location: Metro Manila`;
 
   const generateImageWithRetries = async (prompts: string[]): Promise<string | null> => {
@@ -879,7 +917,12 @@ export async function runAgentVisualInspector(
 
     for (const prompt of uniquePrompts) {
       try {
-        const imageUrl = await generateProjectImage(prompt);
+        const imageUrl = await generateProjectImage(prompt, {
+          contentType: 'post',
+          keyword: topic.keyword,
+          preferLibrary: true,
+          enableRealismRetry: true
+        });
         if (imageUrl) return imageUrl;
       } catch (err) {
         await logAgent(batchId, 'Visual Inspector', 'Loi tao anh, thu prompt du phong', 'failed', {
@@ -912,6 +955,7 @@ export async function runAgentVisualInspector(
     // Extract all <!-- IMAGE: description --> placeholders from the HTML content
     const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
     const placeholders: { fullMatch: string; prompt: string; caption: string }[] = [];
+    let contextualInlineAttempted = false;
     let match;
     while ((match = imagePlaceholderRegex.exec(finalContent)) !== null) {
       const raw = match[1];
@@ -923,9 +967,17 @@ export async function runAgentVisualInspector(
     }
 
     if (placeholders.length > 0) {
-      await logAgent(batchId, 'Visual Inspector', `Tìm thấy ${placeholders.length} vị trí chèn ảnh`, 'running');
+      await logAgent(
+        batchId,
+        'Visual Inspector',
+        `Tìm thấy ${placeholders.length} placeholder, mục tiêu ${targetInlineImages} ảnh minh họa`,
+        'running'
+      );
 
-      for (const placeholder of placeholders) {
+      const placeholdersToUse = placeholders.slice(0, targetInlineImages);
+      const placeholdersToRemove = placeholders.slice(targetInlineImages);
+
+      for (const placeholder of placeholdersToUse) {
         try {
           const imgPrompt = buildPhotorealisticPrompt(baseImageContext, placeholder.prompt);
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
@@ -974,11 +1026,17 @@ export async function runAgentVisualInspector(
           finalContent = finalContent.replace(placeholder.fullMatch, '');
         }
       }
+
+      for (const extraPlaceholder of placeholdersToRemove) {
+        finalContent = finalContent.replace(extraPlaceholder.fullMatch, '');
+      }
     } else {
       // Fallback: If Writer didn't include placeholders, use AI analysis
       await logAgent(batchId, 'Visual Inspector', 'Không có placeholder, phân tích vị trí chèn ảnh...', 'running');
+      contextualInlineAttempted = true;
 
-      const analysisPrompt = `Analyze this HTML article and suggest 2-3 image prompts.
+      const remainingNeeded = Math.max(1, targetInlineImages - generatedImages.length);
+      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts for maximum trust and relevance.
         Article Title: "${article.title}"
         Content Snippet: ${article.content.substring(0, 3000)}...
 
@@ -989,14 +1047,18 @@ export async function runAgentVisualInspector(
             "image_prompt": "specific photorealistic signage photo relevant to the nearby paragraph",
             "alt_text": "description for seo"
           }
-        ]`;
+        ]
+        Rules:
+        - Exactly ${remainingNeeded} items
+        - Prioritize sections with practical details (materials, installation, before/after, pricing context)
+        - Avoid repetitive viewpoints`;
 
       try {
         const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest inline images', 'gpt-4o');
         const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
         const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
 
-        for (const item of suggestions) {
+        for (const item of suggestions.slice(0, remainingNeeded)) {
           if (!item.insert_after_text || !item.image_prompt) continue;
           await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
           const imgUrl = await generateImageWithRetries([
@@ -1018,6 +1080,8 @@ export async function runAgentVisualInspector(
               finalContent += figureHtml;
             }
           }
+
+          if (generatedImages.length >= targetInlineImages) break;
         }
       } catch (err) {
         console.error('Error generating inline images:', err);
@@ -1025,7 +1089,61 @@ export async function runAgentVisualInspector(
       }
     }
 
-    while (generatedImages.length < minInlineImages) {
+    if (!contextualInlineAttempted && generatedImages.length < targetInlineImages) {
+      const remainingNeeded = targetInlineImages - generatedImages.length;
+      await logAgent(batchId, 'Visual Inspector', `Bổ sung ${remainingNeeded} ảnh theo ngữ cảnh nội dung`, 'running');
+
+      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts for maximum trust and relevance.
+        Article Title: "${article.title}"
+        Content Snippet: ${article.content.substring(0, 3000)}...
+
+        Return JSON ONLY:
+        [
+          {
+            "insert_after_text": "a short unique sentence from the article to insert image after",
+            "image_prompt": "specific photorealistic signage photo relevant to the nearby paragraph",
+            "alt_text": "description for seo"
+          }
+        ]
+        Rules:
+        - Exactly ${remainingNeeded} items
+        - Prioritize sections with practical details (materials, installation, before/after, pricing context)
+        - Avoid repetitive viewpoints`;
+
+      try {
+        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest additional inline images', 'gpt-4o');
+        const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
+        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
+
+        for (const item of suggestions.slice(0, remainingNeeded)) {
+          if (!item.insert_after_text || !item.image_prompt) continue;
+          const imgUrl = await generateImageWithRetries([
+            buildPhotorealisticPrompt(baseImageContext, item.image_prompt),
+            buildPhotorealisticPrompt(baseImageContext, `real signage photo for ${topic.keyword}`)
+          ]);
+
+          if (!imgUrl) continue;
+          generatedImages.push({ location: item.insert_after_text, url: imgUrl, alt: item.alt_text || item.image_prompt });
+          const figureHtml = `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(item.alt_text || item.image_prompt)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${item.alt_text || item.image_prompt}</figcaption></figure>`;
+          const escapedText = item.insert_after_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const textRegex = new RegExp(`(${escapedText})`, 'i');
+
+          if (textRegex.test(finalContent)) {
+            finalContent = finalContent.replace(textRegex, `$1${figureHtml}`);
+          } else {
+            finalContent += figureHtml;
+          }
+
+          if (generatedImages.length >= targetInlineImages) break;
+        }
+      } catch (err) {
+        await logAgent(batchId, 'Visual Inspector', 'Lỗi bổ sung ảnh theo ngữ cảnh', 'failed', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
+
+    while (generatedImages.length < targetInlineImages) {
       const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword} (${generatedImages.length + 1})`;
       const fallbackInlineImage = await generateImageWithRetries([
         buildPhotorealisticPrompt(baseImageContext, `real signage project photo focused on ${topic.keyword}`),

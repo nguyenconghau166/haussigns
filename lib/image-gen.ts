@@ -9,6 +9,237 @@ interface ImageGenResult {
   error?: string;
 }
 
+type ImageContentType = 'page' | 'post' | 'product' | 'project' | 'material' | 'industry' | 'generic';
+
+interface GenerateProjectImageOptions {
+  contentType?: ImageContentType;
+  keyword?: string;
+  preferLibrary?: boolean;
+  realismThreshold?: number;
+  enableRealismRetry?: boolean;
+}
+
+const REALISM_THRESHOLD_DEFAULT = 76;
+
+function isValidGoogleKey(key: string | undefined | null): key is string {
+  if (!key) return false;
+  if (key.length < 10) return false;
+  if (key.startsWith('YOUR_') || key.startsWith('your-') || key.startsWith('your_') || key === 'placeholder') return false;
+  return true;
+}
+
+async function getGoogleApiKey(): Promise<string | null> {
+  const geminiKey = await getConfig('GEMINI_API_KEY');
+  const googleKey = await getConfig('google_api_key');
+  if (isValidGoogleKey(geminiKey)) return geminiKey;
+  if (isValidGoogleKey(googleKey)) return googleKey;
+  return null;
+}
+
+function normalizeSearchTerm(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[%_,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+}
+
+function firstImageFromArray(values: unknown): string | null {
+  if (!Array.isArray(values)) return null;
+  for (const item of values) {
+    if (typeof item === 'string' && item.startsWith('http')) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function pickImageUrl(...candidates: Array<unknown>): string | null {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.startsWith('http')) {
+      return candidate;
+    }
+    const fromArray = firstImageFromArray(candidate);
+    if (fromArray) return fromArray;
+  }
+  return null;
+}
+
+function getContentTypeHint(contentType: ImageContentType): string {
+  const hints: Record<ImageContentType, string> = {
+    page: 'hero-style on-location brand signage photo for a business website page',
+    post: 'editorial-style real signage project photo supporting article content',
+    product: 'close-up product photography of real signage materials, edges, finishing, and mounting details',
+    project: 'wide shot of completed signage installation at a real customer location',
+    material: 'macro and mid-shot of real signage material texture, thickness, and lighting response',
+    industry: 'real business context photo showing signage use in that industry environment',
+    generic: 'trustworthy real-world business signage photo'
+  };
+  return hints[contentType] || hints.generic;
+}
+
+function enhancePhotorealPrompt(prompt: string): string {
+  const base = (prompt || '').trim();
+  return [
+    'Photorealistic commercial signage photography',
+    base || 'real signage installation on a storefront',
+    'shot on a real camera with natural perspective and realistic depth of field',
+    'natural daylight or practical ambient lighting, true-to-life colors and textures',
+    'show believable materials, fasteners, wall reflections, and minor real-world imperfections',
+    'documentary style, trustworthy business photo, not stylized',
+    'no illustration, no CGI, no 3D render, no plastic look, no fantasy style',
+    'no text overlay, no watermark, no logo distortion, no blurry details'
+  ].join(', ');
+}
+
+async function findReferenceImageFromLibrary(keyword: string, contentType: ImageContentType): Promise<string | null> {
+  const term = normalizeSearchTerm(keyword);
+  if (!term) return null;
+
+  const orderedTables: Array<ImageContentType> = (() => {
+    if (contentType === 'industry') return ['industry', 'project', 'material', 'product'];
+    if (contentType === 'material') return ['material', 'product', 'project', 'industry'];
+    if (contentType === 'product') return ['product', 'project', 'material', 'industry'];
+    if (contentType === 'project') return ['project', 'industry', 'product', 'material'];
+    return ['project', 'product', 'industry', 'material'];
+  })();
+
+  for (const tableType of orderedTables) {
+    try {
+      if (tableType === 'project') {
+        const { data } = await supabaseAdmin
+          .from('projects')
+          .select('cover_image, featured_image, gallery_images, title, slug')
+          .or(`title.ilike.%${term}%,slug.ilike.%${term}%`)
+          .limit(8);
+
+        for (const row of data || []) {
+          const imageUrl = pickImageUrl(row.cover_image, row.featured_image, row.gallery_images);
+          if (imageUrl) return imageUrl;
+        }
+      }
+
+      if (tableType === 'product') {
+        const { data } = await supabaseAdmin
+          .from('products')
+          .select('cover_image, gallery_images, name, slug')
+          .or(`name.ilike.%${term}%,slug.ilike.%${term}%`)
+          .limit(8);
+
+        for (const row of data || []) {
+          const imageUrl = pickImageUrl(row.cover_image, row.gallery_images);
+          if (imageUrl) return imageUrl;
+        }
+      }
+
+      if (tableType === 'industry') {
+        const { data } = await supabaseAdmin
+          .from('industries')
+          .select('image, title, slug')
+          .or(`title.ilike.%${term}%,slug.ilike.%${term}%`)
+          .limit(8);
+
+        for (const row of data || []) {
+          const imageUrl = pickImageUrl(row.image);
+          if (imageUrl) return imageUrl;
+        }
+      }
+
+      if (tableType === 'material') {
+        const { data } = await supabaseAdmin
+          .from('materials')
+          .select('image, name, slug')
+          .or(`name.ilike.%${term}%,slug.ilike.%${term}%`)
+          .limit(8);
+
+        for (const row of data || []) {
+          const imageUrl = pickImageUrl(row.image);
+          if (imageUrl) return imageUrl;
+        }
+      }
+    } catch (error) {
+      console.warn(`Reference image lookup failed for ${tableType}:`, error);
+    }
+  }
+
+  return null;
+}
+
+async function toInlineImagePart(imageUrl: string): Promise<{ mimeType: string; data: string } | null> {
+  if (!imageUrl) return null;
+
+  const dataUriMatch = imageUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (dataUriMatch) {
+    return { mimeType: dataUriMatch[1] || 'image/png', data: dataUriMatch[2] };
+  }
+
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return { mimeType, data: buffer.toString('base64') };
+  } catch {
+    return null;
+  }
+}
+
+async function scoreImageRealism(imageUrl: string, sceneHint: string): Promise<number | null> {
+  try {
+    const apiKey = await getGoogleApiKey();
+    if (!apiKey) return null;
+
+    const inlineImage = await toInlineImagePart(imageUrl);
+    if (!inlineImage) return null;
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const payload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: [
+                'Rate how realistic this image is as a real business signage photo.',
+                'Return JSON only: {"score": number, "note": "short reason"}.',
+                'Score must be 0-100 where 100 is indistinguishable from real photography.',
+                `Scene context: ${sceneHint}`
+              ].join(' ')
+            },
+            {
+              inlineData: inlineImage
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json'
+      }
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.find((part: { text?: string }) => typeof part.text === 'string')?.text || '';
+    if (!text) return null;
+
+    const parsed = JSON.parse(text) as { score?: unknown };
+    const score = Number(parsed?.score);
+    if (!Number.isFinite(score)) return null;
+    return Math.max(0, Math.min(100, Math.round(score)));
+  } catch {
+    return null;
+  }
+}
+
 // Hàm lấy cấu hình từ Database
 async function getConfig(key: string, defaultValue: string = '') {
   // Try env first
@@ -102,7 +333,7 @@ async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiK
       prompt: prompt,
       input: {
         prompt: prompt,
-        negative_prompt: "text, watermark, low quality, blurry, distorted",
+        negative_prompt: "text, watermark, low quality, blurry, distorted, cgi, 3d render, illustration, cartoon, anime, oversaturated, plastic texture",
         width: 1024, height: 768
       },
       modelInputs: { prompt: prompt }
@@ -140,18 +371,8 @@ async function generateWithCustomEndpoint(prompt: string, endpoint: string, apiK
 // --- ENGINE 3: GOOGLE GEMINI NATIVE IMAGE GENERATION ---
 async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult> {
   try {
-    // Helper to check if key is a real key (not a placeholder)
-    const isValidKey = (k: string | undefined | null): k is string => {
-      if (!k) return false;
-      if (k.length < 10) return false;
-      if (k.startsWith('YOUR_') || k.startsWith('your-') || k.startsWith('your_') || k === 'placeholder') return false;
-      return true;
-    };
-
     // 1. Try to get Google API Key — prioritize GEMINI_API_KEY (usually the real one)
-    const geminiKey = await getConfig('GEMINI_API_KEY');
-    const googleKey = await getConfig('google_api_key');
-    const apiKey = isValidKey(geminiKey) ? geminiKey : isValidKey(googleKey) ? googleKey : null;
+    const apiKey = await getGoogleApiKey();
 
     // If no valid Google Key, check for legacy Banana/Custom config
     if (!apiKey) {
@@ -172,7 +393,7 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
 
     const payload = {
       contents: [{
-        parts: [{ text: `Generate a high-quality photograph: ${prompt}` }]
+        parts: [{ text: `Create one photorealistic on-location business photo. Keep perspective and materials realistic. Avoid any illustration or CGI style. Scene: ${prompt}` }]
       }],
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"]
@@ -228,11 +449,27 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
 }
 
 // --- MAIN ROUTER ---
-export async function generateProjectImage(prompt: string): Promise<string | null> {
+export async function generateProjectImage(prompt: string, options: GenerateProjectImageOptions = {}): Promise<string | null> {
+  const contentType = options.contentType || 'generic';
+  const realismThreshold = options.realismThreshold ?? REALISM_THRESHOLD_DEFAULT;
+  const shouldUseLibrary = options.preferLibrary !== false;
+  const shouldRetryForRealism = options.enableRealismRetry !== false;
+  const keyword = options.keyword?.trim() || '';
+  const promptWithTypeHint = `${getContentTypeHint(contentType)}, ${prompt}`;
+  const enhancedPrompt = enhancePhotorealPrompt(promptWithTypeHint);
+
+  if (shouldUseLibrary && keyword) {
+    const referenceImage = await findReferenceImageFromLibrary(keyword, contentType);
+    if (referenceImage) {
+      console.log(`Using reference image from library for keyword: ${keyword}`);
+      return referenceImage;
+    }
+  }
+
   // Read provider preference: 'nanobanana' | 'google' | 'banana' | 'dalle'
   let provider = (await getConfig('image_provider')).toLowerCase();
 
-  const hasGeminiKey = Boolean(await getConfig('GEMINI_API_KEY')) || Boolean(await getConfig('google_api_key'));
+  const hasGeminiKey = Boolean(await getGoogleApiKey());
   const hasBanana = Boolean(await getConfig('banana_endpoint'));
   const hasOpenAI = Boolean(process.env.OPENAI_API_KEY) || Boolean(await getConfig('openai_api_key'));
 
@@ -242,44 +479,66 @@ export async function generateProjectImage(prompt: string): Promise<string | nul
     else provider = 'dalle';
   }
 
-  const runProvider = async (name: string): Promise<ImageGenResult> => {
+  const runProvider = async (name: string, promptText: string): Promise<ImageGenResult> => {
     if (name === 'nanobanana' || name === 'google' || name === 'banana') {
-      return generateWithGeminiNative(prompt);
+      return generateWithGeminiNative(promptText);
     }
-    return generateWithDallE(prompt);
+    return generateWithDallE(promptText);
   };
 
   const fallbackCandidates = [provider, hasGeminiKey || hasBanana ? 'nanobanana' : '', hasOpenAI ? 'dalle' : ''];
   const providerOrder = Array.from(new Set(fallbackCandidates.filter(Boolean)));
 
-  let result: ImageGenResult = { success: false, error: 'No provider executed' };
+  const generateAndUpload = async (promptText: string): Promise<string | null> => {
+    let result: ImageGenResult = { success: false, error: 'No provider executed' };
 
-  for (const providerName of providerOrder) {
-    console.log(`Generating image using provider: ${providerName}`);
-    result = await runProvider(providerName);
-    if (result.success && result.url) break;
-    console.warn(`Image provider failed (${providerName}): ${result.error || 'Unknown error'}`);
-  }
+    for (const providerName of providerOrder) {
+      console.log(`Generating image using provider: ${providerName}`);
+      result = await runProvider(providerName, promptText);
+      if (result.success && result.url) break;
+      console.warn(`Image provider failed (${providerName}): ${result.error || 'Unknown error'}`);
+    }
 
-  if (result.success && result.url) {
-    // START: Upload to Supabase Storage
+    if (!result.success || !result.url) {
+      console.error('Image Generation Failed:', result.error);
+      return null;
+    }
+
     try {
       console.log('Uploading generated image to Supabase Storage...');
       const supabaseUrl = await uploadImageFromUrl(result.url);
       if (supabaseUrl) {
         console.log('Image uploaded successfully:', supabaseUrl);
         return supabaseUrl;
-      } else {
-        console.error('Failed to upload image to Supabase, falling back to original URL');
-        return result.url;
       }
+      console.error('Failed to upload image to Supabase, falling back to original URL');
+      return result.url;
     } catch (uploadError) {
       console.error('Error during image upload:', uploadError);
       return result.url;
     }
-    // END: Upload to Supabase Storage
-  } else {
-    console.error('Image Generation Failed:', result.error);
-    return null;
+  };
+
+  const firstUrl = await generateAndUpload(enhancedPrompt);
+  if (!firstUrl) return null;
+  if (!shouldRetryForRealism) return firstUrl;
+
+  const firstScore = await scoreImageRealism(firstUrl, promptWithTypeHint);
+  if (firstScore === null) return firstUrl;
+  if (firstScore >= realismThreshold) {
+    console.log(`Realism check passed: ${firstScore}`);
+    return firstUrl;
   }
+
+  const stricterPrompt = `${enhancedPrompt}, documentary photojournalism style, realistic installation imperfections, accurate scale and perspective, avoid stylization`;
+  const retryUrl = await generateAndUpload(stricterPrompt);
+  if (!retryUrl) return firstUrl;
+
+  const retryScore = await scoreImageRealism(retryUrl, promptWithTypeHint);
+  if (retryScore !== null && retryScore > firstScore) {
+    console.log(`Realism retry improved score: ${firstScore} -> ${retryScore}`);
+    return retryUrl;
+  }
+
+  return firstUrl;
 }

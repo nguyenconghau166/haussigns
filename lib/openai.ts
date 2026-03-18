@@ -61,7 +61,7 @@ export const generateImage = async (prompt: string, size: '1024x1024' = '1024x10
       n: 1,
       size: size,
       quality: 'hd',
-      style: 'vivid',
+      style: 'natural',
     });
     return response.data?.[0]?.url || null;
   } catch (error) {

@@ -32,7 +32,13 @@ export async function GET() {
     const startMs = Date.now();
     try {
         const result = await generateProjectImage(
-            'a modern LED signage installed on a glass building facade, professional photography'
+            'a modern LED signage installed on a glass building facade, professional photography',
+            {
+                contentType: 'project',
+                keyword: 'LED signage',
+                preferLibrary: true,
+                enableRealismRetry: true
+            }
         );
         diagnostics.generate_time_ms = Date.now() - startMs;
         diagnostics.generate_result = result ? `SUCCESS (url: ${result.substring(0, 80)}...)` : 'NULL (failed)';

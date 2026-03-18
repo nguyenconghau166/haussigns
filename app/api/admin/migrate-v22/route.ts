@@ -19,6 +19,8 @@ export async function GET() {
       ('seo_bulk_scan_limit', '25', 'So URL toi da se scan tu sitemap moi lan cron'),
       ('seo_stale_days', '7', 'So ngay de xac dinh trang SEO can re-scan'),
       ('seo_rescan_limit', '20', 'So trang SEO toi da re-scan moi lan cron'),
+      ('pipeline_min_inline_images', '2', 'So anh minh hoa toi thieu cho moi bai viet pipeline'),
+      ('pipeline_max_inline_images', '5', 'So anh minh hoa toi da cho moi bai viet pipeline'),
       ('site_url', 'https://signshaus.ph', 'Canonical site URL used for metadata, sitemap, RSS'),
       ('indexnow_key', '', 'IndexNow key for instant URL submission (optional)')
     ON CONFLICT (key) DO NOTHING;

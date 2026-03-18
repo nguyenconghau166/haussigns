@@ -200,7 +200,13 @@ Return valid JSON only.`;
       const caption = parts[1] || '';
       try {
         const imageUrl = await generateProjectImage(
-          `professional signage photography, realistic, ${prompt}, no text overlays, no watermarks, clean composition, cinematic lighting`
+          `real signage installation photo, ${prompt}, natural lighting, true-to-life colors, documentary composition, no text overlays, no watermarks`,
+          {
+            contentType: normalizedType,
+            keyword: topic || pageContext || slug,
+            preferLibrary: true,
+            enableRealismRetry: true
+          }
         );
         if (imageUrl) {
           const altText = caption || prompt;

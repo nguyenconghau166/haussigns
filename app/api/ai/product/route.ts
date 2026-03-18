@@ -190,7 +190,13 @@ Write content that achieves the goal: ${selectedGoal}.`;
                 const caption = parts[1] || '';
                 try {
                     const imageUrl = await generateProjectImage(
-                        `professional signage photography, realistic, ${prompt}, no text overlays, no watermarks, clean composition, studio lighting`
+                        `real product signage photo, ${prompt}, practical natural lighting, accurate material texture, documentary composition, no text overlays, no watermarks`,
+                        {
+                            contentType: isMaterial ? 'material' : 'product',
+                            keyword: productName,
+                            preferLibrary: true,
+                            enableRealismRetry: true
+                        }
                     );
                     if (imageUrl) {
                         const altText = caption || prompt;
