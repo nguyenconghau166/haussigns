@@ -13,6 +13,12 @@ export default function robots(): MetadataRoute.Robots {
         allow: ['/', '/blog', '/projects', '/services'],
         disallow: ['/admin/', '/api/'],
       },
+      // Allow AI search crawlers for AIO visibility
+      {
+        userAgent: ['GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'Google-Extended'],
+        allow: ['/', '/blog', '/projects', '/services'],
+        disallow: ['/admin/', '/api/'],
+      },
     ],
     sitemap: [`${baseUrl}/sitemap.xml`, `${baseUrl}/rss.xml`],
     host: baseUrl,

@@ -246,6 +246,22 @@ function escapeHtmlAttribute(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function buildSeoAltText(keyword: string, description: string): string {
+  // Front-load keyword, keep under 125 chars
+  const cleaned = description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const keywordLower = keyword.toLowerCase();
+  const descLower = cleaned.toLowerCase();
+
+  // If description already starts with keyword, just truncate
+  if (descLower.startsWith(keywordLower)) {
+    return cleaned.substring(0, 125);
+  }
+
+  // Prepend keyword to description
+  const combined = `${keyword} - ${cleaned}`;
+  return combined.substring(0, 125);
+}
+
 function buildPhotorealisticPrompt(baseContext: string, shotIntent: string): string {
   return [
     'Photorealistic commercial photography',
@@ -362,7 +378,11 @@ export async function createPipelineRun(triggerType: 'manual' | 'scheduled' = 'm
 }
 
 export async function updatePipelineRun(id: string, updates: Record<string, unknown>) {
-  await supabaseAdmin.from('ai_pipeline_runs').update(updates).eq('id', id);
+  const { error } = await supabaseAdmin.from('ai_pipeline_runs').update(updates).eq('id', id);
+  if (error) {
+    console.error(`[updatePipelineRun] Failed to update run ${id}:`, error.message, { updates });
+    throw new Error(`Pipeline run update failed: ${error.message}`);
+  }
 }
 
 // =============================================
@@ -519,7 +539,7 @@ QUY TẮC:
 // =============================================
 // AGENT 3: WRITER (Viết bài SEO)
 // =============================================
-export async function runAgentWriter(batchId: string, topic: EvaluatedTopic): Promise<AgentResult> {
+export async function runAgentWriter(batchId: string, topic: EvaluatedTopic, options?: { skipAbTest?: boolean }): Promise<AgentResult> {
   await logAgent(batchId, 'Writer', `Viết bài: ${topic.keyword}`, 'running');
 
   const config = await getAllConfig();
@@ -564,19 +584,31 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic): Pr
 
   const htmlFormatGuide = [
     'KHÔNG DÙNG Markdown (##, **, *, -, ```, >). TUYỆT ĐỐI KHÔNG.',
-    'Thêm mục lục ngắn gần đầu bài bằng <nav><ol><li>',
-    'Dùng id cho mỗi h2 để tăng khả năng điều hướng (ví dụ: <h2 id="material-options">...)',
-    'Dùng thẻ h2 và h3 cho tiêu đề phần',
-    'Dùng thẻ p cho mỗi đoạn văn',
+    'CẤU TRÚC BÀI VIẾT THEO THỨ TỰ BẮT BUỘC:',
+    '  1. H1 title (duy nhất 1 cái)',
+    '  2. Hook intro 2-3 câu (đoạn p đầu tiên, data-speakable="true")',
+    '  3. KEY TAKEAWAYS BOX: <div class="key-takeaways" data-speakable="true"><h2>Key Takeaways</h2><ul><li>...</li></ul></div> — 4-6 bullet, mỗi bullet là 1 câu fact cụ thể có số liệu, AI sẽ trích dẫn block này',
+    '  4. QUICK ANSWER: <div class="quick-answer" data-speakable="true"><p>...</p></div> — 50-70 từ, self-contained, trả lời trọn vẹn câu hỏi chính',
+    '  5. MỤC LỤC: <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#anchor">...</a></li></ol></nav>',
+    '  6. NỘI DUNG CHÍNH: 6-8 sections, mỗi section có <h2 id="anchor-id">',
+    '  7. COMPARISON TABLE: ít nhất 1 bảng so sánh <table> với thead/tbody',
+    '  8. DECISION CHECKLIST: <div class="decision-checklist"><h2 id="...">How to Choose...</h2><ol><li>...</li></ol></div>',
+    '  9. CASE STUDY: <section class="case-study"><h2 id="...">Our Experience / Case Study</h2>...</section>',
+    '  10. FAQ: <section data-faq="true"><h2 id="faq">Frequently Asked Questions</h2> mỗi Q&A là <h3> + <p>',
+    '  11. KẾT LUẬN + CTA',
+    '',
+    'QUY TẮC HTML:',
+    'Dùng id cho MỌI h2 để tăng khả năng điều hướng (ví dụ: <h2 id="material-options">...)',
+    'Dùng thẻ p cho mỗi đoạn văn — MỖI ĐOẠN TỐI ĐA 2-4 CÂU (AI parse tốt hơn, không viết wall of text)',
     'Dùng thẻ ul/li hoặc ol/li cho danh sách',
     'Dùng thẻ strong và em cho nhấn mạnh',
-    'Dùng thẻ blockquote cho trích dẫn',
-    'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá',
-    'Dùng đúng 1 khối FAQ với 3-5 câu hỏi bằng <section data-faq="true"> và mỗi câu hỏi là <h3>',
-    'Chèn tối thiểu 2 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a>',
-    'Có 1 khối checklist ngắn cuối bài bằng <ul>',
+    'Dùng thẻ blockquote cho trích dẫn hoặc expert quote',
+    'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá và so sánh',
+    'Chèn tối thiểu 3 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a> (mục tiêu 3-5 links)',
     'Dùng thẻ figure/figcaption nếu cần chú thích',
-    'Viết mượt mà, tự nhiên, đọc như bài báo, KHÔNG liệt kê khô khan',
+    'Dùng data-speakable="true" cho các phần quan trọng nhất (intro, key takeaways, quick answer, conclusion) — tối ưu voice search',
+    'Viết mượt mà, tự nhiên, đọc như bài báo chuyên nghiệp, KHÔNG liệt kê khô khan',
+    'MỖI SECTION PHẢI SELF-CONTAINED: đọc riêng section vẫn hiểu đầy đủ, không cần context trước đó — đây là yếu tố then chốt để AI trích dẫn',
   ].map(line => `- ${line}`).join('\n');
 
   const variantInstructionMap: Record<string, string> = {
@@ -685,22 +717,47 @@ YÊU CẦU BÀI VIẾT:
 1. Tối thiểu ${minWordsNumber} từ
 2. Ngôn ngữ: ${langMap[language] || langMap['en']}
 3. Giọng văn: ${tone}
-4. CẤU TRÚC:
-   - Phần mở đầu hook (2-3 câu thu hút)
-   - Khối "Quick answer" ngắn (2-4 câu) ở đầu bài
-   - Mục lục mini với anchor link
-   - Nội dung chính chia thành nhiều phần rõ ràng
-   - Chi tiết kỹ thuật (vật liệu, quy trình, độ bền)
-   - So sánh ưu nhược điểm nếu phù hợp
-   - Bảng giá tham khảo (PHP)
-   - FAQ Section (3-5 câu hỏi)
-   - KẾT LUẬN + CTA mạnh mẽ
+4. CẤU TRÚC (AIO-Optimized 2025-2026 — Citation-First Architecture):
+   QUAN TRỌNG: 55% AI citations đến từ top 30% bài viết. Đặt thông tin quan trọng nhất LÊN ĐẦU.
 
-5. LỒNG GHÉP DOANH NGHIỆP:
-   - Đề cập ${companyName} tự nhiên (2-3 lần trong bài)
-   - Kể kinh nghiệm/case study giả định nhưng thực tế
+   A. PHẦN MỞ ĐẦU (top 30% — citation target zone):
+   - Hook intro (2-3 câu thu hút, data-speakable="true")
+   - KEY TAKEAWAYS BOX ngay sau hook: 4-6 bullet points, mỗi bullet là 1 fact cụ thể có con số (vd: "Acrylic signage costs ₱3,500–₱12,000 per square foot"). Dùng <div class="key-takeaways" data-speakable="true">
+   - QUICK ANSWER block: 50-70 từ, self-contained, trả lời trọn vẹn câu hỏi chính. Dùng <div class="quick-answer" data-speakable="true">
+   - MỤC LỤC mini với anchor links
+
+   B. NỘI DUNG CHÍNH (6-8 sections):
+   - Ít nhất 4 trong 6 heading H2 PHẢI viết dạng CÂU HỎI (vd: "How Much Does X Cost?" thay vì "Pricing")
+   - Mở ĐẦU mỗi section = 1-2 câu trả lời trực tiếp (inverted pyramid) → SAU ĐÓ mới mở rộng
+   - Mỗi section 120-180 từ, self-contained (đọc riêng vẫn hiểu đầy đủ)
+   - Mỗi đoạn văn tối đa 2-4 câu — KHÔNG viết wall of text
+   - DATA POINTS cụ thể: con số, đơn vị, range giá, timeline, so sánh
+   - Ít nhất 1 bảng so sánh HTML table (comparison)
+   - Ít nhất 1 bảng giá tham khảo (PHP) với mức cụ thể
+
+   C. DECISION FRAMEWORK:
+   - 1 section "How to Choose..." hoặc "Decision Checklist" dùng ordered list
+   - Giúp người đọc ra quyết định với tiêu chí cụ thể
+
+   D. SOCIAL PROOF:
+   - 1 section "Our Experience" hoặc "Case Study" (80-120 từ): kể dự án cụ thể với kết quả đo lường (vd: "increased foot traffic by 40%")
+   - Nếu có thể, thêm 1 expert quote hoặc industry stat trong blockquote
+
+   E. FAQ Section (3-5 câu hỏi):
+   - Mỗi câu trả lời là self-contained answer block 60-80 từ
+   - Câu ĐẦU TIÊN mỗi answer phải trả lời thẳng, không mở đầu bằng "It depends" hoặc "Well..."
+   - FAQ phải cover "People Also Ask" queries liên quan
+
+   F. KẾT LUẬN (data-speakable="true"):
+   - Tóm tắt 2-3 câu key points + CTA mạnh mẽ
+
+5. E-E-A-T SIGNALS (QUAN TRỌNG cho SEO 2025-2026):
+   - Đề cập ${companyName} tự nhiên (2-3 lần) với expertise cụ thể (vd: "With over X years in the signage industry...")
+   - Section "Our Experience/Case Study": kể dự án cụ thể với kết quả đo lường (vd: "increased foot traffic by 40%")
+   - Dùng ngôn ngữ xác định (definite language): con số, thời gian, chi phí cụ thể — KHÔNG nói chung chung
+   - Tham chiếu quy chuẩn/tiêu chuẩn địa phương khi phù hợp (building permits, DPWH guidelines...)
    - KHÔNG quảng cáo lộ liễu, phải mang lại giá trị cho người đọc
-   
+
 6. CTA - KÊU GỌI HÀNH ĐỘNG:
    - Cuối bài: "${cta}"
    - Trong bài: 1-2 CTA nhẹ nhàng tự nhiên
@@ -711,12 +768,23 @@ YÊU CẦU BÀI VIẾT:
    - Dùng entities từ brief.entity_map xuyên suốt bài
    - Sử dụng tên địa phương tự nhiên
    - Chỉ có 1 thẻ h1 trong toàn bài
+   - Meta title: keyword ở ĐẦU, max 60 chars
+   - Meta description: 120-155 chars, bắt đầu bằng action word (Discover, Learn, Get, Find)
 
-8. AIO (Artificial Intelligence Optimization):
-   - Viết câu mở mỗi section dạng "định nghĩa + ngữ cảnh" rõ chủ thể
-   - Tạo các đoạn trả lời trực tiếp, ngắn gọn cho câu hỏi truy vấn
-   - Có ít nhất 1 bảng so sánh và 1 checklist ra quyết định
-   - FAQ phải trả lời rõ ràng, câu đầu đi thẳng vào ý chính
+8. AIO NÂNG CAO (AI Overview & Generative Engine Optimization 2025-2026):
+   NGUYÊN TẮC THEN CHỐT: Viết cho máy parse VÀ người đọc. AI trích dẫn content có cấu trúc rõ ràng, ngôn ngữ xác định, entity density cao.
+
+   - KEY TAKEAWAYS box ở đầu bài = synthesis fuel cho AI — 4-6 bullets có số liệu cụ thể
+   - Quick Answer 50-70 từ = đoạn văn AI trích dẫn nguyên khối
+   - Mỗi section là self-contained answer block: đọc riêng section vẫn hiểu đủ ý, KHÔNG PHỤ THUỘC context trước đó
+   - H2 dạng câu hỏi → 1-2 câu đầu trả lời trực tiếp (inverted pyramid) → mở rộng chi tiết
+   - Đoạn văn ngắn 2-4 câu — LLM parse tốt hơn đoạn dài
+   - Ít nhất 1 bảng so sánh HTML table, 1 decision checklist (ordered list), 1 pricing table
+   - FAQ: câu ĐẦU TIÊN mỗi answer trả lời THẲNG vào ý chính, self-contained 60-80 từ
+   - Dùng "definite language" TUYỆT ĐỐI: số liệu, range giá, timeline cụ thể — CẤM dùng "varies", "depends", "it can range", "contact for quote"
+   - Entity density CAO: mention vật liệu cụ thể, quy trình chi tiết, địa điểm thực, thương hiệu, tiêu chuẩn ngành
+   - Dùng data-speakable="true" cho intro, key takeaways, quick answer, conclusion — tối ưu voice search & AI audio
+   - Câu ngắn, declarative, factual — AI cite câu xác định hơn câu mơ hồ
 
 9. ẢNH MINH HỌA TỰ ĐỘNG:
    - Chèn ${plannedInlineImageRange} placeholder ảnh (linh hoạt theo độ dài và độ phức tạp bài), không cố định số lượng
@@ -744,7 +812,7 @@ OUTPUT FORMAT (JSON only, no markdown wrapping):
 
   const evaluateArticleQuality = async (article: WriterOutput): Promise<ContentQualityReport> => {
     const articleText = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    const qaSystemPrompt = `You are an SEO + AIO Quality Auditor.
+    const qaSystemPrompt = `You are an SEO + AIO Quality Auditor (2025-2026 standards).
 Evaluate article quality and return JSON only:
 {
   "seo_score": 0,
@@ -754,11 +822,27 @@ Evaluate article quality and return JSON only:
   "revision_actions": ["..."]
 }
 
-Scoring focus:
-- SEO structure and keyword coverage
-- AIO answerability and entity clarity
-- Readability and conversion value
-- Technical formatting in HTML`;
+SEO Scoring (0-100):
+- Primary keyword in title, H1, intro, one H2, conclusion (15pts)
+- Meta title 50-60 chars with keyword at start (10pts)
+- Meta description 120-155 chars with action word (10pts)
+- 6+ H2/H3 sections with anchor IDs, mostly question-based (10pts)
+- Table, list, comparison, and decision checklist elements (10pts)
+- Internal links present (3-5 links) (10pts)
+- E-E-A-T signals: case study, specific data points, expert credentials (15pts)
+- Short paragraphs (2-4 sentences), readable flow (10pts)
+- Pricing table with specific amounts (not "contact for quote") (10pts)
+
+AIO Scoring (0-100):
+- Key Takeaways box at top with 4-6 factual bullets with numbers (15pts)
+- Quick Answer block 50-70 words, self-contained, at article start (15pts)
+- At least 4/6 H2 headings are question-based (10pts)
+- Each section is self-contained answer block 120-180 words (10pts)
+- Inverted pyramid: first 1-2 sentences directly answer the heading (10pts)
+- Definite language: specific numbers, costs, timelines — NO "varies"/"depends"/"it can range" (15pts)
+- FAQ answers are self-contained 60-80 words, first sentence answers directly (10pts)
+- High entity density: specific materials, processes, locations, standards (10pts)
+- data-speakable attributes on intro, key takeaways, quick answer, conclusion (5pts)`;
 
     const qaResultRaw = await generateContentResolved(
       qaSystemPrompt,
@@ -852,7 +936,7 @@ ${JSON.stringify(article)}`;
 
   try {
     const variants: Array<'control' | 'expert'> =
-      promptVariantMode === 'ab_test'
+      (promptVariantMode === 'ab_test' && !options?.skipAbTest)
         ? ['control', 'expert']
         : [promptVariantMode === 'control' ? 'control' : 'expert'];
 
@@ -902,7 +986,7 @@ export async function runAgentVisualInspector(
   const imageStyle = config.image_style || 'professional photography, modern urban setting';
   const enableFaqSchema = (config.enable_faq_schema || 'true') === 'true';
   const autoInternalLinking = (config.auto_internal_linking || 'true') === 'true';
-  const maxInternalLinks = parseInt(config.internal_links_per_article || '3', 10) || 3;
+  const maxInternalLinks = parseInt(config.internal_links_per_article || '5', 10) || 5;
   const minInlineImages = Math.max(1, parseInt(config.pipeline_min_inline_images || '2', 10) || 2);
   const maxInlineImages = Math.max(minInlineImages, parseInt(config.pipeline_max_inline_images || '5', 10) || 5);
   const targetInlineImages = estimateInlineImageTarget({
@@ -987,7 +1071,8 @@ export async function runAgentVisualInspector(
           ]);
 
           if (imgUrl) {
-            const altText = placeholder.caption || placeholder.prompt;
+            // Build SEO-optimized alt text: keyword-first, descriptive, < 125 chars
+            const altText = buildSeoAltText(topic.keyword, placeholder.caption || placeholder.prompt);
             generatedImages.push({
               location: placeholder.prompt,
               url: imgUrl,
@@ -1000,10 +1085,10 @@ export async function runAgentVisualInspector(
               : '';
             finalContent = finalContent.replace(
               placeholder.fullMatch,
-              `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" class="article-image" />${figcaptionHtml}</figure>`
+              `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" width="1024" height="1024" class="article-image" />${figcaptionHtml}</figure>`
             );
           } else if (featuredImageUrl) {
-            const altText = placeholder.caption || placeholder.prompt;
+            const altText = buildSeoAltText(topic.keyword, placeholder.caption || placeholder.prompt);
             generatedImages.push({
               location: placeholder.prompt,
               url: featuredImageUrl,
@@ -1015,7 +1100,7 @@ export async function runAgentVisualInspector(
               : '';
             finalContent = finalContent.replace(
               placeholder.fullMatch,
-              `<figure class="article-figure"><img src="${featuredImageUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" class="article-image" />${figcaptionHtml}</figure>`
+              `<figure class="article-figure"><img src="${featuredImageUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" width="1024" height="1024" class="article-image" />${figcaptionHtml}</figure>`
             );
           } else {
             // Remove placeholder if image generation failed
@@ -1143,7 +1228,9 @@ export async function runAgentVisualInspector(
       }
     }
 
-    while (generatedImages.length < targetInlineImages) {
+    // Fallback loop: generate at most 2 extra images to avoid timeout
+    const maxFallbackAttempts = Math.min(2, targetInlineImages - generatedImages.length);
+    for (let fi = 0; fi < maxFallbackAttempts && generatedImages.length < targetInlineImages; fi++) {
       const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword} (${generatedImages.length + 1})`;
       const fallbackInlineImage = await generateImageWithRetries([
         buildPhotorealisticPrompt(baseImageContext, `real signage project photo focused on ${topic.keyword}`),
@@ -1168,8 +1255,8 @@ export async function runAgentVisualInspector(
       throw new Error('Khong tao duoc anh thumb/featured cho bai viet. Pipeline dung de tranh bai khong co anh.');
     }
 
-    if (generatedImages.length < minInlineImages) {
-      throw new Error(`Khong tao du ${minInlineImages} anh minh hoa noi dung. Pipeline dung de dam bao chat luong hinh anh.`);
+    if (generatedImages.length === 0 && minInlineImages > 0) {
+      throw new Error(`Khong tao duoc anh minh hoa nao. Pipeline dung de dam bao chat luong hinh anh.`);
     }
 
     const resolvedFeaturedImage = featuredImageUrl;

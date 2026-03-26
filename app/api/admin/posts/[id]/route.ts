@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { pingSearchEngines } from '@/lib/seo';
-import { postToFacebook } from '@/lib/facebook';
+import { queueFacebookPosts } from '@/lib/facebook';
 
 function refreshSeoPaths(slug: string) {
   revalidatePath('/blog');
@@ -52,15 +52,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       const postUrl = `${siteUrl}/blog/${post.slug}`;
       pingSearchEngines([postUrl]).catch((err) => console.error('Ping error:', err));
 
-      if (!post.facebook_post_id) {
-        const fbResult = await postToFacebook(post);
-        if (fbResult.success && fbResult.id) {
-          await supabaseAdmin
-            .from('posts')
-            .update({ facebook_post_id: fbResult.id })
-            .eq('id', post.id);
-        }
-      }
+      // Queue Facebook posts (30-minute delay, 2 fanpages)
+      queueFacebookPosts(post).catch(err => console.error('FB queue error:', err));
     }
 
     return NextResponse.json({ post });

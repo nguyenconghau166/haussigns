@@ -1,4 +1,5 @@
 import AdminSidebar from '@/components/admin/Sidebar';
+import { AuthProvider } from '@/components/admin/AuthProvider';
 import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -14,11 +15,13 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex min-h-screen bg-slate-50 font-sans ${inter.className}`}>
-      <AdminSidebar />
-      <main className="flex-1 ml-64 p-8 overflow-y-auto transition-all duration-300">
-        {children}
-      </main>
-    </div>
+    <AuthProvider>
+      <div className={`flex min-h-screen bg-slate-50 font-sans ${inter.className}`}>
+        <AdminSidebar />
+        <main className="flex-1 ml-64 p-8 overflow-y-auto transition-all duration-300">
+          {children}
+        </main>
+      </div>
+    </AuthProvider>
   );
 }

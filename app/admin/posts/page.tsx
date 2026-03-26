@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Plus, Edit, Trash, Eye, Loader2, Bot, FileText,
-  Search, Filter, ArrowRight, ExternalLink
+  Search, Filter, ArrowRight, ExternalLink, Facebook, XCircle, Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -23,15 +23,28 @@ interface Post {
   lang?: string;
 }
 
+interface FbQueueItem {
+  id: string;
+  post_id: string;
+  page_key: string;
+  page_name: string;
+  caption: string;
+  status: string;
+  facebook_post_id?: string;
+  scheduled_at: string;
+}
+
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [fbQueue, setFbQueue] = useState<FbQueueItem[]>([]);
 
   useEffect(() => {
     loadPosts();
+    loadFbQueue();
   }, []);
 
   const loadPosts = async () => {
@@ -44,6 +57,42 @@ export default function PostsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadFbQueue = async () => {
+    try {
+      const res = await fetch('/api/admin/facebook-queue');
+      const data = await res.json();
+      setFbQueue(data.items || []);
+    } catch {
+      // Facebook queue API may not exist yet
+    }
+  };
+
+  const cancelFbQueue = async (postId: string) => {
+    try {
+      await fetch('/api/admin/facebook-queue', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId }),
+      });
+      setFbQueue(prev => prev.map(item =>
+        item.post_id === postId && item.status === 'pending'
+          ? { ...item, status: 'cancelled' }
+          : item
+      ));
+    } catch (error) {
+      console.error('Failed to cancel FB queue:', error);
+    }
+  };
+
+  const getFbStatus = (postId: string) => {
+    const items = fbQueue.filter(q => q.post_id === postId);
+    if (items.length === 0) return null;
+    const pending = items.filter(q => q.status === 'pending');
+    const posted = items.filter(q => q.status === 'posted');
+    const failed = items.filter(q => q.status === 'failed');
+    return { pending, posted, failed, all: items };
   };
 
   const handlePublish = async (postId: string) => {
@@ -217,6 +266,42 @@ export default function PostsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* FB Queue Status */}
+                {(() => {
+                  const fb = getFbStatus(post.id);
+                  if (!fb) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {fb.pending.length > 0 && (
+                        <>
+                          <span className="flex items-center gap-1 text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                            <Clock className="h-3 w-3" />
+                            FB chờ ({fb.pending.length})
+                          </span>
+                          <button
+                            onClick={() => cancelFbQueue(post.id)}
+                            className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
+                            title="Hủy đăng FB"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                      {fb.posted.length > 0 && (
+                        <span className="flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">
+                          <Facebook className="h-3 w-3" />
+                          Đã đăng ({fb.posted.length})
+                        </span>
+                      )}
+                      {fb.failed.length > 0 && (
+                        <span className="flex items-center gap-1 text-[10px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded-md">
+                          FB lỗi ({fb.failed.length})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">

@@ -21,6 +21,7 @@ type PostRecord = {
   meta_description: string | null;
   featured_image: string | null;
   created_at: string;
+  updated_at: string | null;
   tags: string[] | null;
   categories?: { name?: string; slug?: string } | Array<{ name?: string; slug?: string }> | null;
 };
@@ -42,6 +43,29 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
+}
+
+function extractFaqItems(content: string): Array<{ question: string; answer: string }> {
+  // Match FAQ sections: find <section data-faq="true"> or <h2>.*FAQ.*</h2> followed by <h3>Q</h3><p>A</p> pairs
+  const faqSectionMatch = content.match(/<section[^>]*data-faq[^>]*>([\s\S]*?)<\/section>/i)
+    || content.match(/<h2[^>]*>[^<]*(?:FAQ|Frequently Asked)[^<]*<\/h2>([\s\S]*?)(?=<h2|<section|<footer|$)/i);
+
+  if (!faqSectionMatch) return [];
+
+  const faqContent = faqSectionMatch[1] || faqSectionMatch[0];
+  const pairs: Array<{ question: string; answer: string }> = [];
+
+  // Extract h3 (question) followed by p (answer)
+  const qaPairs = [...faqContent.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi)];
+  for (const match of qaPairs) {
+    const question = (match[1] || '').replace(/<[^>]*>/g, '').trim();
+    const answer = (match[2] || '').replace(/<[^>]*>/g, '').trim();
+    if (question && answer) {
+      pairs.push({ question, answer });
+    }
+  }
+
+  return pairs;
 }
 
 function extractHeadings(content: string): Array<{ id: string; text: string }> {
@@ -71,6 +95,7 @@ async function getPostBySlug(slug: string): Promise<PostRecord | null> {
       meta_description,
       featured_image,
       created_at,
+      updated_at,
       tags,
       categories (
         name,
@@ -124,6 +149,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'article',
       url: canonicalUrl,
       publishedTime: post.created_at,
+      modifiedTime: post.updated_at || post.created_at,
       images: [{ url: image, alt: post.title }],
     },
     twitter: {
@@ -149,27 +175,73 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signs.haus';
   const canonicalUrl = `${siteUrl}/blog/${postData.slug}`;
 
+  const faqItems = extractFaqItems(contentHtml);
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${siteUrl}/blog` },
+      { '@type': 'ListItem', position: 3, name: postData.title, item: canonicalUrl },
+    ],
+  };
+
+  const faqJsonLd = faqItems.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  } : null;
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
+    '@id': `${canonicalUrl}#article`,
     headline: postData.title,
     datePublished: postData.created_at,
-    dateModified: postData.created_at,
+    dateModified: postData.updated_at || postData.created_at,
     author: {
-      '@type': 'Organization',
+      '@type': 'Person',
+      '@id': `${siteUrl}/#author`,
       name: 'SignsHaus Team',
+      url: `${siteUrl}/about`,
+      jobTitle: 'Signage & Branding Specialists',
+      worksFor: { '@type': 'Organization', '@id': `${siteUrl}/#organization` },
+      knowsAbout: ['Signage', 'LED Signs', 'Acrylic Signs', 'Business Branding', 'Sign Installation'],
     },
     publisher: {
       '@type': 'Organization',
+      '@id': `${siteUrl}/#organization`,
       name: 'SignsHaus',
+      url: siteUrl,
       logo: {
         '@type': 'ImageObject',
         url: `${siteUrl}/logo-web.png`,
       },
     },
-    image: postData.featured_image || `${siteUrl}/logo-web.png`,
-    mainEntityOfPage: canonicalUrl,
+    image: {
+      '@type': 'ImageObject',
+      url: postData.featured_image || `${siteUrl}/logo-web.png`,
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': canonicalUrl,
+    },
     description: postData.excerpt || postData.meta_description || '',
+    keywords: (postData.tags || []).join(', '),
+    articleSection: categoryName,
+    wordCount: contentHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').length,
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['.prose-blog h1', '.prose-blog [data-speakable]', '.prose-blog > p:first-of-type'],
+    },
   };
 
   return (
@@ -287,6 +359,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Article info</h2>
                 <ul className="space-y-2 text-sm text-slate-700">
                   <li>Published: {formatDate(postData.created_at)}</li>
+                  {postData.updated_at && postData.updated_at !== postData.created_at && (
+                    <li className="font-medium text-emerald-700">Updated: {formatDate(postData.updated_at)}</li>
+                  )}
                   <li>Category: {categoryName}</li>
                   <li>Reading time: {readingTime} min</li>
                 </ul>
@@ -328,6 +403,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       </main>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }} />
+      {faqJsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }} />
+      )}
       <Footer />
     </div>
   );

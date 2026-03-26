@@ -89,18 +89,21 @@ export default function PipelineHistoryPage() {
             failed: 'bg-red-100 text-red-700 border-red-200',
             running: 'bg-blue-100 text-blue-700 border-blue-200',
             partial: 'bg-amber-100 text-amber-700 border-amber-200',
+            phase1_done: 'bg-indigo-100 text-indigo-700 border-indigo-200',
         };
         const icons: Record<string, any> = {
             completed: CheckCircle,
             failed: XCircle,
             running: Loader2,
             partial: AlertCircle,
+            phase1_done: Clock,
         };
         const labels: Record<string, string> = {
             completed: 'Hoàn thành',
             failed: 'Lỗi',
             running: 'Đang chạy',
             partial: 'Chạy một phần',
+            phase1_done: 'Chờ viết bài',
         };
         const Icon = icons[status] || AlertCircle;
         return (

@@ -12,16 +12,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
-  PenTool,
   Building2,
   Layers,
   Users,
   TrendingUp,
   Package,
-  Link as LinkIcon
+  Warehouse,
+  Link as LinkIcon,
+  LogOut,
+  UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { useAuth } from './AuthProvider';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -31,6 +34,7 @@ const NAV_ITEMS = [
   { label: 'Quản lý Vật liệu', href: '/admin/materials', icon: Layers },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
   { label: 'Quản lý Sản phẩm (Mới)', href: '/admin/products', icon: Package },
+  { label: 'Quản lý Kho', href: '/admin/warehouse', icon: Warehouse },
   { label: 'Quản lý Dự án', href: '/admin/projects', icon: Layers },
   { label: 'Quản lý bài viết', href: '/admin/posts', icon: FileText },
   { label: 'Nghiên cứu từ khóa', href: '/admin/keywords', icon: Search },
@@ -40,14 +44,30 @@ const NAV_ITEMS = [
   { label: 'Cài đặt hệ thống', href: '/admin/settings', icon: Settings },
 ];
 
+// Items only visible to owner/admin
+const ADMIN_ONLY_ITEMS = [
+  { label: 'Quản lý Người dùng', href: '/admin/users', icon: UserCog },
+];
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { profile, signOut, loading } = useAuth();
+
+  const canManageUsers = profile?.role === 'owner' || profile?.role === 'admin';
+  const allNavItems = canManageUsers ? [...NAV_ITEMS, ...ADMIN_ONLY_ITEMS] : NAV_ITEMS;
+
+  const ROLE_LABELS: Record<string, string> = {
+    owner: 'Owner',
+    admin: 'Admin',
+    editor: 'Editor',
+    viewer: 'Viewer',
+  };
 
   return (
     <div
       className={cn(
-        'fixed inset-y-0 left-0 z-40 border-r bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl transition-all duration-300',
+        'fixed inset-y-0 left-0 z-40 border-r bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl transition-all duration-300 flex flex-col',
         collapsed ? 'w-20' : 'w-64'
       )}
     >
@@ -72,13 +92,13 @@ export default function AdminSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="space-y-1 p-3 mt-2">
+      <nav className="space-y-1 p-3 mt-2 flex-1 overflow-y-auto">
         {!collapsed && (
           <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-3">
             Menu chính
           </p>
         )}
-        {NAV_ITEMS.map((item) => {
+        {allNavItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
           return (
             <Link
@@ -112,25 +132,77 @@ export default function AdminSidebar() {
         )}
       </button>
 
-      {/* Bottom Status */}
-      <div className={cn('absolute bottom-4 left-3 right-3', collapsed && 'left-2 right-2')}>
-        <div className={cn(
-          'rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50',
-          collapsed ? 'p-2' : 'p-4'
-        )}>
-          <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
-            <div className="relative">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+      {/* User Profile & Logout */}
+      <div className={cn('border-t border-slate-800/50', collapsed ? 'p-2' : 'p-3')}>
+        {!loading && profile ? (
+          <div className={cn(
+            'rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50',
+            collapsed ? 'p-2' : 'p-3'
+          )}>
+            <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
+              {/* Avatar */}
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.full_name || profile.email}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-slate-900">
+                    {(profile.full_name || profile.email)[0].toUpperCase()}
+                  </span>
+                </div>
+              )}
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-200 truncate">
+                    {profile.full_name || profile.email}
+                  </p>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {ROLE_LABELS[profile.role] || profile.role}
+                  </p>
+                </div>
+              )}
             </div>
             {!collapsed && (
-              <div>
-                <span className="text-xs font-semibold text-slate-300">Hệ thống Online</span>
-                <p className="text-[10px] text-slate-500">AI Pipeline sẵn sàng</p>
-              </div>
+              <button
+                onClick={signOut}
+                className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Đăng xuất
+              </button>
+            )}
+            {collapsed && (
+              <button
+                onClick={signOut}
+                className="w-full mt-2 flex items-center justify-center p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+                title="Đăng xuất"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
-        </div>
+        ) : (
+          <div className={cn(
+            'rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50',
+            collapsed ? 'p-2' : 'p-4'
+          )}>
+            <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
+              <div className="relative">
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <div className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+              </div>
+              {!collapsed && (
+                <div>
+                  <span className="text-xs font-semibold text-slate-300">Hệ thống Online</span>
+                  <p className="text-[10px] text-slate-500">AI Pipeline sẵn sàng</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
