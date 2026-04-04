@@ -1,8 +1,9 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { applyWatermark } from '@/lib/watermark';
 
-export const runtime = 'edge'; // Optional: Use Edge if supported, otherwise Node.js
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
@@ -14,12 +15,19 @@ export async function POST(req: Request) {
     }
 
     const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
+    let bytes: Buffer = Buffer.from(buffer);
+
+    // Apply watermark for image files
+    const isImage = file.type.startsWith('image/');
+    if (isImage) {
+      bytes = await applyWatermark(bytes) as Buffer;
+    }
+
     const fileName = `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
 
     const { data, error } = await supabaseAdmin.storage
       .from('images')
-      .upload(fileName, bytes, {
+      .upload(fileName, new Uint8Array(bytes), {
         contentType: file.type,
         upsert: false
       });
@@ -31,9 +39,6 @@ export async function POST(req: Request) {
 
     console.log('File uploaded to Supabase:', fileName);
 
-    // Get public URL
-
-    // Get public URL
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from('images')
       .getPublicUrl(fileName);

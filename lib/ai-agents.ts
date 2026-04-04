@@ -1,5 +1,6 @@
 import { generateContent as generateContentOpenAI } from './openai';
 import { generateContentGemini } from './ai/gemini';
+import { generateContentPerplexity } from './ai/perplexity';
 import { generateProjectImage } from './image-gen';
 import { supabaseAdmin } from './supabase';
 
@@ -9,20 +10,24 @@ import { supabaseAdmin } from './supabase';
 async function generateContentResolved(
   systemPrompt: string,
   userPrompt: string,
-  configModel?: string
+  configModel?: string,
+  providerOverride?: 'openai' | 'gemini' | 'perplexity'
 ): Promise<string | null> {
   const config = await getAllConfig();
-  const provider = config.ai_provider || 'openai'; // 'openai' | 'gemini'
+  const provider = providerOverride || config.ai_provider || 'openai';
   const timeoutMs = Math.max(30000, parseInt(config.ai_request_timeout_ms || '120000', 10) || 120000);
   const retryCount = Math.max(0, parseInt(config.ai_request_retry_count || '1', 10) || 1);
 
   const runOnce = async (): Promise<string | null> => {
+    if (provider === 'perplexity') {
+      const apiKey = config.PERPLEXITY_API_KEY;
+      return await generateContentPerplexity(systemPrompt, userPrompt, configModel, apiKey);
+    }
+
     if (provider === 'gemini') {
       const apiKey = config.GEMINI_API_KEY;
-      // If configModel is provided, use it. Otherwise, let generateContentGemini use its default from DB/Env
       let model = configModel;
-      if (model?.includes('gpt')) model = undefined; // Clear OpenAI model if switching to Gemini
-
+      if (model?.includes('gpt')) model = undefined;
       return await generateContentGemini(systemPrompt, userPrompt, model, apiKey);
     }
 
@@ -97,6 +102,15 @@ export interface WriterOutput {
   suggested_tags: string[];
   quality_score?: number;
   quality_notes?: string[];
+}
+
+export interface SeoOptimizerOutput {
+  meta_title: string;
+  meta_description: string;
+  suggested_tags: string[];
+  structured_data: Record<string, unknown> | null;
+  keyword_density_report: Record<string, number>;
+  improvements_applied: string[];
 }
 
 interface ContentBrief {
@@ -247,17 +261,14 @@ function escapeHtmlAttribute(value: string): string {
 }
 
 function buildSeoAltText(keyword: string, description: string): string {
-  // Front-load keyword, keep under 125 chars
   const cleaned = description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   const keywordLower = keyword.toLowerCase();
   const descLower = cleaned.toLowerCase();
 
-  // If description already starts with keyword, just truncate
   if (descLower.startsWith(keywordLower)) {
     return cleaned.substring(0, 125);
   }
 
-  // Prepend keyword to description
   const combined = `${keyword} - ${cleaned}`;
   return combined.substring(0, 125);
 }
@@ -386,30 +397,18 @@ export async function updatePipelineRun(id: string, updates: Record<string, unkn
 }
 
 // =============================================
-// AGENT 1: RESEARCHER (Nghiên cứu từ khóa & tin tức)
+// Default System Instructions
 // =============================================
-export async function runAgentResearcher(batchId: string): Promise<AgentResult> {
-  await logAgent(batchId, 'Researcher', 'Bắt đầu nghiên cứu thị trường', 'running');
+const DEFAULT_SYSTEM_INSTRUCTIONS = {
+  auto_research: `You are an advanced content research analyst for Haus Signs Philippines — a premium architectural signage company in the Philippines. You specialize in identifying high-value content opportunities through automated topic discovery and competitive analysis.
 
-  const config = await getAllConfig();
-  const seedKeywords = config.target_keywords_seed || 'signage, business signs, LED signage';
-  const focusAreas = config.seo_focus_areas || 'Metro Manila';
-  const services = config.business_services || 'signage, acrylic signs';
-  const model = config.researcher_model || 'gpt-4o-mini';
+TASK:
+1. Find 5 high-value topics/keywords related to the signage industry
+2. For each keyword, expand with 3-5 long-tail keywords
+3. Find current news angles or trends to exploit
+4. Analyze competitive gaps and content opportunities
 
-  const systemPrompt = `Bạn là Chuyên gia Nghiên cứu Thị trường cho ngành Biển hiệu Quảng cáo tại Philippines.
-
-NHIỆM VỤ:
-1. Tìm 5 chủ đề/từ khóa có giá trị cao liên quan đến ngành biển hiệu quảng cáo
-2. Với mỗi từ khóa, mở rộng thêm 3-5 từ khóa phụ (long-tail keywords)
-3. Tìm góc độ tin tức/xu hướng hiện tại có thể khai thác
-
-NGỮ CẢNH NGÀNH:
-- Dịch vụ: ${services}
-- Khu vực tập trung: ${focusAreas}
-- Từ khóa gốc: ${seedKeywords}
-
-YÊU CẦU OUTPUT (JSON only, no markdown):
+OUTPUT (JSON only, no markdown):
 [
   {
     "keyword": "main keyword in English",
@@ -421,22 +420,179 @@ YÊU CẦU OUTPUT (JSON only, no markdown):
   }
 ]
 
-CHÚ Ý:
-- Ưu tiên từ khóa transactional (người dùng muốn mua/thuê dịch vụ)
-- Kết hợp tên địa phương (Makati, BGC, Quezon City...)
-- Tìm cơ hội từ tin tức: khai trương cửa hàng, quy định mới, xu hướng thiết kế...`;
+RULES:
+- Prioritize transactional keywords (users wanting to buy/hire services)
+- Combine local area names (Makati, BGC, Quezon City...)
+- Look for opportunities from news: store openings, new regulations, design trends
+- Focus on Philippines market, especially Metro Manila
+- Include both English and Taglish search patterns`,
+
+  seo_research: `You are an SEO research expert specializing in the Philippine signage industry. You work for "Haus Signs Philippines" — a premium architectural signage company based in the Philippines.
+
+TASK:
+Evaluate research topics and score them from 0-100 based on:
+- Business fit with signage industry (30%)
+- Customer acquisition potential (25%)
+- Competition difficulty (lower = better) (20%)
+- Timeliness/trends (15%)
+- Natural business integration potential (10%)
+
+OUTPUT (JSON only, no markdown):
+[
+  {
+    "keyword": "original keyword",
+    "score": 85,
+    "reason": "Why this topic is good/bad",
+    "existing_post_check": "No duplicate found",
+    "recommended_action": "create|update|skip",
+    "news_angle": "preserved from research",
+    "expanded_keywords": ["preserved from research"]
+  }
+]
+
+RULES:
+- If topic duplicates existing post with seo_score >= 85 → "skip"
+- If existing post has seo_score < 85 → "update"
+- If completely new topic → "create"
+- Sort by score descending`,
+
+  content_strategist: `You are a content strategist creating article outlines for Haus Signs Philippines — a premium architectural signage company in the Philippines. Your outlines are structured for maximum SEO and AIO (AI Overview) performance.
+
+TASK:
+Create a comprehensive content brief for the given topic that will guide the content writer.
+
+OUTPUT (JSON only):
+{
+  "primary_keyword": "...",
+  "secondary_keywords": ["..."],
+  "user_intent": "transactional|informational|commercial",
+  "audience_persona": "...",
+  "pain_points": ["..."],
+  "entity_map": ["materials", "processes", "locations", "technical terms"],
+  "outline": [
+    { "heading": "Question-based H2 heading", "intent": "what this section answers", "key_points": ["..."] }
+  ],
+  "people_also_ask": ["question 1", "question 2", "..."],
+  "conversion_offer": "CTA suggestion"
+}
+
+RULES:
+- Create 6-8 section outline with mostly question-based headings
+- At least 4 out of 6 headings must be questions
+- Include comparison table section
+- Include pricing/cost section with PHP amounts
+- Include decision checklist section
+- Include case study/social proof section
+- Include FAQ section (3-5 questions)
+- Entity map should include specific materials, processes, locations, standards`,
+
+  content_writer: '', // Will be built dynamically with business context
+
+  seo_optimizer: `You are an SEO optimization specialist for Haus Signs Philippines — a premium architectural signage company in the Philippines. You optimize content for search engines while maintaining readability and AIO citation potential.
+
+TASK:
+Analyze the article and optimize SEO elements. Return improved meta data and optimization report.
+
+OUTPUT (JSON only):
+{
+  "meta_title": "Optimized title (max 60 chars, keyword at start)",
+  "meta_description": "Optimized description (120-155 chars, starts with action word)",
+  "suggested_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "structured_data": null,
+  "keyword_density_report": { "primary_keyword": 5, "secondary_1": 3 },
+  "improvements_applied": ["description of each improvement"]
+}
+
+RULES:
+- Meta title: keyword at START, max 60 chars, compelling
+- Meta description: 120-155 chars, starts with action word (Discover, Learn, Get, Find)
+- Tags: 4-6 relevant tags mixing broad and specific
+- Check keyword density: primary keyword should appear 4-6 times naturally
+- Ensure structured data opportunities are captured (FAQ, HowTo, etc.)`,
+
+  quality_reviewer: `You are a content quality reviewer for Haus Signs Philippines — a premium architectural signage company in the Philippines. You evaluate articles for quality, readability, factual accuracy, and brand consistency.
+
+TASK:
+Evaluate the article quality on two dimensions and provide actionable feedback.
+
+OUTPUT (JSON only):
+{
+  "seo_score": 0,
+  "aio_score": 0,
+  "strengths": ["..."],
+  "issues": ["..."],
+  "revision_actions": ["specific action to fix each issue"]
+}
+
+SEO Scoring (0-100):
+- Primary keyword in title, H1, intro, one H2, conclusion (15pts)
+- Meta title 50-60 chars with keyword at start (10pts)
+- Meta description 120-155 chars with action word (10pts)
+- 6+ H2/H3 sections with anchor IDs, mostly question-based (10pts)
+- Table, list, comparison, and decision checklist elements (10pts)
+- Internal links present (3-5 links) (10pts)
+- E-E-A-T signals: case study, specific data points, expert credentials (15pts)
+- Short paragraphs (2-4 sentences), readable flow (10pts)
+- Pricing table with specific amounts (not "contact for quote") (10pts)
+
+AIO Scoring (0-100):
+- Key Takeaways box at top with 4-6 factual bullets with numbers (15pts)
+- Quick Answer block 50-70 words, self-contained (15pts)
+- At least 4/6 H2 headings are question-based (10pts)
+- Each section is self-contained answer block 120-180 words (10pts)
+- Inverted pyramid: first 1-2 sentences directly answer the heading (10pts)
+- Definite language: specific numbers, costs, timelines (15pts)
+- FAQ answers self-contained 60-80 words (10pts)
+- High entity density (10pts)
+- data-speakable attributes (5pts)`,
+
+  image_generator: `You are an image generation specialist for Haus Signs Philippines. You create photorealistic commercial photography of signage installations, materials, and business environments.
+
+RULES:
+- All images must look like real photographs taken with professional cameras
+- Use natural lighting, real materials, and realistic textures
+- NO illustration, CGI, 3D render, anime, or painting style
+- NO text overlay, watermark, or logo distortion
+- Focus on Metro Manila business environments
+- Show real storefronts, offices, restaurants, and commercial spaces
+- Include realistic details: weathering, reflections, shadows, depth of field`
+};
+
+// =============================================
+// AGENT 1: AUTO-RESEARCH ANALYST (Perplexity)
+// =============================================
+export async function runAgentAutoResearch(batchId: string): Promise<AgentResult> {
+  await logAgent(batchId, 'Auto-Research Analyst', 'Bắt đầu nghiên cứu thị trường', 'running');
+
+  const config = await getAllConfig();
+  const seedKeywords = config.target_keywords_seed || 'signage, business signs, LED signage';
+  const focusAreas = config.seo_focus_areas || 'Metro Manila';
+  const services = config.business_services || 'signage, acrylic signs';
+  const model = config.agent_auto_research_model || 'sonar-pro';
+  const customInstruction = config.agent_auto_research_system_instruction;
+
+  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.auto_research;
+
+  const contextPrompt = `
+BUSINESS CONTEXT:
+- Services: ${services}
+- Focus areas: ${focusAreas}
+- Seed keywords: ${seedKeywords}
+- Company: ${config.company_name || 'SignsHaus'}
+
+Find 5 high-value content opportunities for today. Focus on: ${seedKeywords}`;
 
   try {
     const result = await generateContentResolved(
       systemPrompt,
-      `Hãy nghiên cứu và tìm 5 cơ hội nội dung cho ngày hôm nay. Tập trung vào: ${seedKeywords}`,
-      model
+      contextPrompt,
+      model,
+      'perplexity'
     );
 
-    const cleaned = result?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-    const topics: ResearchTopic[] = JSON.parse(cleaned);
+    const topics: ResearchTopic[] = parseJsonFromModel(result, []);
 
-    await logAgent(batchId, 'Researcher', `Tìm thấy ${topics.length} chủ đề`, 'success', {
+    await logAgent(batchId, 'Auto-Research Analyst', `Tìm thấy ${topics.length} chủ đề`, 'success', {
       topics_count: topics.length,
       topics: topics.map(t => t.keyword)
     });
@@ -444,22 +600,24 @@ CHÚ Ý:
     return { success: true, data: topics, message: `Tìm thấy ${topics.length} chủ đề tiềm năng` };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    await logAgent(batchId, 'Researcher', 'Lỗi nghiên cứu', 'failed', { error: message });
-    return { success: false, message: message };
+    await logAgent(batchId, 'Auto-Research Analyst', 'Lỗi nghiên cứu', 'failed', { error: message });
+    return { success: false, message };
   }
 }
 
 // =============================================
-// AGENT 2: EVALUATOR (Đánh giá & Lọc chủ đề)
+// AGENT 2: SEO RESEARCH EXPERT (Perplexity)
 // =============================================
-export async function runAgentEvaluator(batchId: string, topics: ResearchTopic[]): Promise<AgentResult> {
-  await logAgent(batchId, 'Evaluator', 'Đánh giá và so sánh chủ đề', 'running', {
+export async function runAgentSeoResearch(batchId: string, topics: ResearchTopic[]): Promise<AgentResult> {
+  await logAgent(batchId, 'SEO Research Expert', 'Đánh giá và phân tích từ khóa', 'running', {
     topics_received: topics.length
   });
 
   const config = await getAllConfig();
   const minScore = parseInt(config.evaluator_min_score || '60');
   const companyName = config.company_name || 'SignsHaus';
+  const model = config.agent_seo_research_model || 'sonar-pro';
+  const customInstruction = config.agent_seo_research_system_instruction;
 
   // Fetch existing posts for duplicate check
   const { data: existingPosts } = await supabaseAdmin
@@ -469,56 +627,32 @@ export async function runAgentEvaluator(batchId: string, topics: ResearchTopic[]
     .limit(50);
 
   const existingTitles = existingPosts?.map(p => p.title.toLowerCase()) || [];
-  const systemPrompt = `Bạn là Chuyên gia Đánh giá Nội dung SEO cho ${companyName}.
+  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.seo_research;
 
-NHIỆM VỤ:
-Đánh giá danh sách chủ đề nghiên cứu và cho điểm từ 0-100 dựa trên:
-- Độ phù hợp với ngành biển hiệu quảng cáo (30%)
-- Tiềm năng thu hút khách hàng (25%)
-- Độ khó cạnh tranh (thấp = tốt) (20%)
-- Tính thời sự/xu hướng (15%)
-- Khả năng lồng ghép doanh nghiệp tự nhiên (10%)
+  const contextPrompt = `Company: ${companyName}
+Minimum score to approve: ${minScore}
 
-BÀI VIẾT ĐÃ CÓ TRÊN WEBSITE:
-${existingTitles.slice(0, 20).map((t, i) => `${i + 1}. ${t}`).join('\n') || 'Chưa có bài viết nào'}
+EXISTING POSTS ON WEBSITE:
+${existingTitles.slice(0, 20).map((t, i) => `${i + 1}. ${t}`).join('\n') || 'No posts yet'}
 
-YÊU CẦU OUTPUT (JSON only, no markdown):
-[
-  {
-    "keyword": "original keyword",
-    "score": 85,
-    "reason": "Why this topic is good/bad",
-    "existing_post_check": "No duplicate found" or "Similar to: [existing title]",
-    "recommended_action": "create|update|skip",
-    "news_angle": "preserved from research",
-    "expanded_keywords": ["preserved from research"]
-  }
-]
-
-QUY TẮC:
-- Nếu chủ đề trùng lặp với bài đã có và bài đó có seo_score >= 85 → "skip"
-- Nếu bài đã có nhưng seo_score < 85 → "update"
-- Nếu chủ đề mới hoàn toàn → "create"
-- Chỉ giữ lại chủ đề có score >= ${minScore}
-- Sắp xếp theo score giảm dần`;
+TOPICS TO EVALUATE:
+${JSON.stringify(topics, null, 2)}`;
 
   try {
     const result = await generateContentResolved(
       systemPrompt,
-      `Đánh giá các chủ đề sau:\n${JSON.stringify(topics, null, 2)}`,
-      'gpt-4o-mini' // Will be mapped to equivalent if using Gemini
+      contextPrompt,
+      model,
+      'perplexity'
     );
 
-    const cleaned = result?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-    let evaluated: EvaluatedTopic[] = JSON.parse(cleaned);
+    let evaluated: EvaluatedTopic[] = parseJsonFromModel(result, []);
 
     // Filter by minimum score
     evaluated = evaluated.filter(t => t.score >= minScore && t.recommended_action !== 'skip');
-
-    // Sort by score descending
     evaluated.sort((a, b) => b.score - a.score);
 
-    await logAgent(batchId, 'Evaluator', `Duyệt ${evaluated.length}/${topics.length} chủ đề`, 'success', {
+    await logAgent(batchId, 'SEO Research Expert', `Duyệt ${evaluated.length}/${topics.length} chủ đề`, 'success', {
       approved: evaluated.length,
       rejected: topics.length - evaluated.length,
       approved_topics: evaluated.map(t => ({ keyword: t.keyword, score: t.score, action: t.recommended_action }))
@@ -531,16 +665,86 @@ QUY TẮC:
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    await logAgent(batchId, 'Evaluator', 'Lỗi đánh giá', 'failed', { error: message });
-    return { success: false, message: message };
+    await logAgent(batchId, 'SEO Research Expert', 'Lỗi đánh giá', 'failed', { error: message });
+    return { success: false, message };
   }
 }
 
 // =============================================
-// AGENT 3: WRITER (Viết bài SEO)
+// AGENT 3: CONTENT STRATEGIST (Gemini)
 // =============================================
-export async function runAgentWriter(batchId: string, topic: EvaluatedTopic, options?: { skipAbTest?: boolean }): Promise<AgentResult> {
-  await logAgent(batchId, 'Writer', `Viết bài: ${topic.keyword}`, 'running');
+export async function runAgentContentStrategist(batchId: string, topic: EvaluatedTopic): Promise<AgentResult> {
+  await logAgent(batchId, 'Content Strategist', `Tạo brief cho: ${topic.keyword}`, 'running');
+
+  const config = await getAllConfig();
+  const model = config.agent_content_strategist_model || 'gemini-2.0-flash';
+  const customInstruction = config.agent_content_strategist_system_instruction;
+  const companyName = config.company_name || 'SignsHaus';
+  const services = config.business_services || 'signage, signs';
+  const focusAreas = config.seo_focus_areas || 'Metro Manila';
+  const cta = config.contact_cta || `Call for a free consultation`;
+
+  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.content_strategist;
+
+  const contextPrompt = `Company: ${companyName}
+Services: ${services}
+Focus Areas: ${focusAreas}
+Default CTA: ${cta}
+
+Create a deep content brief for:
+- Keyword: "${topic.keyword}"
+- News angle: "${topic.news_angle}"
+- Expanded keywords: ${topic.expanded_keywords?.join(', ')}
+- Score: ${topic.score}
+- Reason selected: ${topic.reason}`;
+
+  try {
+    const result = await generateContentResolved(
+      systemPrompt,
+      contextPrompt,
+      model,
+      'gemini'
+    );
+
+    const briefFallback: ContentBrief = {
+      primary_keyword: topic.keyword,
+      secondary_keywords: topic.expanded_keywords || [],
+      user_intent: 'transactional + informational',
+      audience_persona: 'Business owners and marketing managers in Metro Manila',
+      pain_points: ['Low storefront visibility', 'Unclear pricing', 'Durability concerns'],
+      entity_map: ['acrylic signage', 'stainless steel signage', 'LED modules', 'Metro Manila'],
+      outline: [
+        { heading: `What ${topic.keyword} means for local businesses`, intent: 'clarify topic', key_points: ['Business relevance', 'Common problems', 'Expected outcomes'] }
+      ],
+      people_also_ask: [
+        `How much does ${topic.keyword} cost in Metro Manila?`,
+        `How long does ${topic.keyword} installation take?`,
+        `What materials are best for ${topic.keyword}?`
+      ],
+      conversion_offer: cta
+    };
+
+    const brief = parseJsonFromModel<ContentBrief>(result, briefFallback);
+
+    await logAgent(batchId, 'Content Strategist', `Brief hoàn thành: ${brief.outline?.length || 0} sections`, 'success', {
+      primary_keyword: brief.primary_keyword,
+      sections: brief.outline?.length || 0,
+      paa_count: brief.people_also_ask?.length || 0
+    });
+
+    return { success: true, data: brief, message: `Brief hoàn thành với ${brief.outline?.length || 0} sections` };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    await logAgent(batchId, 'Content Strategist', 'Lỗi tạo brief', 'failed', { error: message });
+    return { success: false, message };
+  }
+}
+
+// =============================================
+// AGENT 4: CONTENT WRITER (Gemini)
+// =============================================
+export async function runAgentContentWriter(batchId: string, topic: EvaluatedTopic, brief: ContentBrief): Promise<AgentResult> {
+  await logAgent(batchId, 'Content Writer', `Viết bài: ${topic.keyword}`, 'running');
 
   const config = await getAllConfig();
   const companyName = config.company_name || 'SignsHaus';
@@ -554,11 +758,9 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic, opt
   const minWordsNumber = parseInt(minWords, 10) || 800;
   const cta = config.contact_cta || `Call ${phone} for a free consultation`;
   const focusAreas = config.seo_focus_areas || 'Metro Manila';
-  const model = config.writer_model || 'gpt-4o';
+  const model = config.agent_content_writer_model || 'gemini-2.0-flash';
   const competitors = config.competitors || '';
-  const writerQualityThreshold = parseInt(config.writer_quality_threshold || '82', 10) || 82;
-  const supportingModel = config.researcher_model || 'gpt-4o-mini';
-  const promptVariantMode = config.writer_prompt_variant || 'expert';
+  const customInstruction = config.agent_content_writer_system_instruction;
 
   const { data: recentPosts } = await supabaseAdmin
     .from('posts')
@@ -587,8 +789,8 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic, opt
     'CẤU TRÚC BÀI VIẾT THEO THỨ TỰ BẮT BUỘC:',
     '  1. H1 title (duy nhất 1 cái)',
     '  2. Hook intro 2-3 câu (đoạn p đầu tiên, data-speakable="true")',
-    '  3. KEY TAKEAWAYS BOX: <div class="key-takeaways" data-speakable="true"><h2>Key Takeaways</h2><ul><li>...</li></ul></div> — 4-6 bullet, mỗi bullet là 1 câu fact cụ thể có số liệu, AI sẽ trích dẫn block này',
-    '  4. QUICK ANSWER: <div class="quick-answer" data-speakable="true"><p>...</p></div> — 50-70 từ, self-contained, trả lời trọn vẹn câu hỏi chính',
+    '  3. KEY TAKEAWAYS BOX: <div class="key-takeaways" data-speakable="true"><h2>Key Takeaways</h2><ul><li>...</li></ul></div>',
+    '  4. QUICK ANSWER: <div class="quick-answer" data-speakable="true"><p>...</p></div>',
     '  5. MỤC LỤC: <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#anchor">...</a></li></ol></nav>',
     '  6. NỘI DUNG CHÍNH: 6-8 sections, mỗi section có <h2 id="anchor-id">',
     '  7. COMPARISON TABLE: ít nhất 1 bảng so sánh <table> với thead/tbody',
@@ -598,99 +800,23 @@ export async function runAgentWriter(batchId: string, topic: EvaluatedTopic, opt
     '  11. KẾT LUẬN + CTA',
     '',
     'QUY TẮC HTML:',
-    'Dùng id cho MỌI h2 để tăng khả năng điều hướng (ví dụ: <h2 id="material-options">...)',
-    'Dùng thẻ p cho mỗi đoạn văn — MỖI ĐOẠN TỐI ĐA 2-4 CÂU (AI parse tốt hơn, không viết wall of text)',
+    'Dùng id cho MỌI h2',
+    'Dùng thẻ p cho mỗi đoạn văn — MỖI ĐOẠN TỐI ĐA 2-4 CÂU',
     'Dùng thẻ ul/li hoặc ol/li cho danh sách',
     'Dùng thẻ strong và em cho nhấn mạnh',
-    'Dùng thẻ blockquote cho trích dẫn hoặc expert quote',
+    'Dùng thẻ blockquote cho trích dẫn',
     'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá và so sánh',
-    'Chèn tối thiểu 3 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a> (mục tiêu 3-5 links)',
-    'Dùng thẻ figure/figcaption nếu cần chú thích',
-    'Dùng data-speakable="true" cho các phần quan trọng nhất (intro, key takeaways, quick answer, conclusion) — tối ưu voice search',
-    'Viết mượt mà, tự nhiên, đọc như bài báo chuyên nghiệp, KHÔNG liệt kê khô khan',
-    'MỖI SECTION PHẢI SELF-CONTAINED: đọc riêng section vẫn hiểu đầy đủ, không cần context trước đó — đây là yếu tố then chốt để AI trích dẫn',
+    'Chèn tối thiểu 3 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a>',
+    'Dùng data-speakable="true" cho các phần quan trọng nhất',
   ].map(line => `- ${line}`).join('\n');
-
-  const variantInstructionMap: Record<string, string> = {
-    control: [
-      'Tập trung mạch bài dễ đọc và giàu thông tin thực dụng.',
-      'Ưu tiên clarity, cấu trúc đơn giản, tránh over-creative copy.',
-      'Nội dung hướng tới chuyển đổi nhẹ nhàng, đáng tin cậy.',
-    ].join('\n'),
-    expert: [
-      'Tập trung bài chuyên sâu dạng tư vấn kỹ thuật + chiến lược triển khai.',
-      'Mỗi section nên có insight khác biệt thay vì thông tin phổ thông.',
-      'Làm rõ các trade-off thực tế (chi phí, độ bền, tốc độ thi công, bảo trì).',
-    ].join('\n')
-  };
-
-  const briefSystemPrompt = `Bạn là SEO Strategist + AIO Strategist cho ${companyName}.
-
-NHIỆM VỤ:
-Tạo một content brief thực chiến cho chủ đề "${topic.keyword}" để writer viết bài dễ rank và dễ được AI systems trích dẫn.
-
-YÊU CẦU BRIEF:
-1. Primary keyword + nhóm secondary keyword có search intent rõ ràng
-2. Tách user intent (informational/commercial/transactional)
-3. Liệt kê pain points chính của khách hàng trước khi mua dịch vụ
-4. Tạo entity map (vật liệu, quy trình, địa điểm, thuật ngữ kỹ thuật)
-5. Outline 6-8 phần theo thứ tự hợp lý funnel
-6. Gợi ý 4-6 People Also Ask câu hỏi gần với chủ đề
-7. Gợi ý offer/CTA phù hợp
-
-OUTPUT JSON ONLY:
-{
-  "primary_keyword": "...",
-  "secondary_keywords": ["..."],
-  "user_intent": "...",
-  "audience_persona": "...",
-  "pain_points": ["..."],
-  "entity_map": ["..."],
-  "outline": [
-    { "heading": "...", "intent": "...", "key_points": ["..."] }
-  ],
-  "people_also_ask": ["..."],
-  "conversion_offer": "..."
-}`;
-
-  const briefResult = await generateContentResolved(
-    briefSystemPrompt,
-    `Create a deep brief for keyword: "${topic.keyword}". News angle: "${topic.news_angle}". Expanded keywords: ${topic.expanded_keywords?.join(', ')}.`,
-    supportingModel
-  );
-
-  const briefFallback: ContentBrief = {
-    primary_keyword: topic.keyword,
-    secondary_keywords: topic.expanded_keywords || [],
-    user_intent: 'transactional + informational',
-    audience_persona: 'Business owners and marketing managers in Metro Manila',
-    pain_points: ['Low storefront visibility', 'Unclear pricing', 'Durability concerns in outdoor conditions'],
-    entity_map: ['acrylic signage', 'stainless steel signage', 'LED modules', 'installation permits', 'Metro Manila retail zones'],
-    outline: [
-      {
-        heading: `What ${topic.keyword} means for local businesses`,
-        intent: 'clarify topic and context',
-        key_points: ['Business relevance', 'Common buyer problems', 'Expected outcomes']
-      }
-    ],
-    people_also_ask: [
-      `How much does ${topic.keyword} cost in Metro Manila?`,
-      `How long does ${topic.keyword} installation take?`,
-      `What materials are best for ${topic.keyword}?`
-    ],
-    conversion_offer: cta
-  };
-
-  const brief = parseJsonFromModel<ContentBrief>(briefResult, briefFallback);
 
   const plannedInlineImages = clampNumber(
     Math.ceil(minWordsNumber / 700) + Math.floor((brief.outline?.length || 0) / 4),
-    2,
-    5
+    2, 5
   );
   const plannedInlineImageRange = `${Math.max(1, plannedInlineImages - 1)}-${plannedInlineImages + 1}`;
 
-  const buildSystemPrompt = (variant: 'control' | 'expert') => `Bạn là Senior Content Writer cho ${companyName}.
+  const systemPrompt = customInstruction || `Bạn là Senior Content Writer cho ${companyName}.
 
 VỀ DOANH NGHIỆP:
 - Tên: ${companyName}
@@ -704,9 +830,6 @@ ${competitors ? `- Đối thủ: ${competitors}` : ''}
 NHIỆM VỤ:
 Viết bài SEO chuyên nghiệp về "${topic.keyword}" với góc nhìn: "${topic.news_angle}"
 
-PROMPT VARIANT: ${variant.toUpperCase()}
-${variantInstructionMap[variant]}
-
 CONTENT BRIEF (PHẢI TUÂN THỦ):
 ${JSON.stringify(brief, null, 2)}
 
@@ -717,86 +840,23 @@ YÊU CẦU BÀI VIẾT:
 1. Tối thiểu ${minWordsNumber} từ
 2. Ngôn ngữ: ${langMap[language] || langMap['en']}
 3. Giọng văn: ${tone}
-4. CẤU TRÚC (AIO-Optimized 2025-2026 — Citation-First Architecture):
-   QUAN TRỌNG: 55% AI citations đến từ top 30% bài viết. Đặt thông tin quan trọng nhất LÊN ĐẦU.
+4. CẤU TRÚC AIO-Optimized (Citation-First Architecture)
+5. E-E-A-T SIGNALS quan trọng
+6. CTA: "${cta}"
+7. Từ khóa chính "${brief.primary_keyword || topic.keyword}" xuất hiện 4-6 lần tự nhiên
 
-   A. PHẦN MỞ ĐẦU (top 30% — citation target zone):
-   - Hook intro (2-3 câu thu hút, data-speakable="true")
-   - KEY TAKEAWAYS BOX ngay sau hook: 4-6 bullet points, mỗi bullet là 1 fact cụ thể có con số (vd: "Acrylic signage costs ₱3,500–₱12,000 per square foot"). Dùng <div class="key-takeaways" data-speakable="true">
-   - QUICK ANSWER block: 50-70 từ, self-contained, trả lời trọn vẹn câu hỏi chính. Dùng <div class="quick-answer" data-speakable="true">
-   - MỤC LỤC mini với anchor links
-
-   B. NỘI DUNG CHÍNH (6-8 sections):
-   - Ít nhất 4 trong 6 heading H2 PHẢI viết dạng CÂU HỎI (vd: "How Much Does X Cost?" thay vì "Pricing")
-   - Mở ĐẦU mỗi section = 1-2 câu trả lời trực tiếp (inverted pyramid) → SAU ĐÓ mới mở rộng
-   - Mỗi section 120-180 từ, self-contained (đọc riêng vẫn hiểu đầy đủ)
-   - Mỗi đoạn văn tối đa 2-4 câu — KHÔNG viết wall of text
-   - DATA POINTS cụ thể: con số, đơn vị, range giá, timeline, so sánh
-   - Ít nhất 1 bảng so sánh HTML table (comparison)
-   - Ít nhất 1 bảng giá tham khảo (PHP) với mức cụ thể
-
-   C. DECISION FRAMEWORK:
-   - 1 section "How to Choose..." hoặc "Decision Checklist" dùng ordered list
-   - Giúp người đọc ra quyết định với tiêu chí cụ thể
-
-   D. SOCIAL PROOF:
-   - 1 section "Our Experience" hoặc "Case Study" (80-120 từ): kể dự án cụ thể với kết quả đo lường (vd: "increased foot traffic by 40%")
-   - Nếu có thể, thêm 1 expert quote hoặc industry stat trong blockquote
-
-   E. FAQ Section (3-5 câu hỏi):
-   - Mỗi câu trả lời là self-contained answer block 60-80 từ
-   - Câu ĐẦU TIÊN mỗi answer phải trả lời thẳng, không mở đầu bằng "It depends" hoặc "Well..."
-   - FAQ phải cover "People Also Ask" queries liên quan
-
-   F. KẾT LUẬN (data-speakable="true"):
-   - Tóm tắt 2-3 câu key points + CTA mạnh mẽ
-
-5. E-E-A-T SIGNALS (QUAN TRỌNG cho SEO 2025-2026):
-   - Đề cập ${companyName} tự nhiên (2-3 lần) với expertise cụ thể (vd: "With over X years in the signage industry...")
-   - Section "Our Experience/Case Study": kể dự án cụ thể với kết quả đo lường (vd: "increased foot traffic by 40%")
-   - Dùng ngôn ngữ xác định (definite language): con số, thời gian, chi phí cụ thể — KHÔNG nói chung chung
-   - Tham chiếu quy chuẩn/tiêu chuẩn địa phương khi phù hợp (building permits, DPWH guidelines...)
-   - KHÔNG quảng cáo lộ liễu, phải mang lại giá trị cho người đọc
-
-6. CTA - KÊU GỌI HÀNH ĐỘNG:
-   - Cuối bài: "${cta}"
-   - Trong bài: 1-2 CTA nhẹ nhàng tự nhiên
-
-7. SEO:
-   - Từ khóa chính "${brief.primary_keyword || topic.keyword}" xuất hiện 4-6 lần tự nhiên
-   - Từ khóa phụ: ${topic.expanded_keywords?.join(', ')}
-   - Dùng entities từ brief.entity_map xuyên suốt bài
-   - Sử dụng tên địa phương tự nhiên
-   - Chỉ có 1 thẻ h1 trong toàn bài
-   - Meta title: keyword ở ĐẦU, max 60 chars
-   - Meta description: 120-155 chars, bắt đầu bằng action word (Discover, Learn, Get, Find)
-
-8. AIO NÂNG CAO (AI Overview & Generative Engine Optimization 2025-2026):
-   NGUYÊN TẮC THEN CHỐT: Viết cho máy parse VÀ người đọc. AI trích dẫn content có cấu trúc rõ ràng, ngôn ngữ xác định, entity density cao.
-
-   - KEY TAKEAWAYS box ở đầu bài = synthesis fuel cho AI — 4-6 bullets có số liệu cụ thể
-   - Quick Answer 50-70 từ = đoạn văn AI trích dẫn nguyên khối
-   - Mỗi section là self-contained answer block: đọc riêng section vẫn hiểu đủ ý, KHÔNG PHỤ THUỘC context trước đó
-   - H2 dạng câu hỏi → 1-2 câu đầu trả lời trực tiếp (inverted pyramid) → mở rộng chi tiết
-   - Đoạn văn ngắn 2-4 câu — LLM parse tốt hơn đoạn dài
-   - Ít nhất 1 bảng so sánh HTML table, 1 decision checklist (ordered list), 1 pricing table
-   - FAQ: câu ĐẦU TIÊN mỗi answer trả lời THẲNG vào ý chính, self-contained 60-80 từ
-   - Dùng "definite language" TUYỆT ĐỐI: số liệu, range giá, timeline cụ thể — CẤM dùng "varies", "depends", "it can range", "contact for quote"
-   - Entity density CAO: mention vật liệu cụ thể, quy trình chi tiết, địa điểm thực, thương hiệu, tiêu chuẩn ngành
-   - Dùng data-speakable="true" cho intro, key takeaways, quick answer, conclusion — tối ưu voice search & AI audio
-   - Câu ngắn, declarative, factual — AI cite câu xác định hơn câu mơ hồ
-
-9. ẢNH MINH HỌA TỰ ĐỘNG:
-   - Chèn ${plannedInlineImageRange} placeholder ảnh (linh hoạt theo độ dài và độ phức tạp bài), không cố định số lượng
-   - Cú pháp: ${'<!-- IMAGE: chi tiết bằng tiếng Anh mô tả cảnh cụ thể cho AI tạo ảnh | Chú thích ngắn gọn hiển thị cho người đọc -->'}
-   - Ví dụ: ${'<!-- IMAGE: close-up photo of illuminated 3D acrylic channel letters mounted on modern glass storefront in Makati CBD at night | Bảng hiệu chữ nổi Acrylic có đèn LED tại cửa hàng ở Makati -->'}
-   - QUAN TRỌNG: Phần trước dấu | là prompt chi tiết tiếng Anh để AI tạo ảnh thực tế, PHẢI mô tả cảnh cụ thể liên quan đến nội dung đoạn văn phía trên (loại biển, vật liệu, địa điểm cụ thể). Phần sau dấu | là chú thích ngắn gọn (tiếng Việt hoặc tiếng Anh theo ngôn ngữ bài viết)
-   - Đặt placeholder sau các đoạn văn mô tả hình ảnh, vật liệu hoặc quy trình
+8. ẢNH MINH HỌA — RẤT QUAN TRỌNG:
+   - Chèn ${plannedInlineImageRange} placeholder ảnh
+   - Cú pháp: <!-- IMAGE: detailed English description for AI image generation, include camera angle, lighting, specific scene details, Canon EOS R5, 35mm lens | Short caption for readers -->
+   - Ví dụ: <!-- IMAGE: wide-angle photo of a modern LED channel letter sign installed on a glass storefront facade in BGC Taguig, shot during golden hour with warm natural lighting, Canon EOS R5, 35mm lens, shallow depth of field, photorealistic commercial photography | LED channel letter signage installation in BGC -->
+   - PHẢI mô tả chi tiết: góc chụp, ánh sáng, vật liệu, địa điểm cụ thể, loại camera
+   - Phần trước | là prompt tiếng Anh chi tiết cho AI tạo ảnh giống thật nhất
+   - Phần sau | là chú thích ngắn gọn hiển thị cho người đọc
 
 BÀI VIẾT GẦN ĐÂY (TRÁNH TRÙNG):
 ${recentPosts?.map(p => `- ${p.title}`).join('\n') || 'Chưa có bài nào'}
 
-ĐỊNH DẠNG NỘI DUNG - RẤT QUAN TRỌNG:
+ĐỊNH DẠNG NỘI DUNG:
 Viết nội dung dạng HTML sạch, giống một bài báo xuất bản chuyên nghiệp.
 ${htmlFormatGuide}
 
@@ -810,78 +870,12 @@ OUTPUT FORMAT (JSON only, no markdown wrapping):
   "suggested_tags": ["tag1", "tag2", "tag3"]
 }`;
 
-  const evaluateArticleQuality = async (article: WriterOutput): Promise<ContentQualityReport> => {
-    const articleText = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    const qaSystemPrompt = `You are an SEO + AIO Quality Auditor (2025-2026 standards).
-Evaluate article quality and return JSON only:
-{
-  "seo_score": 0,
-  "aio_score": 0,
-  "strengths": ["..."],
-  "issues": ["..."],
-  "revision_actions": ["..."]
-}
-
-SEO Scoring (0-100):
-- Primary keyword in title, H1, intro, one H2, conclusion (15pts)
-- Meta title 50-60 chars with keyword at start (10pts)
-- Meta description 120-155 chars with action word (10pts)
-- 6+ H2/H3 sections with anchor IDs, mostly question-based (10pts)
-- Table, list, comparison, and decision checklist elements (10pts)
-- Internal links present (3-5 links) (10pts)
-- E-E-A-T signals: case study, specific data points, expert credentials (15pts)
-- Short paragraphs (2-4 sentences), readable flow (10pts)
-- Pricing table with specific amounts (not "contact for quote") (10pts)
-
-AIO Scoring (0-100):
-- Key Takeaways box at top with 4-6 factual bullets with numbers (15pts)
-- Quick Answer block 50-70 words, self-contained, at article start (15pts)
-- At least 4/6 H2 headings are question-based (10pts)
-- Each section is self-contained answer block 120-180 words (10pts)
-- Inverted pyramid: first 1-2 sentences directly answer the heading (10pts)
-- Definite language: specific numbers, costs, timelines — NO "varies"/"depends"/"it can range" (15pts)
-- FAQ answers are self-contained 60-80 words, first sentence answers directly (10pts)
-- High entity density: specific materials, processes, locations, standards (10pts)
-- data-speakable attributes on intro, key takeaways, quick answer, conclusion (5pts)`;
-
-    const qaResultRaw = await generateContentResolved(
-      qaSystemPrompt,
-      `Primary keyword: ${brief.primary_keyword || topic.keyword}
-Secondary keywords: ${(brief.secondary_keywords || topic.expanded_keywords || []).join(', ')}
-Article title: ${article.title}
-Article HTML:
-${article.content}`,
-      supportingModel
-    );
-
-    const qaFallback: ContentQualityReport = {
-      seo_score: 75,
-      aio_score: 72,
-      strengths: ['Structured HTML article', 'Includes CTA'],
-      issues: ['Unable to run full QA analysis'],
-      revision_actions: []
-    };
-
-    let qaReport = parseJsonFromModel<ContentQualityReport>(qaResultRaw, qaFallback);
-    const primaryHits = countKeywordHits(articleText.toLowerCase(), (brief.primary_keyword || topic.keyword).toLowerCase());
-    if (primaryHits < 3) {
-      qaReport = {
-        ...qaReport,
-        seo_score: Math.max(0, qaReport.seo_score - 8),
-        issues: [...(qaReport.issues || []), 'Primary keyword usage is too low'],
-        revision_actions: [...(qaReport.revision_actions || []), 'Increase natural mentions of primary keyword to 4-6 occurrences']
-      };
-    }
-
-    return qaReport;
-  };
-
-  const generateCandidate = async (variant: 'control' | 'expert') => {
-    const systemPrompt = buildSystemPrompt(variant);
+  try {
     const draftResult = await generateContentResolved(
       systemPrompt,
       `Viết bài chuyên sâu cho từ khóa: "${topic.keyword}" - Lý do được chọn: ${topic.reason}`,
-      model
+      model,
+      'gemini'
     );
 
     const fallbackArticle: WriterOutput = {
@@ -896,6 +890,7 @@ ${article.content}`,
     let article = parseJsonFromModel<WriterOutput>(draftResult, fallbackArticle);
     article.content = normalizeArticleHtml(article.content || '');
 
+    // Expand if too short
     if (estimateWordCount(article.content) < minWordsNumber) {
       const expansionPrompt = `Expand this HTML article so total is at least ${minWordsNumber} words while keeping structure and no markdown.
 Return JSON only in the same WriterOutput format.
@@ -903,84 +898,150 @@ Return JSON only in the same WriterOutput format.
 Current JSON:
 ${JSON.stringify(article)}`;
 
-      const expandedResult = await generateContentResolved(systemPrompt, expansionPrompt, model);
+      const expandedResult = await generateContentResolved(systemPrompt, expansionPrompt, model, 'gemini');
       const expandedArticle = parseJsonFromModel<WriterOutput>(expandedResult, article);
       expandedArticle.content = normalizeArticleHtml(expandedArticle.content || article.content);
       article = expandedArticle;
     }
 
-    let qaReport = await evaluateArticleQuality(article);
-    if ((qaReport.seo_score + qaReport.aio_score) / 2 < writerQualityThreshold && qaReport.revision_actions.length > 0) {
-      const revisionPrompt = `Revise the article HTML to improve SEO and AIO quality.
-Keep claims realistic, keep the same topic, and keep JSON-only output (WriterOutput format).
-
-Required actions:
-${qaReport.revision_actions.map((x) => `- ${x}`).join('\n')}
-
-Current article JSON:
-${JSON.stringify(article)}`;
-
-      const revisedResult = await generateContentResolved(systemPrompt, revisionPrompt, model);
-      const revisedArticle = parseJsonFromModel<WriterOutput>(revisedResult, article);
-      revisedArticle.content = normalizeArticleHtml(revisedArticle.content || article.content);
-      article = revisedArticle;
-      qaReport = await evaluateArticleQuality(article);
-    }
-
-    const finalScore = Math.round((qaReport.seo_score + qaReport.aio_score) / 2);
-    article.quality_score = finalScore;
-    article.quality_notes = [`Prompt variant: ${variant}`, ...(qaReport.strengths || []), ...(qaReport.issues || []).slice(0, 3)];
-
-    return { article, qaReport, finalScore, variant };
-  };
-
-  try {
-    const variants: Array<'control' | 'expert'> =
-      (promptVariantMode === 'ab_test' && !options?.skipAbTest)
-        ? ['control', 'expert']
-        : [promptVariantMode === 'control' ? 'control' : 'expert'];
-
-    const candidates = [];
-    for (const variant of variants) {
-      candidates.push(await generateCandidate(variant));
-    }
-
-    const best = candidates.sort((a, b) => b.finalScore - a.finalScore)[0];
-    const article = best.article;
-
-    await logAgent(batchId, 'Writer', `Hoàn thành: "${article.title}"`, 'success', {
+    await logAgent(batchId, 'Content Writer', `Hoàn thành: "${article.title}"`, 'success', {
       title: article.title,
       word_count: article.content?.split(/\s+/).length || 0,
-      tags: article.suggested_tags,
-      quality_score: article.quality_score,
-      quality_notes: article.quality_notes,
-      prompt_variant_used: best.variant,
-      ab_test_mode: promptVariantMode === 'ab_test',
-      tested_variants: candidates.map((candidate) => ({
-        variant: candidate.variant,
-        final_score: candidate.finalScore,
-        seo_score: candidate.qaReport.seo_score,
-        aio_score: candidate.qaReport.aio_score
-      }))
+      tags: article.suggested_tags
     });
 
     return { success: true, data: article, message: `Viết xong: "${article.title}"` };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    await logAgent(batchId, 'Writer', 'Lỗi viết bài', 'failed', { error: message });
-    return { success: false, message: message };
+    await logAgent(batchId, 'Content Writer', 'Lỗi viết bài', 'failed', { error: message });
+    return { success: false, message };
   }
 }
 
 // =============================================
-// AGENT 4: VISUAL INSPECTOR (Kiểm tra & Bổ sung ảnh)
+// AGENT 5: SEO OPTIMIZER (Gemini)
 // =============================================
-export async function runAgentVisualInspector(
+export async function runAgentSeoOptimizer(batchId: string, article: WriterOutput, topic: EvaluatedTopic): Promise<AgentResult> {
+  await logAgent(batchId, 'SEO Optimizer', `Tối ưu SEO cho: "${article.title}"`, 'running');
+
+  const config = await getAllConfig();
+  const model = config.agent_seo_optimizer_model || 'gemini-2.0-flash';
+  const customInstruction = config.agent_seo_optimizer_system_instruction;
+
+  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.seo_optimizer;
+
+  const userPrompt = `Optimize SEO for this article:
+
+Primary keyword: ${topic.keyword}
+Secondary keywords: ${topic.expanded_keywords?.join(', ')}
+Current meta_title: ${article.meta_title}
+Current meta_description: ${article.meta_description}
+Current tags: ${article.suggested_tags?.join(', ')}
+
+Article title: ${article.title}
+Article HTML (first 4000 chars):
+${(article.content || '').substring(0, 4000)}`;
+
+  try {
+    const result = await generateContentResolved(systemPrompt, userPrompt, model, 'gemini');
+
+    const fallback: SeoOptimizerOutput = {
+      meta_title: article.meta_title,
+      meta_description: article.meta_description,
+      suggested_tags: article.suggested_tags || [],
+      structured_data: null,
+      keyword_density_report: {},
+      improvements_applied: []
+    };
+
+    const seoData = parseJsonFromModel<SeoOptimizerOutput>(result, fallback);
+
+    await logAgent(batchId, 'SEO Optimizer', `SEO optimized: ${seoData.improvements_applied?.length || 0} improvements`, 'success', {
+      improvements: seoData.improvements_applied
+    });
+
+    return { success: true, data: seoData, message: `SEO optimized: ${seoData.improvements_applied?.length || 0} improvements` };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    await logAgent(batchId, 'SEO Optimizer', 'Lỗi tối ưu SEO', 'failed', { error: message });
+    return { success: false, message };
+  }
+}
+
+// =============================================
+// AGENT 6: QUALITY REVIEWER (Gemini)
+// =============================================
+export async function runAgentQualityReviewer(batchId: string, article: WriterOutput, topic: EvaluatedTopic): Promise<AgentResult> {
+  await logAgent(batchId, 'Quality Reviewer', `Đánh giá chất lượng: "${article.title}"`, 'running');
+
+  const config = await getAllConfig();
+  const model = config.agent_quality_reviewer_model || 'gemini-2.0-flash';
+  const customInstruction = config.agent_quality_reviewer_system_instruction;
+
+  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.quality_reviewer;
+
+  const userPrompt = `Primary keyword: ${topic.keyword}
+Secondary keywords: ${(topic.expanded_keywords || []).join(', ')}
+Article title: ${article.title}
+Meta title: ${article.meta_title}
+Meta description: ${article.meta_description}
+
+Article HTML:
+${article.content}`;
+
+  try {
+    const result = await generateContentResolved(systemPrompt, userPrompt, model, 'gemini');
+
+    const fallback: ContentQualityReport = {
+      seo_score: 75,
+      aio_score: 72,
+      strengths: ['Structured HTML article', 'Includes CTA'],
+      issues: ['Unable to run full QA analysis'],
+      revision_actions: []
+    };
+
+    let qaReport = parseJsonFromModel<ContentQualityReport>(result, fallback);
+
+    // Additional keyword check
+    const articleText = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const primaryHits = countKeywordHits(articleText.toLowerCase(), topic.keyword.toLowerCase());
+    if (primaryHits < 3) {
+      qaReport = {
+        ...qaReport,
+        seo_score: Math.max(0, qaReport.seo_score - 8),
+        issues: [...(qaReport.issues || []), 'Primary keyword usage is too low'],
+        revision_actions: [...(qaReport.revision_actions || []), 'Increase natural mentions of primary keyword to 4-6 occurrences']
+      };
+    }
+
+    const avgScore = Math.round((qaReport.seo_score + qaReport.aio_score) / 2);
+
+    await logAgent(batchId, 'Quality Reviewer', `QA Score: SEO ${qaReport.seo_score}, AIO ${qaReport.aio_score} (avg ${avgScore})`, 'success', {
+      seo_score: qaReport.seo_score,
+      aio_score: qaReport.aio_score,
+      avg_score: avgScore,
+      strengths: qaReport.strengths,
+      issues: qaReport.issues
+    });
+
+    return { success: true, data: qaReport, message: `QA: SEO ${qaReport.seo_score}, AIO ${qaReport.aio_score} (avg ${avgScore})` };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    await logAgent(batchId, 'Quality Reviewer', 'Lỗi đánh giá chất lượng', 'failed', { error: message });
+    return { success: false, message };
+  }
+}
+
+// =============================================
+// AGENT 7: IMAGE GENERATOR (DALL-E / Gemini)
+// =============================================
+export async function runAgentImageGenerator(
   batchId: string,
   topic: EvaluatedTopic,
-  article: WriterOutput
+  article: WriterOutput,
+  seoData?: SeoOptimizerOutput
 ): Promise<AgentResult> {
-  await logAgent(batchId, 'Visual Inspector', `Tạo ảnh cho: "${article.title}"`, 'running');
+  await logAgent(batchId, 'Image Generator', `Tạo ảnh cho: "${article.title}"`, 'running');
 
   const config = await getAllConfig();
   const imageStyle = config.image_style || 'professional photography, modern urban setting';
@@ -1009,7 +1070,7 @@ export async function runAgentVisualInspector(
         });
         if (imageUrl) return imageUrl;
       } catch (err) {
-        await logAgent(batchId, 'Visual Inspector', 'Loi tao anh, thu prompt du phong', 'failed', {
+        await logAgent(batchId, 'Image Generator', 'Lỗi tạo ảnh, thử prompt dự phòng', 'failed', {
           error: err instanceof Error ? err.message : String(err)
         });
       }
@@ -1019,7 +1080,7 @@ export async function runAgentVisualInspector(
   };
 
   try {
-    // 1. Generate featured image + thumbnail image (must be realistic and relevant)
+    // 1. Generate featured image + thumbnail
     const featuredPrompts = [
       buildPhotorealisticPrompt(baseImageContext, `${topic.keyword} signage on a real storefront facade, medium-wide shot, strong composition`),
       buildPhotorealisticPrompt(baseImageContext, `completed signage installation for ${topic.keyword}, daylight exterior shot`)
@@ -1032,18 +1093,16 @@ export async function runAgentVisualInspector(
     ];
     let thumbnailImageUrl = await generateImageWithRetries(thumbnailPrompts);
 
-    // 2. Find IMAGE placeholders and generate images for them
+    // 2. Process IMAGE placeholders from Content Writer
     let finalContent = article.content;
     const generatedImages: { location: string; url: string; alt: string }[] = [];
 
-    // Extract all <!-- IMAGE: description --> placeholders from the HTML content
     const imagePlaceholderRegex = /<!-- IMAGE: (.+?) -->/g;
     const placeholders: { fullMatch: string; prompt: string; caption: string }[] = [];
     let contextualInlineAttempted = false;
     let match;
     while ((match = imagePlaceholderRegex.exec(finalContent)) !== null) {
       const raw = match[1];
-      // Support format: "prompt | caption" or just "prompt"
       const parts = raw.split('|').map(s => s.trim());
       const prompt = parts[0];
       const caption = parts[1] || '';
@@ -1051,12 +1110,7 @@ export async function runAgentVisualInspector(
     }
 
     if (placeholders.length > 0) {
-      await logAgent(
-        batchId,
-        'Visual Inspector',
-        `Tìm thấy ${placeholders.length} placeholder, mục tiêu ${targetInlineImages} ảnh minh họa`,
-        'running'
-      );
+      await logAgent(batchId, 'Image Generator', `Tìm thấy ${placeholders.length} placeholder, mục tiêu ${targetInlineImages} ảnh`, 'running');
 
       const placeholdersToUse = placeholders.slice(0, targetInlineImages);
       const placeholdersToRemove = placeholders.slice(targetInlineImages);
@@ -1064,22 +1118,16 @@ export async function runAgentVisualInspector(
       for (const placeholder of placeholdersToUse) {
         try {
           const imgPrompt = buildPhotorealisticPrompt(baseImageContext, placeholder.prompt);
-          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
+          await logAgent(batchId, 'Image Generator', `Đang tạo ảnh: ${placeholder.prompt.substring(0, 50)}...`, 'running');
           const imgUrl = await generateImageWithRetries([
             imgPrompt,
             buildPhotorealisticPrompt(baseImageContext, `real installation photo related to ${topic.keyword}`)
           ]);
 
           if (imgUrl) {
-            // Build SEO-optimized alt text: keyword-first, descriptive, < 125 chars
             const altText = buildSeoAltText(topic.keyword, placeholder.caption || placeholder.prompt);
-            generatedImages.push({
-              location: placeholder.prompt,
-              url: imgUrl,
-              alt: altText
-            });
+            generatedImages.push({ location: placeholder.prompt, url: imgUrl, alt: altText });
 
-            // Replace placeholder with <figure> HTML tag — caption for display, NOT the raw prompt
             const figcaptionHtml = placeholder.caption
               ? `<figcaption class="article-figcaption">${placeholder.caption}</figcaption>`
               : '';
@@ -1089,11 +1137,7 @@ export async function runAgentVisualInspector(
             );
           } else if (featuredImageUrl) {
             const altText = buildSeoAltText(topic.keyword, placeholder.caption || placeholder.prompt);
-            generatedImages.push({
-              location: placeholder.prompt,
-              url: featuredImageUrl,
-              alt: altText
-            });
+            generatedImages.push({ location: placeholder.prompt, url: featuredImageUrl, alt: altText });
 
             const figcaptionHtml = placeholder.caption
               ? `<figcaption class="article-figcaption">${placeholder.caption}</figcaption>`
@@ -1103,7 +1147,6 @@ export async function runAgentVisualInspector(
               `<figure class="article-figure"><img src="${featuredImageUrl}" alt="${escapeHtmlAttribute(altText)}" loading="lazy" decoding="async" width="1024" height="1024" class="article-image" />${figcaptionHtml}</figure>`
             );
           } else {
-            // Remove placeholder if image generation failed
             finalContent = finalContent.replace(placeholder.fullMatch, '');
           }
         } catch (err) {
@@ -1116,36 +1159,30 @@ export async function runAgentVisualInspector(
         finalContent = finalContent.replace(extraPlaceholder.fullMatch, '');
       }
     } else {
-      // Fallback: If Writer didn't include placeholders, use AI analysis
-      await logAgent(batchId, 'Visual Inspector', 'Không có placeholder, phân tích vị trí chèn ảnh...', 'running');
+      // Fallback: AI analysis for image placement
+      await logAgent(batchId, 'Image Generator', 'Không có placeholder, phân tích vị trí chèn ảnh...', 'running');
       contextualInlineAttempted = true;
 
       const remainingNeeded = Math.max(1, targetInlineImages - generatedImages.length);
-      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts for maximum trust and relevance.
+      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts.
         Article Title: "${article.title}"
         Content Snippet: ${article.content.substring(0, 3000)}...
 
         Return JSON ONLY:
         [
           {
-            "insert_after_text": "a short unique sentence from the article to insert image after",
-            "image_prompt": "specific photorealistic signage photo relevant to the nearby paragraph",
+            "insert_after_text": "a short unique sentence from the article",
+            "image_prompt": "specific photorealistic signage photo prompt",
             "alt_text": "description for seo"
           }
-        ]
-        Rules:
-        - Exactly ${remainingNeeded} items
-        - Prioritize sections with practical details (materials, installation, before/after, pricing context)
-        - Avoid repetitive viewpoints`;
+        ]`;
 
       try {
-        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest inline images', 'gpt-4o');
-        const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
+        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest inline images', 'gemini-2.0-flash', 'gemini');
+        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = parseJsonFromModel(analysisResult, []);
 
         for (const item of suggestions.slice(0, remainingNeeded)) {
           if (!item.insert_after_text || !item.image_prompt) continue;
-          await logAgent(batchId, 'Visual Inspector', `Đang tạo ảnh: ${item.alt_text}`, 'running');
           const imgUrl = await generateImageWithRetries([
             buildPhotorealisticPrompt(baseImageContext, item.image_prompt),
             buildPhotorealisticPrompt(baseImageContext, `real signage photo for ${topic.keyword}`)
@@ -1155,13 +1192,11 @@ export async function runAgentVisualInspector(
             generatedImages.push({ location: item.insert_after_text, url: imgUrl, alt: item.alt_text });
             const figureHtml = `<figure class="article-figure"><img src="${imgUrl}" alt="${escapeHtmlAttribute(item.alt_text)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${item.alt_text}</figcaption></figure>`;
 
-            // Try to insert after the matching text
             const escapedText = item.insert_after_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const textRegex = new RegExp(`(${escapedText})`, 'i');
             if (textRegex.test(finalContent)) {
               finalContent = finalContent.replace(textRegex, `$1${figureHtml}`);
             } else {
-              // Append at end of content if text not found
               finalContent += figureHtml;
             }
           }
@@ -1170,35 +1205,25 @@ export async function runAgentVisualInspector(
         }
       } catch (err) {
         console.error('Error generating inline images:', err);
-        await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
+        await logAgent(batchId, 'Image Generator', 'Lỗi tạo ảnh nội dung (bỏ qua)', 'failed', { error: String(err) });
       }
     }
 
+    // Fallback: generate extra images if needed
     if (!contextualInlineAttempted && generatedImages.length < targetInlineImages) {
       const remainingNeeded = targetInlineImages - generatedImages.length;
-      await logAgent(batchId, 'Visual Inspector', `Bổ sung ${remainingNeeded} ảnh theo ngữ cảnh nội dung`, 'running');
+      await logAgent(batchId, 'Image Generator', `Bổ sung ${remainingNeeded} ảnh theo ngữ cảnh`, 'running');
 
-      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts for maximum trust and relevance.
+      const analysisPrompt = `Analyze this HTML article and suggest ${remainingNeeded} contextual image prompts.
         Article Title: "${article.title}"
         Content Snippet: ${article.content.substring(0, 3000)}...
 
         Return JSON ONLY:
-        [
-          {
-            "insert_after_text": "a short unique sentence from the article to insert image after",
-            "image_prompt": "specific photorealistic signage photo relevant to the nearby paragraph",
-            "alt_text": "description for seo"
-          }
-        ]
-        Rules:
-        - Exactly ${remainingNeeded} items
-        - Prioritize sections with practical details (materials, installation, before/after, pricing context)
-        - Avoid repetitive viewpoints`;
+        [{ "insert_after_text": "...", "image_prompt": "...", "alt_text": "..." }]`;
 
       try {
-        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest additional inline images', 'gpt-4o');
-        const cleaned = analysisResult?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = JSON.parse(cleaned);
+        const analysisResult = await generateContentResolved(analysisPrompt, 'Suggest additional inline images', 'gemini-2.0-flash', 'gemini');
+        const suggestions: { insert_after_text: string; image_prompt: string; alt_text: string }[] = parseJsonFromModel(analysisResult, []);
 
         for (const item of suggestions.slice(0, remainingNeeded)) {
           if (!item.insert_after_text || !item.image_prompt) continue;
@@ -1222,13 +1247,11 @@ export async function runAgentVisualInspector(
           if (generatedImages.length >= targetInlineImages) break;
         }
       } catch (err) {
-        await logAgent(batchId, 'Visual Inspector', 'Lỗi bổ sung ảnh theo ngữ cảnh', 'failed', {
-          error: err instanceof Error ? err.message : String(err)
-        });
+        await logAgent(batchId, 'Image Generator', 'Lỗi bổ sung ảnh', 'failed', { error: String(err) });
       }
     }
 
-    // Fallback loop: generate at most 2 extra images to avoid timeout
+    // Absolute fallback loop
     const maxFallbackAttempts = Math.min(2, targetInlineImages - generatedImages.length);
     for (let fi = 0; fi < maxFallbackAttempts && generatedImages.length < targetInlineImages; fi++) {
       const fallbackAlt = `Minh hoa thuc te cho ${topic.keyword} (${generatedImages.length + 1})`;
@@ -1243,26 +1266,23 @@ export async function runAgentVisualInspector(
       finalContent += `<figure class="article-figure"><img src="${fallbackInlineImage}" alt="${escapeHtmlAttribute(fallbackAlt)}" loading="lazy" decoding="async" class="article-image" /><figcaption class="article-figcaption">${fallbackAlt}</figcaption></figure>`;
     }
 
-    if (!featuredImageUrl) {
-      featuredImageUrl = generatedImages[0]?.url || null;
-    }
-
-    if (!thumbnailImageUrl) {
-      thumbnailImageUrl = featuredImageUrl;
-    }
+    if (!featuredImageUrl) featuredImageUrl = generatedImages[0]?.url || null;
+    if (!thumbnailImageUrl) thumbnailImageUrl = featuredImageUrl;
 
     if (!featuredImageUrl) {
-      throw new Error('Khong tao duoc anh thumb/featured cho bai viet. Pipeline dung de tranh bai khong co anh.');
+      throw new Error('Không tạo được ảnh featured cho bài viết.');
     }
 
     if (generatedImages.length === 0 && minInlineImages > 0) {
-      throw new Error(`Khong tao duoc anh minh hoa nao. Pipeline dung de dam bao chat luong hinh anh.`);
+      throw new Error('Không tạo được ảnh minh họa nào.');
     }
 
-    const resolvedFeaturedImage = featuredImageUrl;
-    const resolvedThumbnailImage = thumbnailImageUrl;
+    // Apply SEO optimizer data
+    const finalMetaTitle = seoData?.meta_title || article.meta_title;
+    const finalMetaDescription = seoData?.meta_description || article.meta_description;
+    const finalTags = seoData?.suggested_tags || article.suggested_tags;
 
-    // 3. Clean up: ensure all images are responsive and FAQ schema exists if enabled
+    // Clean up responsive images and FAQ schema
     finalContent = finalContent
       .replace(/<img(?![^>]*class=)(?![^>]*article-image)/g, '<img class="article-image"')
       .replace(/<img(?![^>]*loading=)/g, '<img loading="lazy" decoding="async"');
@@ -1272,7 +1292,7 @@ export async function runAgentVisualInspector(
       finalContent += `<script type="application/ld+json">${faqSchema}</script>`;
     }
 
-    // 5. Save to DB as draft
+    // Save to DB
     const slug = article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     let internalLinksInserted = 0;
@@ -1296,25 +1316,25 @@ export async function runAgentVisualInspector(
     const { data: post, error } = await supabaseAdmin.from('posts').upsert({
       title: article.title,
       slug: slug,
-      content: finalContent, // Now HTML
+      content: finalContent,
       excerpt: article.excerpt,
-      meta_title: article.meta_title,
-      meta_description: article.meta_description,
-      featured_image: resolvedFeaturedImage,
-      cover_image: resolvedThumbnailImage,
+      meta_title: finalMetaTitle,
+      meta_description: finalMetaDescription,
+      featured_image: featuredImageUrl,
+      cover_image: thumbnailImageUrl,
       status: 'draft',
       seo_score: article.quality_score || 86,
-      tags: article.suggested_tags,
+      tags: finalTags,
       lang: (await getConfig('content_language', 'en')) as 'en' | 'tl',
       created_at: new Date().toISOString()
     }, { onConflict: 'slug' }).select().single();
 
     if (error) throw error;
 
-    await logAgent(batchId, 'Visual Inspector', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
+    await logAgent(batchId, 'Image Generator', `Lưu bản nháp thành công: "${article.title}"`, 'success', {
       post_id: post?.id,
-      featured_image: resolvedFeaturedImage,
-      thumbnail_image: resolvedThumbnailImage,
+      featured_image: featuredImageUrl,
+      thumbnail_image: thumbnailImageUrl,
       inline_images_count: generatedImages.length,
       internal_links_inserted: internalLinksInserted,
       faq_schema_attached: Boolean(faqSchema)
@@ -1323,8 +1343,8 @@ export async function runAgentVisualInspector(
     return {
       success: true,
       data: {
-        featured_image_url: resolvedFeaturedImage,
-        thumbnail_image_url: resolvedThumbnailImage,
+        featured_image_url: featuredImageUrl,
+        thumbnail_image_url: thumbnailImageUrl,
         image_suggestions: [],
         generated_images: generatedImages,
         post_id: post?.id
@@ -1333,8 +1353,8 @@ export async function runAgentVisualInspector(
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    await logAgent(batchId, 'Visual Inspector', 'Lỗi tạo ảnh/lưu bài', 'failed', { error: message });
-    return { success: false, message: message };
+    await logAgent(batchId, 'Image Generator', 'Lỗi tạo ảnh/lưu bài', 'failed', { error: message });
+    return { success: false, message };
   }
 }
 
@@ -1349,35 +1369,33 @@ export async function generateProjectDescription(params: {
   challenges?: string;
 }): Promise<string | null> {
   const config = await getAllConfig();
-  const model = config.writer_model || 'gpt-4o';
+  const model = config.writer_model || config.agent_content_writer_model || 'gemini-2.0-flash';
 
   const systemPrompt = `You are a professional copywriter for a premium signage company called "SignsHaus".
   Write a compelling project case study description (approx 200-300 words).
-  
+
   CONTEXT: This is a Portfolio Case Study for a specific signage project we completed.
   Tone: Professional, confident, architectural, focusing on quality and craftsmanship.
   Structure:
-  1. The Challenge/Objective: What did the client need and what were the requirements?
-  2. The Solution: Detail the materials used, the specific fabrication techniques, and installation approach.
-  3. The Result: Describe the visual impact, durability, and how it enhances the client's brand.
-  
-  Do NOT use markdown headers (like ##). Use paragraph breaks.
-  Do NOT include "Title:" or "Client:" labels, just the narrative text.`;
+  1. The Challenge/Objective
+  2. The Solution
+  3. The Result
+
+  Do NOT use markdown headers. Use paragraph breaks.
+  Do NOT include "Title:" or "Client:" labels.`;
 
   const userPrompt = `Write a project description for:
   Project Name: ${params.title}
   Client: ${params.client}
   Location: ${params.location}
   Signage Type: ${params.type}
-  Special Challenges/Notes: ${params.challenges || 'N/A'}
-  
-  Focus on how this project enhances the client's brand visibility in ${params.location}.`;
+  Special Challenges/Notes: ${params.challenges || 'N/A'}`;
 
   return await generateContentResolved(systemPrompt, userPrompt, model);
 }
 
 // =============================================
-// AGENT 5: INTERNAL LINKING EXPERT (Trích xuất từ khóa)
+// HELPER: Internal Linking Keywords Extractor
 // =============================================
 export async function extractKeywordsForLinking(
   title: string,
@@ -1385,21 +1403,17 @@ export async function extractKeywordsForLinking(
   content: string
 ): Promise<string[]> {
   const config = await getAllConfig();
-  const model = config.researcher_model || 'gpt-4o-mini';
+  const model = config.agent_seo_research_model || config.researcher_model || 'gemini-2.0-flash';
 
   const systemPrompt = `You are an SEO Internal Linking Specialist.
-  Analyze the provided content and extract 3-5 distinct, high-value keywords or phrases that naturally represent this content.
+  Analyze the provided content and extract 3-5 distinct, high-value keywords or phrases.
   These keywords will be used as "anchor text" to link FROM other pages TO this page.
 
   RULES:
   1. Keywords must be natural phrases (2-4 words usually).
   2. Avoid generic terms like "product", "signage" (too broad).
   3. Use specific material names, product types, or service names found in the content.
-  4. Return ONLY a JSON array of strings. No markdown.
-
-  Example:
-  Input: "Acrylic LED signage for outdoor use..."
-  Output: ["acrylic LED signage", "outdoor lighted signs", "custom acrylic signs"]`;
+  4. Return ONLY a JSON array of strings. No markdown.`;
 
   const userPrompt = `Page Title: ${title}
   Description: ${description}
@@ -1409,11 +1423,15 @@ export async function extractKeywordsForLinking(
 
   try {
     const result = await generateContentResolved(systemPrompt, userPrompt, model);
-    const cleaned = result?.replace(/```json/g, '').replace(/```/g, '').trim() || '[]';
-    const keywords: string[] = JSON.parse(cleaned);
+    const keywords: string[] = parseJsonFromModel(result, []);
     return Array.isArray(keywords) ? keywords.slice(0, 5) : [];
   } catch (e) {
     console.error('Error extracting keywords:', e);
     return [];
   }
 }
+
+// =============================================
+// Export default system instructions for settings UI
+// =============================================
+export { DEFAULT_SYSTEM_INSTRUCTIONS };

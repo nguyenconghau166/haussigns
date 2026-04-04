@@ -70,6 +70,6 @@ export const generateImage = async (prompt: string, size: '1024x1024' = '1024x10
   }
 };
 
-// Export a dummy client for types or legacy usage if needed, but it won't work without key
+// Export a lazy client for types or legacy usage if needed
 // Deprecating direct export of 'openai'
-export const openai = new OpenAI({ apiKey: 'placeholder' }); 
+export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
