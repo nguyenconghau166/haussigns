@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { applyWatermark } from './watermark';
 
 /**
  * Uploads an image from a URL or Base64 string to Supabase Storage.
@@ -35,6 +36,9 @@ export async function uploadImageFromUrl(imageUrl: string, bucket: string = 'ima
 
             // Update extension based on content type if needed, strict check not always required for storage
         }
+
+        // Apply watermark before upload
+        buffer = await applyWatermark(buffer);
 
         // Upload to Supabase
         const { data, error } = await supabaseAdmin.storage

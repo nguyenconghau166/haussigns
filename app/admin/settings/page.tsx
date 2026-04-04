@@ -461,240 +461,251 @@ export default function SettingsPage() {
         {/* ===== AGENTS TAB ===== */}
         {activeTab === 'agents' && (
           <div className="space-y-6">
-            {/* Researcher */}
-            <Card className="border-0 shadow-md border-l-4 border-l-purple-500">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Search className="h-5 w-5 text-purple-500" /> Agent 1: Researcher (Nghiên cứu)
-                </CardTitle>
-                <CardDescription>Tìm từ khóa trending, từ khóa mở rộng, tin tức ngành biển hiệu</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <SelectField
-                  label="Model AI"
-                  value={settings.researcher_model}
-                  onChange={(v) => handleChange('researcher_model', v)}
-                  options={[
-                    { value: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (Tiết kiệm)' },
-                    { value: 'gpt-5.2', label: 'OpenAI GPT-5.2 (Mới nhất)' },
-                    { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
-                    { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Rất nhanh)' },
-                  ]}
-                  hint="Model nhanh phù hợp vì chỉ cần tìm kiếm, không cần viết sâu"
-                />
-                <TextareaField
-                  label="Từ khóa gốc (Seed Keywords)"
-                  value={settings.target_keywords_seed}
-                  onChange={(v) => handleChange('target_keywords_seed', v)}
-                  placeholder="signage maker, business signs, LED signage..."
-                  hint="Các từ khóa cơ bản của ngành. AI sẽ mở rộng từ đây"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Evaluator */}
-            <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-blue-500" /> Agent 2: Evaluator (Đánh giá)
-                </CardTitle>
-                <CardDescription>Chấm điểm topic, so sánh với bài cũ, lọc chủ đề chất lượng</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <InputField
-                  label="Điểm tối thiểu để duyệt (0-100)"
-                  value={settings.evaluator_min_score}
-                  onChange={(v) => handleChange('evaluator_min_score', v)}
-                  type="number"
-                  placeholder="60"
-                  hint="Chủ đề có điểm thấp hơn sẽ bị bỏ qua. Gợi ý: 50-70"
-                />
-                <InputField
-                  label="Số bài tối đa mỗi lần chạy"
-                  value={settings.articles_per_run}
-                  onChange={(v) => handleChange('articles_per_run', v)}
-                  type="number"
-                  placeholder="2"
-                  hint="Giới hạn số bài viết tạo ra mỗi lần chạy Pipeline"
-                />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Timeout Researcher (giây)"
-                    value={settings.pipeline_research_timeout_seconds || '180'}
-                    onChange={(v) => handleChange('pipeline_research_timeout_seconds', v)}
-                    type="number"
-                    placeholder="180"
-                  />
-                  <InputField
-                    label="Timeout Evaluator (giây)"
-                    value={settings.pipeline_evaluator_timeout_seconds || '180'}
-                    onChange={(v) => handleChange('pipeline_evaluator_timeout_seconds', v)}
-                    type="number"
-                    placeholder="180"
-                  />
+            {/* Pipeline Flow Visualization */}
+            <Card className="border-0 shadow-md bg-gradient-to-r from-slate-50 to-white">
+              <CardContent className="py-5">
+                <div className="flex items-center justify-between overflow-x-auto gap-1 px-2">
+                  {[
+                    { icon: Search, label: 'Auto-Research', color: 'text-orange-500 bg-orange-100', provider: 'Perplexity' },
+                    { icon: Search, label: 'SEO Research', color: 'text-orange-500 bg-orange-100', provider: 'Perplexity' },
+                    { icon: FileText, label: 'Strategist', color: 'text-blue-500 bg-blue-100', provider: 'Gemini' },
+                    { icon: FileText, label: 'Writer', color: 'text-amber-500 bg-amber-100', provider: 'Gemini' },
+                    { icon: Globe, label: 'SEO Optimizer', color: 'text-emerald-500 bg-emerald-100', provider: 'Gemini' },
+                    { icon: Zap, label: 'Quality Review', color: 'text-purple-500 bg-purple-100', provider: 'Gemini' },
+                    { icon: ImageIcon, label: 'Image Gen', color: 'text-pink-500 bg-pink-100', provider: 'DALL-E' },
+                  ].map((agent, idx, arr) => (
+                    <div key={idx} className="flex items-center gap-1 flex-shrink-0">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${agent.color}`}>
+                          <agent.icon className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-700 text-center leading-tight whitespace-nowrap">{agent.label}</span>
+                        <span className="text-[8px] text-slate-400">{agent.provider}</span>
+                      </div>
+                      {idx < arr.length - 1 && <span className="text-slate-300 text-xs mx-0.5 mt-[-16px]">→</span>}
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Writer */}
-            <Card className="border-0 shadow-md border-l-4 border-l-amber-500">
+            {/* General Pipeline Settings */}
+            <Card className="border-0 shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-amber-500" /> Agent 3: Writer (Viết bài)
+                  <Settings className="h-5 w-5 text-slate-500" /> Cài đặt chung Pipeline
                 </CardTitle>
-                <CardDescription>Viết bài SEO chuyên nghiệp, lồng ghép doanh nghiệp, kêu gọi gọi điện</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <SelectField
-                  label="Model AI"
-                  value={settings.writer_model}
-                  onChange={(v) => handleChange('writer_model', v)}
-                  options={[
-                    { value: 'gpt-5.2', label: 'OpenAI GPT-5.2 (Recommended 2026)' },
-                    { value: 'gpt-4o', label: 'OpenAI GPT-4o (Standard)' },
-                    { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Powerful + Stable)' },
-                    { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Fast)' },
-                  ]}
-                  hint="Nên dùng GPT-5.2 hoặc Gemini 2.0 Flash cho chất lượng bài viết tốt"
-                />
-                <SelectField
-                  label="Ngôn ngữ viết bài"
-                  value={settings.content_language}
-                  onChange={(v) => handleChange('content_language', v)}
-                  options={[
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Số bài tối đa mỗi lần chạy" value={settings.articles_per_run} onChange={(v) => handleChange('articles_per_run', v)} type="number" placeholder="2" />
+                  <InputField label="Ngưỡng chất lượng (0-100)" value={settings.writer_quality_threshold || '82'} onChange={(v) => handleChange('writer_quality_threshold', v)} type="number" placeholder="82" hint="Dưới ngưỡng sẽ tự revision" />
+                  <InputField label="Điểm tối thiểu duyệt topic (0-100)" value={settings.evaluator_min_score} onChange={(v) => handleChange('evaluator_min_score', v)} type="number" placeholder="60" />
+                  <InputField label="Số từ tối thiểu / bài" value={settings.min_word_count} onChange={(v) => handleChange('min_word_count', v)} type="number" placeholder="800" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <SelectField label="Ngôn ngữ viết bài" value={settings.content_language} onChange={(v) => handleChange('content_language', v)} options={[
                     { value: 'en', label: 'English (Professional)' },
                     { value: 'tl', label: 'Tagalog (Thân thiện)' },
                     { value: 'mix', label: 'Taglish (English + Tagalog)' },
-                  ]}
-                />
-                <InputField
-                  label="Giọng văn"
-                  value={settings.writer_tone}
-                  onChange={(v) => handleChange('writer_tone', v)}
-                  placeholder="Professional, Trustworthy, Helpful"
-                  hint="Mô tả phong cách viết mà AI sẽ theo"
-                />
-                <InputField
-                  label="Số từ tối thiểu"
-                  value={settings.min_word_count}
-                  onChange={(v) => handleChange('min_word_count', v)}
-                  type="number"
-                  placeholder="800"
-                  hint="Mỗi bài viết phải có ít nhất bao nhiêu từ"
-                />
-                <SelectField
-                  label="Chế độ Prompt Writer"
-                  value={settings.writer_prompt_variant || 'expert'}
-                  onChange={(v) => handleChange('writer_prompt_variant', v)}
-                  options={[
-                    { value: 'expert', label: 'Expert (Chuyên sâu)' },
-                    { value: 'control', label: 'Control (Cân bằng)' },
-                    { value: 'ab_test', label: 'A/B Test tự động' },
-                  ]}
-                  hint="A/B Test sẽ tạo 2 biến thể bài viết và tự chọn bài có điểm SEO+AIO cao hơn"
-                />
-                <InputField
-                  label="Ngưỡng chất lượng Writer (0-100)"
-                  value={settings.writer_quality_threshold || '82'}
-                  onChange={(v) => handleChange('writer_quality_threshold', v)}
-                  type="number"
-                  placeholder="82"
-                  hint="Nếu điểm trung bình SEO+AIO dưới ngưỡng, hệ thống sẽ tự revision thêm 1 vòng"
-                />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Timeout Writer (giây)"
-                    value={settings.pipeline_writer_timeout_seconds || '420'}
-                    onChange={(v) => handleChange('pipeline_writer_timeout_seconds', v)}
-                    type="number"
-                    placeholder="420"
-                  />
-                  <InputField
-                    label="Timeout AI request (ms)"
-                    value={settings.ai_request_timeout_ms || '120000'}
-                    onChange={(v) => handleChange('ai_request_timeout_ms', v)}
-                    type="number"
-                    placeholder="120000"
-                  />
+                  ]} />
+                  <InputField label="Giọng văn" value={settings.writer_tone} onChange={(v) => handleChange('writer_tone', v)} placeholder="Professional, Trustworthy" />
                 </div>
-                <InputField
-                  label="Retry AI request"
-                  value={settings.ai_request_retry_count || '1'}
-                  onChange={(v) => handleChange('ai_request_retry_count', v)}
-                  type="number"
-                  placeholder="1"
-                  hint="Số lần thử lại khi request AI timeout hoặc lỗi tạm thời"
-                />
-                <InputField
-                  label="Đối tượng mục tiêu"
-                  value={settings.target_audience}
-                  onChange={(v) => handleChange('target_audience', v)}
-                  placeholder="SME Owners, Corporate Managers..."
-                  hint="AI sẽ điều chỉnh ngôn ngữ phù hợp với đối tượng này"
-                />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Timeout AI request (ms)" value={settings.ai_request_timeout_ms || '120000'} onChange={(v) => handleChange('ai_request_timeout_ms', v)} type="number" placeholder="120000" />
+                  <InputField label="Retry AI request" value={settings.ai_request_retry_count || '1'} onChange={(v) => handleChange('ai_request_retry_count', v)} type="number" placeholder="1" />
+                </div>
               </CardContent>
             </Card>
 
-            {/* Visual Inspector */}
+            {/* Agent 1: Auto-Research Analyst */}
+            <Card className="border-0 shadow-md border-l-4 border-l-orange-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="h-5 w-5 text-orange-500" /> Agent 1: Auto-Research Analyst
+                  <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Perplexity AI</span>
+                </CardTitle>
+                <CardDescription>Tự động phát hiện chủ đề và phân tích cạnh tranh bằng Perplexity</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Model" value={settings.agent_auto_research_model || 'sonar-pro'} onChange={(v) => handleChange('agent_auto_research_model', v)} options={[
+                  { value: 'sonar-pro', label: 'Perplexity Sonar Pro (Khuyến nghị)' },
+                  { value: 'sonar', label: 'Perplexity Sonar (Nhanh hơn)' },
+                ]} />
+                <TextareaField label="Từ khóa gốc (Seed Keywords)" value={settings.target_keywords_seed} onChange={(v) => handleChange('target_keywords_seed', v)} placeholder="signage maker, business signs, LED signage..." hint="Các từ khóa cơ bản để AI mở rộng nghiên cứu" />
+                <InputField label="Timeout (giây)" value={settings.pipeline_auto_research_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_auto_research_timeout_seconds', v)} type="number" placeholder="180" />
+                <TextareaField label="System Instruction (Hướng dẫn hệ thống)" value={settings.agent_auto_research_system_instruction || ''} onChange={(v) => handleChange('agent_auto_research_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống cho agent này. Để trống = dùng mặc định." rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 2: SEO Research Expert */}
+            <Card className="border-0 shadow-md border-l-4 border-l-orange-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="h-5 w-5 text-orange-500" /> Agent 2: SEO Research Expert
+                  <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Perplexity AI</span>
+                </CardTitle>
+                <CardDescription>Nghiên cứu từ khóa chuyên sâu, phân tích SERP và đánh giá topic</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Model" value={settings.agent_seo_research_model || 'sonar-pro'} onChange={(v) => handleChange('agent_seo_research_model', v)} options={[
+                  { value: 'sonar-pro', label: 'Perplexity Sonar Pro (Khuyến nghị)' },
+                  { value: 'sonar', label: 'Perplexity Sonar (Nhanh hơn)' },
+                ]} />
+                <InputField label="Timeout (giây)" value={settings.pipeline_seo_research_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_seo_research_timeout_seconds', v)} type="number" placeholder="180" />
+                <TextareaField label="System Instruction" value={settings.agent_seo_research_system_instruction || ''} onChange={(v) => handleChange('agent_seo_research_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống" rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 3: Content Strategist */}
+            <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" /> Agent 3: Content Strategist
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Google Gemini</span>
+                </CardTitle>
+                <CardDescription>Tạo cấu trúc bài viết, dàn ý chi tiết và content brief</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Model" value={settings.agent_content_strategist_model || 'gemini-2.0-flash'} onChange={(v) => handleChange('agent_content_strategist_model', v)} options={[
+                  { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
+                  { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Nhanh)' },
+                ]} />
+                <InputField label="Timeout (giây)" value={settings.pipeline_strategist_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_strategist_timeout_seconds', v)} type="number" placeholder="180" />
+                <TextareaField label="System Instruction" value={settings.agent_content_strategist_system_instruction || ''} onChange={(v) => handleChange('agent_content_strategist_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống" rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 4: Content Writer */}
+            <Card className="border-0 shadow-md border-l-4 border-l-amber-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-amber-500" /> Agent 4: Content Writer
+                  <span className="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Google Gemini</span>
+                </CardTitle>
+                <CardDescription>Viết bài SEO đầy đủ HTML, tự tạo prompt ảnh minh họa chi tiết</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Model" value={settings.agent_content_writer_model || 'gemini-2.0-flash'} onChange={(v) => handleChange('agent_content_writer_model', v)} options={[
+                  { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
+                  { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Nhanh)' },
+                ]} />
+                <InputField label="Timeout (giây)" value={settings.pipeline_content_writer_timeout_seconds || '420'} onChange={(v) => handleChange('pipeline_content_writer_timeout_seconds', v)} type="number" placeholder="420" />
+                <TextareaField label="System Instruction" value={settings.agent_content_writer_system_instruction || ''} onChange={(v) => handleChange('agent_content_writer_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định (sẽ tự build với context doanh nghiệp)..." hint="Tùy chỉnh prompt hệ thống. Lưu ý: Nếu để trống, system prompt sẽ được tự động build với thông tin doanh nghiệp." rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 5: SEO Optimizer */}
             <Card className="border-0 shadow-md border-l-4 border-l-emerald-500">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5 text-emerald-500" /> Agent 4: Visual Inspector (Hình ảnh)
+                  <Globe className="h-5 w-5 text-emerald-500" /> Agent 5: SEO Optimizer
+                  <span className="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Google Gemini</span>
                 </CardTitle>
-                <CardDescription>Kiểm tra bài viết, tạo ảnh minh họa, lưu bản nháp</CardDescription>
+                <CardDescription>Tối ưu meta tags, từ khóa, structured data cho bài viết</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <SelectField
-                  label="Nhà cung cấp ảnh"
-                  value={settings.image_provider}
-                  onChange={(v) => handleChange('image_provider', v)}
-                  options={[
-                    { value: 'dalle', label: 'OpenAI DALL-E 3 (Mặc định)' },
-                    { value: 'banana', label: 'Nano Banana Pro / API tùy chỉnh' },
-                  ]}
-                />
-                <InputField
-                  label="Phong cách ảnh"
-                  value={settings.image_style}
-                  onChange={(v) => handleChange('image_style', v)}
-                  placeholder="professional photography, modern urban setting..."
-                  hint="Mô tả phong cách ảnh AI sẽ tạo"
-                />
-                <SelectField
-                  label="Auto FAQ Schema"
-                  value={settings.enable_faq_schema || 'true'}
-                  onChange={(v) => handleChange('enable_faq_schema', v)}
-                  options={[
-                    { value: 'true', label: 'Bật' },
-                    { value: 'false', label: 'Tắt' },
-                  ]}
-                  hint="Khi bài có khối FAQ, hệ thống sẽ tự chèn JSON-LD FAQPage"
-                />
-                <SelectField
-                  label="Auto Internal Linking"
-                  value={settings.auto_internal_linking || 'true'}
-                  onChange={(v) => handleChange('auto_internal_linking', v)}
-                  options={[
-                    { value: 'true', label: 'Bật' },
-                    { value: 'false', label: 'Tắt' },
-                  ]}
-                  hint="Tự chèn internal link dựa trên bảng internal_linking_rules khi lưu draft"
-                />
-                <InputField
-                  label="Số internal links tối đa / bài"
-                  value={settings.internal_links_per_article || '3'}
-                  onChange={(v) => handleChange('internal_links_per_article', v)}
-                  type="number"
-                  placeholder="3"
-                  hint="Nên giữ 2-5 links để tự nhiên và không spam"
-                />
-                <InputField
-                  label="Timeout Visual Inspector (giây)"
-                  value={settings.pipeline_visual_timeout_seconds || '360'}
-                  onChange={(v) => handleChange('pipeline_visual_timeout_seconds', v)}
-                  type="number"
-                  placeholder="360"
-                />
+                <SelectField label="Model" value={settings.agent_seo_optimizer_model || 'gemini-2.0-flash'} onChange={(v) => handleChange('agent_seo_optimizer_model', v)} options={[
+                  { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
+                  { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Nhanh)' },
+                ]} />
+                <SelectField label="Auto FAQ Schema" value={settings.enable_faq_schema || 'true'} onChange={(v) => handleChange('enable_faq_schema', v)} options={[
+                  { value: 'true', label: 'Bật' },
+                  { value: 'false', label: 'Tắt' },
+                ]} hint="Tự chèn JSON-LD FAQPage khi bài có khối FAQ" />
+                <SelectField label="Auto Internal Linking" value={settings.auto_internal_linking || 'true'} onChange={(v) => handleChange('auto_internal_linking', v)} options={[
+                  { value: 'true', label: 'Bật' },
+                  { value: 'false', label: 'Tắt' },
+                ]} hint="Tự chèn internal link dựa trên bảng linking rules" />
+                <InputField label="Số internal links tối đa / bài" value={settings.internal_links_per_article || '3'} onChange={(v) => handleChange('internal_links_per_article', v)} type="number" placeholder="3" />
+                <InputField label="Timeout (giây)" value={settings.pipeline_seo_optimizer_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_seo_optimizer_timeout_seconds', v)} type="number" placeholder="180" />
+                <TextareaField label="System Instruction" value={settings.agent_seo_optimizer_system_instruction || ''} onChange={(v) => handleChange('agent_seo_optimizer_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống" rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 6: Quality Reviewer */}
+            <Card className="border-0 shadow-md border-l-4 border-l-purple-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-purple-500" /> Agent 6: Quality Reviewer
+                  <span className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-semibold ml-auto">Google Gemini</span>
+                </CardTitle>
+                <CardDescription>Chấm điểm SEO + AIO, kiểm tra chất lượng và đề xuất chỉnh sửa</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Model" value={settings.agent_quality_reviewer_model || 'gemini-2.0-flash'} onChange={(v) => handleChange('agent_quality_reviewer_model', v)} options={[
+                  { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
+                  { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Nhanh)' },
+                ]} />
+                <InputField label="Timeout (giây)" value={settings.pipeline_quality_reviewer_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_quality_reviewer_timeout_seconds', v)} type="number" placeholder="180" />
+                <TextareaField label="System Instruction" value={settings.agent_quality_reviewer_system_instruction || ''} onChange={(v) => handleChange('agent_quality_reviewer_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống" rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Agent 7: Image Generator */}
+            <Card className="border-0 shadow-md border-l-4 border-l-pink-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-pink-500" /> Agent 7: Image Generator
+                  <span className="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full font-semibold ml-auto">DALL-E / Gemini</span>
+                </CardTitle>
+                <CardDescription>Tạo ảnh cover, ảnh minh họa từ prompt của Content Writer, lưu bản nháp</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField label="Nhà cung cấp ảnh" value={settings.image_provider} onChange={(v) => handleChange('image_provider', v)} options={[
+                  { value: 'dalle', label: 'OpenAI DALL-E 3 (Mặc định)' },
+                  { value: 'banana', label: 'API tùy chỉnh' },
+                ]} />
+                <InputField label="Phong cách ảnh" value={settings.image_style} onChange={(v) => handleChange('image_style', v)} placeholder="professional photography, modern urban setting..." hint="Mô tả phong cách ảnh AI sẽ tạo" />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Ảnh minh họa tối thiểu" value={settings.pipeline_min_inline_images || '2'} onChange={(v) => handleChange('pipeline_min_inline_images', v)} type="number" placeholder="2" />
+                  <InputField label="Ảnh minh họa tối đa" value={settings.pipeline_max_inline_images || '5'} onChange={(v) => handleChange('pipeline_max_inline_images', v)} type="number" placeholder="5" />
+                </div>
+                <InputField label="Timeout (giây)" value={settings.pipeline_image_generator_timeout_seconds || '360'} onChange={(v) => handleChange('pipeline_image_generator_timeout_seconds', v)} type="number" placeholder="360" />
+                <TextareaField label="System Instruction" value={settings.agent_image_generator_system_instruction || ''} onChange={(v) => handleChange('agent_image_generator_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống cho image generation" rows={8} />
+              </CardContent>
+            </Card>
+
+            {/* Watermark Settings */}
+            <Card className="border-0 shadow-md border-l-4 border-l-slate-400">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-slate-500" /> Watermark tự động
+                </CardTitle>
+                <CardDescription>Tự động gắn watermark cho tất cả ảnh (AI tạo và người dùng upload)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div>
+                    <p className="font-semibold text-slate-900">Bật Watermark</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Gắn watermark trước khi lưu ảnh lên server</p>
+                  </div>
+                  <button
+                    onClick={() => handleChange('watermark_enabled', settings.watermark_enabled === 'true' ? 'false' : 'true')}
+                    className={cn(
+                      'relative inline-flex h-7 w-12 items-center rounded-full transition-colors',
+                      settings.watermark_enabled === 'true' ? 'bg-amber-500' : 'bg-slate-300'
+                    )}
+                  >
+                    <span className={cn(
+                      'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                      settings.watermark_enabled === 'true' ? 'translate-x-6' : 'translate-x-1'
+                    )} />
+                  </button>
+                </div>
+                {settings.watermark_enabled === 'true' && (
+                  <>
+                    <InputField label="Chữ watermark" value={settings.watermark_text || 'SignsHaus'} onChange={(v) => handleChange('watermark_text', v)} placeholder="SignsHaus" />
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <SelectField label="Vị trí" value={settings.watermark_position || 'bottom-right'} onChange={(v) => handleChange('watermark_position', v)} options={[
+                        { value: 'bottom-right', label: 'Dưới phải' },
+                        { value: 'bottom-left', label: 'Dưới trái' },
+                        { value: 'center', label: 'Giữa' },
+                      ]} />
+                      <InputField label="Độ mờ (0.1 - 1.0)" value={settings.watermark_opacity || '0.3'} onChange={(v) => handleChange('watermark_opacity', v)} placeholder="0.3" hint="0.3 = nhạt, 1.0 = đậm" />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1071,6 +1082,40 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
                     <AlertCircle className="h-4 w-4" />
                     Cần nhập API Key và Lưu để sử dụng Gemini.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Perplexity API */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="h-5 w-5 text-orange-500" /> Perplexity AI API
+                </CardTitle>
+                <CardDescription>Dùng cho Auto-Research Analyst và SEO Research Expert</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <InputField
+                  label="Perplexity API Key"
+                  value={settings.PERPLEXITY_API_KEY}
+                  onChange={(v) => handleChange('PERPLEXITY_API_KEY', v)}
+                  type="password"
+                  placeholder="pplx-..."
+                  hint="Lấy key tại: perplexity.ai/settings/api"
+                />
+                {settings.PERPLEXITY_API_KEY ? (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-orange-50 border border-orange-200">
+                    <CheckCircle className="h-5 w-5 text-orange-500" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Perplexity đã kết nối</p>
+                      <p className="text-xs text-orange-600">API Key đã được lưu. Agents 1-2 sẽ sử dụng Perplexity Sonar Pro.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    Cần nhập API Key và Lưu để sử dụng Perplexity cho research agents.
                   </div>
                 )}
               </CardContent>
