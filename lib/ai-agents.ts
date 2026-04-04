@@ -1,6 +1,9 @@
 import { generateContent as generateContentOpenAI } from './openai';
 import { generateContentGemini } from './ai/gemini';
 import { generateContentPerplexity } from './ai/perplexity';
+import { generateContentClaude } from './ai/claude';
+import { inferProvider } from './ai/provider-utils';
+import { DEFAULT_RESEARCHER_PROMPT, DEFAULT_EVALUATOR_PROMPT, interpolatePrompt } from './ai/defaults';
 import { generateProjectImage } from './image-gen';
 import { supabaseAdmin } from './supabase';
 
@@ -14,7 +17,9 @@ async function generateContentResolved(
   providerOverride?: 'openai' | 'gemini' | 'perplexity'
 ): Promise<string | null> {
   const config = await getAllConfig();
-  const provider = providerOverride || config.ai_provider || 'openai';
+  const provider = providerOverride || (configModel
+    ? inferProvider(configModel, (config.ai_provider as 'openai' | 'gemini' | 'anthropic') || 'gemini')
+    : (config.ai_provider || 'gemini'));
   const timeoutMs = Math.max(30000, parseInt(config.ai_request_timeout_ms || '120000', 10) || 120000);
   const retryCount = Math.max(0, parseInt(config.ai_request_retry_count || '1', 10) || 1);
 
@@ -22,6 +27,10 @@ async function generateContentResolved(
     if (provider === 'perplexity') {
       const apiKey = config.PERPLEXITY_API_KEY;
       return await generateContentPerplexity(systemPrompt, userPrompt, configModel, apiKey);
+    }
+
+    if (provider === 'anthropic') {
+      return await generateContentClaude(systemPrompt, userPrompt, configModel, config.ANTHROPIC_API_KEY);
     }
 
     if (provider === 'gemini') {
@@ -571,7 +580,12 @@ export async function runAgentAutoResearch(batchId: string): Promise<AgentResult
   const model = config.agent_auto_research_model || 'sonar-pro';
   const customInstruction = config.agent_auto_research_system_instruction;
 
-  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.auto_research;
+  const researcherPromptTemplate = config.researcher_system_prompt || DEFAULT_RESEARCHER_PROMPT;
+  const systemPrompt = customInstruction || interpolatePrompt(researcherPromptTemplate, {
+    services,
+    focusAreas,
+    seedKeywords,
+  }) || DEFAULT_SYSTEM_INSTRUCTIONS.auto_research;
 
   const contextPrompt = `
 BUSINESS CONTEXT:
@@ -627,13 +641,21 @@ export async function runAgentSeoResearch(batchId: string, topics: ResearchTopic
     .limit(50);
 
   const existingTitles = existingPosts?.map(p => p.title.toLowerCase()) || [];
-  const systemPrompt = customInstruction || DEFAULT_SYSTEM_INSTRUCTIONS.seo_research;
+  const evaluatorModel = config.evaluator_model || model;
+  const existingTitlesStr = existingTitles.slice(0, 20).map((t, i) => `${i + 1}. ${t}`).join('\n') || 'No posts yet';
+
+  const promptTemplate = config.evaluator_system_prompt || DEFAULT_EVALUATOR_PROMPT;
+  const systemPrompt = customInstruction || interpolatePrompt(promptTemplate, {
+    companyName,
+    minScore: String(minScore),
+    existingTitles: existingTitlesStr,
+  }) || DEFAULT_SYSTEM_INSTRUCTIONS.seo_research;
 
   const contextPrompt = `Company: ${companyName}
 Minimum score to approve: ${minScore}
 
 EXISTING POSTS ON WEBSITE:
-${existingTitles.slice(0, 20).map((t, i) => `${i + 1}. ${t}`).join('\n') || 'No posts yet'}
+${existingTitlesStr}
 
 TOPICS TO EVALUATE:
 ${JSON.stringify(topics, null, 2)}`;
@@ -642,8 +664,7 @@ ${JSON.stringify(topics, null, 2)}`;
     const result = await generateContentResolved(
       systemPrompt,
       contextPrompt,
-      model,
-      'perplexity'
+      evaluatorModel
     );
 
     let evaluated: EvaluatedTopic[] = parseJsonFromModel(result, []);

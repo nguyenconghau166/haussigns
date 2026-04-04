@@ -73,6 +73,63 @@ const SelectField = ({ label, value, onChange, options, hint }: {
 );
 
 import ImageUploader from '@/components/ImageUploader';
+import { DEFAULT_RESEARCHER_PROMPT, DEFAULT_EVALUATOR_PROMPT, DEFAULT_WRITER_BRIEF_PROMPT } from '@/lib/ai/defaults';
+
+const SystemPromptField = ({ label, defaultPrompt, value, onChange, onReset }: {
+  label: string; defaultPrompt: string; value: string; onChange: (val: string) => void; onReset: () => void;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const isCustom = !!value && value.trim().length > 0;
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-3 text-left bg-slate-50 hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Settings className="h-4 w-4 text-slate-400" />
+          <span className="text-sm font-medium text-slate-700">{label}</span>
+          {isCustom && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">Tùy chỉnh</span>
+          )}
+          {!isCustom && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full font-medium">Mặc định</span>
+          )}
+        </div>
+        <span className="text-xs text-slate-400">{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div className="p-3 space-y-3 border-t border-slate-200">
+          <textarea
+            value={isCustom ? value : defaultPrompt}
+            onChange={(e) => onChange(e.target.value)}
+            rows={10}
+            className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all resize-y"
+            placeholder={defaultPrompt}
+          />
+          <div className="flex items-center gap-2">
+            {isCustom && (
+              <button
+                type="button"
+                onClick={onReset}
+                className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+              >
+                Khôi phục mặc định
+              </button>
+            )}
+            <p className="text-[10px] text-slate-400">
+              {isCustom
+                ? 'Đang dùng prompt tùy chỉnh. Biến động: {{services}}, {{focusAreas}}, {{companyName}}...'
+                : 'Đang dùng prompt mặc định. Chỉnh sửa để tùy chỉnh.'}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ImageField = ({ label, value, onChange, placeholder, hint, aspectRatio = 16 / 9, maxWidth }: {
   label: string; value: string; onChange: (val: string) => void; placeholder?: string; hint?: string; aspectRatio?: number; maxWidth?: number;
@@ -489,6 +546,116 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            {/* Researcher */}
+            <Card className="border-0 shadow-md border-l-4 border-l-purple-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="h-5 w-5 text-purple-500" /> Agent 1: Researcher (Nghiên cứu)
+                </CardTitle>
+                <CardDescription>Tìm từ khóa trending, từ khóa mở rộng, tin tức ngành biển hiệu</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField
+                  label="Model AI"
+                  value={settings.researcher_model}
+                  onChange={(v) => handleChange('researcher_model', v)}
+                  options={[
+                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
+                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
+                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
+                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
+                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
+                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
+                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
+                  ]}
+                  hint="Provider tự động suy luận từ tên model. Không cần chọn riêng."
+                />
+                {/* System Instruction */}
+                <SystemPromptField
+                  label="System Instruction (Researcher)"
+
+                  defaultPrompt={DEFAULT_RESEARCHER_PROMPT}
+                  value={settings.researcher_system_prompt}
+                  onChange={(v) => handleChange('researcher_system_prompt', v)}
+                  onReset={() => handleChange('researcher_system_prompt', '')}
+                />
+                <TextareaField
+                  label="Từ khóa gốc (Seed Keywords)"
+                  value={settings.target_keywords_seed}
+                  onChange={(v) => handleChange('target_keywords_seed', v)}
+                  placeholder="signage maker, business signs, LED signage..."
+                  hint="Các từ khóa cơ bản của ngành. AI sẽ mở rộng từ đây"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Evaluator */}
+            <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-blue-500" /> Agent 2: Evaluator (Đánh giá)
+                </CardTitle>
+                <CardDescription>Chấm điểm topic, so sánh với bài cũ, lọc chủ đề chất lượng</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <SelectField
+                  label="Model AI"
+                  value={settings.evaluator_model}
+                  onChange={(v) => handleChange('evaluator_model', v)}
+                  options={[
+                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
+                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
+                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
+                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
+                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
+                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
+                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
+                  ]}
+                  hint="Model đánh giá topic. Provider tự động từ tên model."
+                />
+                <SystemPromptField
+                  label="System Instruction (Evaluator)"
+
+                  defaultPrompt={DEFAULT_EVALUATOR_PROMPT}
+                  value={settings.evaluator_system_prompt}
+                  onChange={(v) => handleChange('evaluator_system_prompt', v)}
+                  onReset={() => handleChange('evaluator_system_prompt', '')}
+                />
+                <InputField
+                  label="Điểm tối thiểu để duyệt (0-100)"
+                  value={settings.evaluator_min_score}
+                  onChange={(v) => handleChange('evaluator_min_score', v)}
+                  type="number"
+                  placeholder="60"
+                  hint="Chủ đề có điểm thấp hơn sẽ bị bỏ qua. Gợi ý: 50-70"
+                />
+                <InputField
+                  label="Số bài tối đa mỗi lần chạy"
+                  value={settings.articles_per_run}
+                  onChange={(v) => handleChange('articles_per_run', v)}
+                  type="number"
+                  placeholder="2"
+                  hint="Giới hạn số bài viết tạo ra mỗi lần chạy Pipeline"
+                />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Timeout Researcher (giây)"
+                    value={settings.pipeline_research_timeout_seconds || '180'}
+                    onChange={(v) => handleChange('pipeline_research_timeout_seconds', v)}
+                    type="number"
+                    placeholder="180"
+                  />
+                  <InputField
+                    label="Timeout Evaluator (giây)"
+                    value={settings.pipeline_evaluator_timeout_seconds || '180'}
+                    onChange={(v) => handleChange('pipeline_evaluator_timeout_seconds', v)}
+                    type="number"
+                    placeholder="180"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* General Pipeline Settings */}
             <Card className="border-0 shadow-md">
               <CardHeader>
@@ -497,6 +664,29 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <SelectField
+                  label="Writer Model AI"
+                  value={settings.writer_model}
+                  onChange={(v) => handleChange('writer_model', v)}
+                  options={[
+                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
+                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
+                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
+                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
+                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
+                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
+                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
+                  ]}
+                  hint="Nên dùng model mạnh (GPT-5.2, Sonnet 4, Gemini Flash) cho chất lượng bài tốt"
+                />
+                <SystemPromptField
+                  label="System Instruction (Writer Brief)"
+
+                  defaultPrompt={DEFAULT_WRITER_BRIEF_PROMPT}
+                  value={settings.writer_brief_system_prompt}
+                  onChange={(v) => handleChange('writer_brief_system_prompt', v)}
+                  onReset={() => handleChange('writer_brief_system_prompt', '')}
+                />
                 <div className="grid md:grid-cols-2 gap-4">
                   <InputField label="Số bài tối đa mỗi lần chạy" value={settings.articles_per_run} onChange={(v) => handleChange('articles_per_run', v)} type="number" placeholder="2" />
                   <InputField label="Ngưỡng chất lượng (0-100)" value={settings.writer_quality_threshold || '82'} onChange={(v) => handleChange('writer_quality_threshold', v)} type="number" placeholder="82" hint="Dưới ngưỡng sẽ tự revision" />
@@ -957,18 +1147,19 @@ export default function SettingsPage() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Bot className="h-5 w-5 text-amber-500" /> Nhà cung cấp AI chính (AI Provider)
                 </CardTitle>
-                <CardDescription>Chọn dịch vụ AI sẽ sử dụng cho toàn bộ hệ thống</CardDescription>
+                <CardDescription>Dùng làm mặc định khi Agent chưa chọn model cụ thể</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <SelectField
-                  label="AI Service Provider"
+                  label="AI Service Provider (Mặc định)"
                   value={settings.ai_provider}
                   onChange={(v) => handleChange('ai_provider', v)}
                   options={[
                     { value: 'openai', label: 'OpenAI (GPT-5.2, DALL-E 3)' },
                     { value: 'gemini', label: 'Google Gemini (2.0 Flash)' },
+                    { value: 'anthropic', label: 'Anthropic Claude (Sonnet 4)' },
                   ]}
-                  hint="OpenAI ổn định hơn, Gemini tốc độ nhanh và chi phí thấp hơn (hoặc miễn phí)"
+                  hint="Chỉ dùng làm fallback. Mỗi agent tự chọn provider dựa trên model đã chọn ở tab Agents."
                 />
               </CardContent>
             </Card>
@@ -1116,6 +1307,40 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
                     <AlertCircle className="h-4 w-4" />
                     Cần nhập API Key và Lưu để sử dụng Perplexity cho research agents.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Claude / Anthropic Config */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-orange-500" /> Anthropic Claude API
+                </CardTitle>
+                <CardDescription>Cấu hình API Key của Anthropic Claude</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <InputField
+                  label="Anthropic API Key"
+                  value={settings.ANTHROPIC_API_KEY}
+                  onChange={(v) => handleChange('ANTHROPIC_API_KEY', v)}
+                  type="password"
+                  placeholder="sk-ant-..."
+                  hint="Lấy key tại: console.anthropic.com"
+                />
+                {settings.ANTHROPIC_API_KEY ? (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-orange-50 border border-orange-200">
+                    <CheckCircle className="h-5 w-5 text-orange-500" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Anthropic Claude đã kết nối</p>
+                      <p className="text-xs text-orange-600">API Key đã được lưu. Có thể chọn model Claude cho từng Agent.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 p-2 rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    Cần nhập API Key và Lưu để sử dụng Claude.
                   </div>
                 )}
               </CardContent>
