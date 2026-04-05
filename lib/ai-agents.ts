@@ -1373,7 +1373,11 @@ export async function runAgentImageGenerator(
       message: `Lưu bản nháp thành công. Ảnh thumb + ${generatedImages.length} ảnh minh họa.`
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
+    const message = e instanceof Error
+      ? e.message
+      : (typeof e === 'object' && e !== null && 'message' in e)
+        ? String((e as { message: unknown }).message)
+        : JSON.stringify(e) || 'Unknown error';
     await logAgent(batchId, 'Image Generator', 'Lỗi tạo ảnh/lưu bài', 'failed', { error: message });
     return { success: false, message };
   }
