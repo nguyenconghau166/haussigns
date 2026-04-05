@@ -75,46 +75,59 @@ export async function POST(request: Request) {
 
     const typePromptMap: Record<ContentType, string> = {
       industry: `
-      PAGE TYPE: Industry page for signage services.
-      Must include:
-      1) Industry pain points and buying criteria.
-      2) Recommended signage formats (3-5 items).
-      3) Compliance/maintenance considerations.
-      4) Clear CTA for consultation/ocular inspection.
+      PAGE TYPE: Industry service page (GEO/AIO optimized).
+      STRUCTURE:
+      1) Answer-first intro: Start with a direct 1-2 sentence answer about signage for this industry.
+      2) Industry pain points and buying criteria (with specific Metro Manila context).
+      3) Recommended signage formats (3-5 items with brief explanation each).
+      4) Compliance/maintenance considerations specific to this industry.
+      5) FAQ section: Include 3-5 questions ending with "?" as H3 headings, each followed by a concise paragraph answer. Questions should match what business owners actually search.
+      6) Clear CTA for consultation/ocular inspection.
       Return 4-6 recommended_solutions.
+      Each H2 section must start with a direct answer before elaborating.
       `,
       material: `
-      PAGE TYPE: Material guide.
-      Must include:
-      1) What this material is and where it performs best.
-      2) Real-world durability and maintenance notes.
-      3) Balanced pros and cons (minimum 3 each).
-      4) Best use cases by business context.
+      PAGE TYPE: Material specification page (GEO/AIO optimized).
+      STRUCTURE:
+      1) Answer-first intro: "What is [material]?" answered in 1-2 sentences immediately.
+      2) Key properties: durability, weather resistance, indoor/outdoor suitability.
+      3) Real-world applications with Metro Manila examples (malls, storefronts, offices).
+      4) Balanced pros and cons (minimum 3 each).
+      5) FAQ section: Include 3-5 questions as H3 headings ending with "?", each with concise answer. Focus on cost, lifespan, maintenance, comparison with alternatives.
+      6) Best use cases by business type.
       Return pros and cons arrays.
+      Each H2 section must lead with the key fact before details.
       `,
       project: `
-      PAGE TYPE: Project case study.
-      Must include:
-      1) Client context + constraints.
-      2) Solution architecture (materials, fabrication, installation).
-      3) Outcome and impact.
-      4) Lessons learned and CTA.
+      PAGE TYPE: Project case study (E-E-A-T optimized).
+      STRUCTURE:
+      1) Project summary: client, location, challenge, solution in 2-3 sentences.
+      2) Client context + specific constraints (budget, timeline, environment).
+      3) Solution details: materials used, fabrication process, installation approach.
+      4) Results and impact: measurable outcomes where possible.
+      5) Key takeaways: 3-4 bullet points of lessons learned.
+      6) CTA for similar projects.
+      Include specific locations (Makati, BGC, QC) where relevant.
       `,
       page: `
-      PAGE TYPE: Core service/business page.
-      Must include:
-      1) Clear promise in first paragraph.
-      2) Process and differentiators.
-      3) Practical FAQs.
-      4) Strong intent-matching CTA.
+      PAGE TYPE: Core service/business page (GEO/AIO optimized).
+      STRUCTURE:
+      1) Clear value proposition in first paragraph — answer "why choose this service?".
+      2) Service process and differentiators (with specific details, not generic).
+      3) Trust signals: years of experience, materials used, areas served.
+      4) FAQ section: 3-5 practical questions as H3 headings with "?", concise answers.
+      5) Strong intent-matching CTA.
+      Every section should be self-contained for AI passage extraction.
       `,
       post: `
       PAGE TYPE: Informational post.
       Must include hook, deep explanation, examples, and practical close.
+      Include FAQ section with 3-5 Q&A pairs as H3 headings.
       `,
       generic: `
       PAGE TYPE: Commercial informational page.
       Must include practical guidance, transparent tradeoffs, and CTA.
+      Include 2-3 FAQ questions as H3 headings where relevant.
       `
     };
 

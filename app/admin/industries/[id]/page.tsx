@@ -9,6 +9,7 @@ import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
+import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
 export default function EditIndustry({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -31,6 +32,7 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+  const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
   const [qaSignal, setQaSignal] = useState(0);
 
   const slugify = (value: string) =>
@@ -113,7 +115,8 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
           lang: 'en',
           tone: 'professional',
           contentType: 'industry',
-          aiBrief
+          aiBrief,
+          seoPromptTemplate
         })
       });
       const data = await res.json();
@@ -248,6 +251,13 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
 
               <div className="mt-4">
                 <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+              </div>
+              <div className="mt-4">
+                <NonBlogSeoTemplatePanel
+                  slug={slug}
+                  onPromptChange={setSeoPromptTemplate}
+                  onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                />
               </div>
             </CardContent>
           </Card>

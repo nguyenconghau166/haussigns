@@ -1,102 +1,116 @@
-'use client';
-
-import { use, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { Loader2, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
-import Link from 'next/link';
 import { safeJsonLdStringify, sanitizeHtml } from '@/lib/security';
+import { extractFaqFromContent, generateFaqFromProsConsBestFor, buildFaqSchema } from '@/lib/faq-schema';
+
+export const dynamic = 'force-dynamic';
 
 function slugifyHeading(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/<[^>]*>/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
+  return value.toLowerCase().replace(/<[^>]*>/g, '').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
 }
 
 function addHeadingIds(html: string): { html: string; toc: { id: string; text: string }[] } {
   const toc: { id: string; text: string }[] = [];
   const used = new Set<string>();
-
   const result = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (match, attrs, inner) => {
     const text = inner.replace(/<[^>]*>/g, '').trim();
     if (!text) return match;
     const base = slugifyHeading(text) || 'section';
     let id = base;
     let count = 1;
-    while (used.has(id)) {
-      count += 1;
-      id = `${base}-${count}`;
-    }
+    while (used.has(id)) { count += 1; id = `${base}-${count}`; }
     used.add(id);
     toc.push({ id, text });
     return `<h2${attrs} id="${id}">${inner}</h2>`;
   });
-
   return { html: result, toc };
 }
 
-export default function MaterialDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-  const [item, setItem] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+async function getMaterial(slug: string) {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
 
-  useEffect(() => {
-    fetch('/api/admin/materials')
-      .then(res => res.json())
-      .then(data => {
-        const found = data.materials?.find((i: any) => i.slug === slug);
-        if (found) setItem(found);
-      })
-      .finally(() => setLoading(false));
-  }, [slug]);
+async function getRelatedContent() {
+  const { data: industries } = await supabase
+    .from('industries')
+    .select('title, slug, image')
+    .eq('is_published', true)
+    .limit(4);
+  const { data: projects } = await supabase
+    .from('projects')
+    .select('title, slug, featured_image')
+    .limit(4);
+  return { industries: industries || [], projects: projects || [] };
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="animate-spin h-8 w-8 text-amber-500" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const item = await getMaterial(slug);
+  if (!item) return { title: 'Material Not Found' };
 
-  if (!item) {
-    return (
-        <div className="min-h-screen bg-white flex flex-col">
-          <Navbar />
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <h1 className="text-2xl font-bold">Material Not Found</h1>
-            <Link href="/services/materials" className="mt-4 text-amber-600 hover:underline">Back to Materials</Link>
-          </div>
-          <Footer />
-        </div>
-    );
-  }
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
+  const pageUrl = `${siteUrl}/services/materials/${item.slug}`;
+
+  return {
+    title: item.meta_title || `${item.name} — Signage Material | SignsHaus`,
+    description: item.meta_description || item.description || item.best_for,
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      title: item.meta_title || `${item.name} — Signage Material`,
+      description: item.meta_description || item.description || item.best_for,
+      url: pageUrl,
+      images: item.image ? [{ url: item.image }] : [],
+      type: 'website',
+    },
+  };
+}
+
+export default async function MaterialDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const item = await getMaterial(slug);
+  if (!item) notFound();
 
   const enriched = addHeadingIds(sanitizeHtml(item.content || '<p>Detailed specification coming soon.</p>'));
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signshaus.com';
   const pageUrl = `${siteUrl}/services/materials/${item.slug}`;
+  const related = await getRelatedContent();
+
+  // FAQ from content + pros/cons
+  const contentFaqs = extractFaqFromContent(item.content || '');
+  const prosConsFaqs = generateFaqFromProsConsBestFor(
+    item.name,
+    Array.isArray(item.pros) ? item.pros : [],
+    Array.isArray(item.cons) ? item.cons : [],
+    item.best_for || ''
+  );
+  const allFaqs = [...contentFaqs, ...prosConsFaqs];
+  const faqSchema = buildFaqSchema(allFaqs);
+
   const materialSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: item.name,
     description: item.description || item.best_for || '',
     image: item.image ? [item.image] : [],
-    brand: {
-      '@type': 'Brand',
-      name: 'SignsHaus'
-    },
+    brand: { '@type': 'Brand', name: 'SignsHaus' },
     category: 'Signage Material',
     additionalProperty: [
       ...(Array.isArray(item.pros) ? item.pros.map((v: string) => ({ '@type': 'PropertyValue', name: 'Pro', value: v })) : []),
-      ...(Array.isArray(item.cons) ? item.cons.map((v: string) => ({ '@type': 'PropertyValue', name: 'Consideration', value: v })) : [])
+      ...(Array.isArray(item.cons) ? item.cons.map((v: string) => ({ '@type': 'PropertyValue', name: 'Consideration', value: v })) : []),
     ],
-    url: pageUrl
+    url: pageUrl,
   };
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -104,37 +118,30 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ slug:
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
       { '@type': 'ListItem', position: 2, name: 'Materials', item: `${siteUrl}/services/materials` },
-      { '@type': 'ListItem', position: 3, name: item.name, item: pageUrl }
-    ]
+      { '@type': 'ListItem', position: 3, name: item.name, item: pageUrl },
+    ],
   };
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(materialSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }} />
+      {faqSchema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }} />}
       <Navbar />
 
       {/* Hero */}
       <section className="relative py-24 bg-slate-900 overflow-hidden">
         {item.image && (
-            <div 
-                className="absolute inset-0 opacity-30 bg-cover bg-center" 
-                style={{ backgroundImage: `url(${item.image})` }}
-            />
+          <div className="absolute inset-0 opacity-30 bg-cover bg-center" style={{ backgroundImage: `url(${item.image})` }} role="img" aria-label={`${item.name} signage material`} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-        
         <div className="container relative z-10">
           <div className="max-w-3xl">
             <Link href="/services/materials" className="inline-flex items-center text-slate-300 hover:text-white mb-6 text-sm font-medium transition-colors">
-                <ArrowLeft className="h-4 w-4 mr-2" /> Back to Materials
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Materials
             </Link>
-            <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-6 leading-tight">
-              {item.name}
-            </h1>
-            <p className="text-xl text-slate-300 max-w-2xl leading-relaxed">
-              {item.description || item.best_for}
-            </p>
+            <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-6 leading-tight">{item.name}</h1>
+            <p className="text-xl text-slate-300 max-w-2xl leading-relaxed">{item.description || item.best_for}</p>
           </div>
         </div>
       </section>
@@ -142,69 +149,89 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ slug:
       {/* Content */}
       <section className="py-20">
         <div className="container grid lg:grid-cols-3 gap-12">
-            <div className="lg:col-span-2">
-                <div 
-                    className="prose-blog max-w-none mb-12"
-                    dangerouslySetInnerHTML={{ __html: enriched.html }}
-                />
-            </div>
-            
-            <div className="space-y-8">
-                {enriched.toc.length > 0 && (
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200">
-                    <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">On this page</h3>
-                    <ul className="space-y-2 text-sm">
-                      {enriched.toc.map((section) => (
-                        <li key={section.id}>
-                          <a href={`#${section.id}`} className="text-slate-600 hover:text-amber-700 transition-colors">
-                            {section.text}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+          <div className="lg:col-span-2">
+            <div className="prose-blog max-w-none mb-12" dangerouslySetInnerHTML={{ __html: enriched.html }} />
+          </div>
+          <div className="space-y-8">
+            {enriched.toc.length > 0 && (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wide">On this page</h3>
+                <ul className="space-y-2 text-sm">
+                  {enriched.toc.map((section) => (
+                    <li key={section.id}><a href={`#${section.id}`} className="text-slate-600 hover:text-amber-700 transition-colors">{section.text}</a></li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-                {/* Pros/Cons Widget */}
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-6">
-                    <div>
-                        <h3 className="font-bold text-green-700 mb-3 flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5" /> Advantages
-                        </h3>
-                        <ul className="space-y-2">
-                            {Array.isArray(item.pros) && item.pros.map((pro: string, idx: number) => (
-                                <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-                                    {pro}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="pt-6 border-t border-slate-200">
-                        <h3 className="font-bold text-red-600 mb-3 flex items-center gap-2">
-                            <XCircle className="h-5 w-5" /> Considerations
-                        </h3>
-                        <ul className="space-y-2">
-                            {Array.isArray(item.cons) && item.cons.map((con: string, idx: number) => (
-                                <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                                    {con}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
-                    <h3 className="font-bold text-amber-800 mb-2 text-sm uppercase tracking-wide">Best Used For</h3>
-                    <p className="text-slate-800 font-medium">{item.best_for}</p>
-                    <Link href="/contact" className="mt-6 block w-full text-center py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
-                        Get a Quote for {item.name}
-                    </Link>
-                </div>
+            {/* Pros/Cons Widget */}
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-6">
+              <div>
+                <h3 className="font-bold text-green-700 mb-3 flex items-center gap-2"><CheckCircle className="h-5 w-5" /> Advantages</h3>
+                <ul className="space-y-2">
+                  {Array.isArray(item.pros) && item.pros.map((pro: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />{pro}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="pt-6 border-t border-slate-200">
+                <h3 className="font-bold text-red-600 mb-3 flex items-center gap-2"><XCircle className="h-5 w-5" /> Considerations</h3>
+                <ul className="space-y-2">
+                  {Array.isArray(item.cons) && item.cons.map((con: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />{con}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
+
+            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
+              <h3 className="font-bold text-amber-800 mb-2 text-sm uppercase tracking-wide">Best Used For</h3>
+              <p className="text-slate-800 font-medium">{item.best_for}</p>
+              <Link href={`/contact?material=${item.slug}`} className="mt-6 block w-full text-center py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
+                Get a Quote for {item.name}
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Related Industries */}
+      {related.industries.length > 0 && (
+        <section className="py-16 bg-slate-50">
+          <div className="container">
+            <h2 className="text-2xl font-extrabold text-slate-900 mb-8">Industries We Serve</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {related.industries.map((ind: any) => (
+                <Link key={ind.slug} href={`/services/industries/${ind.slug}`} className="block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md hover:border-amber-200 transition-all">
+                  {ind.image && <img src={ind.image} alt={`${ind.title} industry signage`} className="w-full h-24 object-cover rounded-lg mb-3" />}
+                  <p className="text-sm font-semibold text-slate-800">{ind.title}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Related Projects */}
+      {related.projects.length > 0 && (
+        <section className="py-16">
+          <div className="container">
+            <h2 className="text-2xl font-extrabold text-slate-900 mb-8">Our Projects</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {related.projects.map((proj: any) => (
+                <Link key={proj.slug} href={`/projects/${proj.slug}`} className="block rounded-xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-amber-200 transition-all">
+                  {proj.featured_image && <img src={proj.featured_image} alt={`${proj.title} signage project`} className="w-full h-32 object-cover" />}
+                  <div className="p-4"><p className="text-sm font-semibold text-slate-800">{proj.title}</p></div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <Footer />
     </main>

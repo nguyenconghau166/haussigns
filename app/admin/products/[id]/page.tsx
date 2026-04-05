@@ -11,6 +11,7 @@ import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
+import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
 interface ProductEditorProps {
     params: Promise<{
@@ -224,6 +225,11 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                         </div>
 
                         <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+                        <NonBlogSeoTemplatePanel
+                          slug={formData.slug || ''}
+                          onPromptChange={() => {}}
+                          onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                        />
                     </div>
                 </div>
 

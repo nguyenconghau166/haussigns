@@ -17,7 +17,6 @@ import {
   Users,
   TrendingUp,
   Package,
-  Warehouse,
   Link as LinkIcon,
   LogOut,
   UserCog
@@ -34,7 +33,6 @@ const NAV_ITEMS = [
   { label: 'Quản lý Vật liệu', href: '/admin/materials', icon: Layers },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
   { label: 'Quản lý Sản phẩm (Mới)', href: '/admin/products', icon: Package },
-  { label: 'Quản lý Kho', href: '/admin/warehouse', icon: Warehouse },
   { label: 'Quản lý Dự án', href: '/admin/projects', icon: Layers },
   { label: 'Quản lý bài viết', href: '/admin/posts', icon: FileText },
   { label: 'Nghiên cứu từ khóa', href: '/admin/keywords', icon: Search },

@@ -546,167 +546,6 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Researcher */}
-            <Card className="border-0 shadow-md border-l-4 border-l-purple-500">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Search className="h-5 w-5 text-purple-500" /> Agent 1: Researcher (Nghiên cứu)
-                </CardTitle>
-                <CardDescription>Tìm từ khóa trending, từ khóa mở rộng, tin tức ngành biển hiệu</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <SelectField
-                  label="Model AI"
-                  value={settings.researcher_model}
-                  onChange={(v) => handleChange('researcher_model', v)}
-                  options={[
-                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
-                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
-                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
-                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
-                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
-                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
-                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
-                  ]}
-                  hint="Provider tự động suy luận từ tên model. Không cần chọn riêng."
-                />
-                {/* System Instruction */}
-                <SystemPromptField
-                  label="System Instruction (Researcher)"
-
-                  defaultPrompt={DEFAULT_RESEARCHER_PROMPT}
-                  value={settings.researcher_system_prompt}
-                  onChange={(v) => handleChange('researcher_system_prompt', v)}
-                  onReset={() => handleChange('researcher_system_prompt', '')}
-                />
-                <TextareaField
-                  label="Từ khóa gốc (Seed Keywords)"
-                  value={settings.target_keywords_seed}
-                  onChange={(v) => handleChange('target_keywords_seed', v)}
-                  placeholder="signage maker, business signs, LED signage..."
-                  hint="Các từ khóa cơ bản của ngành. AI sẽ mở rộng từ đây"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Evaluator */}
-            <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-blue-500" /> Agent 2: Evaluator (Đánh giá)
-                </CardTitle>
-                <CardDescription>Chấm điểm topic, so sánh với bài cũ, lọc chủ đề chất lượng</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <SelectField
-                  label="Model AI"
-                  value={settings.evaluator_model}
-                  onChange={(v) => handleChange('evaluator_model', v)}
-                  options={[
-                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
-                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
-                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
-                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
-                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
-                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
-                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
-                  ]}
-                  hint="Model đánh giá topic. Provider tự động từ tên model."
-                />
-                <SystemPromptField
-                  label="System Instruction (Evaluator)"
-
-                  defaultPrompt={DEFAULT_EVALUATOR_PROMPT}
-                  value={settings.evaluator_system_prompt}
-                  onChange={(v) => handleChange('evaluator_system_prompt', v)}
-                  onReset={() => handleChange('evaluator_system_prompt', '')}
-                />
-                <InputField
-                  label="Điểm tối thiểu để duyệt (0-100)"
-                  value={settings.evaluator_min_score}
-                  onChange={(v) => handleChange('evaluator_min_score', v)}
-                  type="number"
-                  placeholder="60"
-                  hint="Chủ đề có điểm thấp hơn sẽ bị bỏ qua. Gợi ý: 50-70"
-                />
-                <InputField
-                  label="Số bài tối đa mỗi lần chạy"
-                  value={settings.articles_per_run}
-                  onChange={(v) => handleChange('articles_per_run', v)}
-                  type="number"
-                  placeholder="2"
-                  hint="Giới hạn số bài viết tạo ra mỗi lần chạy Pipeline"
-                />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Timeout Researcher (giây)"
-                    value={settings.pipeline_research_timeout_seconds || '180'}
-                    onChange={(v) => handleChange('pipeline_research_timeout_seconds', v)}
-                    type="number"
-                    placeholder="180"
-                  />
-                  <InputField
-                    label="Timeout Evaluator (giây)"
-                    value={settings.pipeline_evaluator_timeout_seconds || '180'}
-                    onChange={(v) => handleChange('pipeline_evaluator_timeout_seconds', v)}
-                    type="number"
-                    placeholder="180"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* General Pipeline Settings */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-slate-500" /> Cài đặt chung Pipeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <SelectField
-                  label="Writer Model AI"
-                  value={settings.writer_model}
-                  onChange={(v) => handleChange('writer_model', v)}
-                  options={[
-                    { value: 'gpt-5.2', label: '[OpenAI] GPT-5.2' },
-                    { value: 'gpt-4o', label: '[OpenAI] GPT-4o' },
-                    { value: 'gpt-4o-mini', label: '[OpenAI] GPT-4o Mini' },
-                    { value: 'gemini-2.0-flash', label: '[Gemini] 2.0 Flash' },
-                    { value: 'gemini-2.0-flash-lite', label: '[Gemini] 2.0 Flash Lite' },
-                    { value: 'claude-sonnet-4-20250514', label: '[Claude] Sonnet 4' },
-                    { value: 'claude-3-5-haiku-20241022', label: '[Claude] 3.5 Haiku (Fast)' },
-                  ]}
-                  hint="Nên dùng model mạnh (GPT-5.2, Sonnet 4, Gemini Flash) cho chất lượng bài tốt"
-                />
-                <SystemPromptField
-                  label="System Instruction (Writer Brief)"
-
-                  defaultPrompt={DEFAULT_WRITER_BRIEF_PROMPT}
-                  value={settings.writer_brief_system_prompt}
-                  onChange={(v) => handleChange('writer_brief_system_prompt', v)}
-                  onReset={() => handleChange('writer_brief_system_prompt', '')}
-                />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <InputField label="Số bài tối đa mỗi lần chạy" value={settings.articles_per_run} onChange={(v) => handleChange('articles_per_run', v)} type="number" placeholder="2" />
-                  <InputField label="Ngưỡng chất lượng (0-100)" value={settings.writer_quality_threshold || '82'} onChange={(v) => handleChange('writer_quality_threshold', v)} type="number" placeholder="82" hint="Dưới ngưỡng sẽ tự revision" />
-                  <InputField label="Điểm tối thiểu duyệt topic (0-100)" value={settings.evaluator_min_score} onChange={(v) => handleChange('evaluator_min_score', v)} type="number" placeholder="60" />
-                  <InputField label="Số từ tối thiểu / bài" value={settings.min_word_count} onChange={(v) => handleChange('min_word_count', v)} type="number" placeholder="800" />
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <SelectField label="Ngôn ngữ viết bài" value={settings.content_language} onChange={(v) => handleChange('content_language', v)} options={[
-                    { value: 'en', label: 'English (Professional)' },
-                    { value: 'tl', label: 'Tagalog (Thân thiện)' },
-                    { value: 'mix', label: 'Taglish (English + Tagalog)' },
-                  ]} />
-                  <InputField label="Giọng văn" value={settings.writer_tone} onChange={(v) => handleChange('writer_tone', v)} placeholder="Professional, Trustworthy" />
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <InputField label="Timeout AI request (ms)" value={settings.ai_request_timeout_ms || '120000'} onChange={(v) => handleChange('ai_request_timeout_ms', v)} type="number" placeholder="120000" />
-                  <InputField label="Retry AI request" value={settings.ai_request_retry_count || '1'} onChange={(v) => handleChange('ai_request_retry_count', v)} type="number" placeholder="1" />
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Agent 1: Auto-Research Analyst */}
             <Card className="border-0 shadow-md border-l-4 border-l-orange-500">
@@ -742,6 +581,10 @@ export default function SettingsPage() {
                   { value: 'sonar-pro', label: 'Perplexity Sonar Pro (Khuyến nghị)' },
                   { value: 'sonar', label: 'Perplexity Sonar (Nhanh hơn)' },
                 ]} />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Điểm tối thiểu duyệt topic (0-100)" value={settings.evaluator_min_score} onChange={(v) => handleChange('evaluator_min_score', v)} type="number" placeholder="60" hint="Chủ đề có điểm thấp hơn sẽ bị bỏ qua" />
+                  <InputField label="Số bài tối đa mỗi lần chạy" value={settings.articles_per_run} onChange={(v) => handleChange('articles_per_run', v)} type="number" placeholder="2" hint="Giới hạn số bài viết tạo ra mỗi lần chạy Pipeline" />
+                </div>
                 <InputField label="Timeout (giây)" value={settings.pipeline_seo_research_timeout_seconds || '180'} onChange={(v) => handleChange('pipeline_seo_research_timeout_seconds', v)} type="number" placeholder="180" />
                 <TextareaField label="System Instruction" value={settings.agent_seo_research_system_instruction || ''} onChange={(v) => handleChange('agent_seo_research_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định..." hint="Tùy chỉnh prompt hệ thống" rows={8} />
               </CardContent>
@@ -780,6 +623,18 @@ export default function SettingsPage() {
                   { value: 'gemini-2.0-flash', label: 'Google Gemini 2.0 Flash (Khuyến nghị)' },
                   { value: 'gemini-2.0-flash-lite', label: 'Google Gemini 2.0 Flash Lite (Nhanh)' },
                 ]} />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <SelectField label="Ngôn ngữ viết bài" value={settings.content_language} onChange={(v) => handleChange('content_language', v)} options={[
+                    { value: 'en', label: 'English (Professional)' },
+                    { value: 'tl', label: 'Tagalog (Thân thiện)' },
+                    { value: 'mix', label: 'Taglish (English + Tagalog)' },
+                  ]} />
+                  <InputField label="Giọng văn" value={settings.writer_tone} onChange={(v) => handleChange('writer_tone', v)} placeholder="Professional, Trustworthy" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Số từ tối thiểu / bài" value={settings.min_word_count} onChange={(v) => handleChange('min_word_count', v)} type="number" placeholder="800" />
+                  <InputField label="Ngưỡng chất lượng (0-100)" value={settings.writer_quality_threshold || '82'} onChange={(v) => handleChange('writer_quality_threshold', v)} type="number" placeholder="82" hint="Dưới ngưỡng sẽ tự revision" />
+                </div>
                 <InputField label="Timeout (giây)" value={settings.pipeline_content_writer_timeout_seconds || '420'} onChange={(v) => handleChange('pipeline_content_writer_timeout_seconds', v)} type="number" placeholder="420" />
                 <TextareaField label="System Instruction" value={settings.agent_content_writer_system_instruction || ''} onChange={(v) => handleChange('agent_content_writer_system_instruction', v)} placeholder="Để trống để dùng hướng dẫn mặc định (sẽ tự build với context doanh nghiệp)..." hint="Tùy chỉnh prompt hệ thống. Lưu ý: Nếu để trống, system prompt sẽ được tự động build với thông tin doanh nghiệp." rows={8} />
               </CardContent>
@@ -843,8 +698,10 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <SelectField label="Nhà cung cấp ảnh" value={settings.image_provider} onChange={(v) => handleChange('image_provider', v)} options={[
-                  { value: 'dalle', label: 'OpenAI DALL-E 3 (Mặc định)' },
-                  { value: 'banana', label: 'API tùy chỉnh' },
+                  { value: 'dalle', label: 'OpenAI DALL-E 3' },
+                  { value: 'nanobanana', label: 'Nano Banana (Gemini Native)' },
+                  { value: 'google', label: 'Google Gemini Image' },
+                  { value: 'banana', label: 'API tùy chỉnh (Banana)' },
                 ]} />
                 <InputField label="Phong cách ảnh" value={settings.image_style} onChange={(v) => handleChange('image_style', v)} placeholder="professional photography, modern urban setting..." hint="Mô tả phong cách ảnh AI sẽ tạo" />
                 <div className="grid md:grid-cols-2 gap-4">
@@ -896,6 +753,21 @@ export default function SettingsPage() {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* General Pipeline Settings */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-slate-500" /> Cài đặt chung Pipeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField label="Timeout AI request (ms)" value={settings.ai_request_timeout_ms || '120000'} onChange={(v) => handleChange('ai_request_timeout_ms', v)} type="number" placeholder="120000" />
+                  <InputField label="Retry AI request" value={settings.ai_request_retry_count || '1'} onChange={(v) => handleChange('ai_request_retry_count', v)} type="number" placeholder="1" />
+                </div>
               </CardContent>
             </Card>
           </div>

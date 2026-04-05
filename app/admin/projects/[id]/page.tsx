@@ -11,6 +11,7 @@ import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
+import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
 interface ProjectEditorProps {
     params: Promise<{
@@ -26,6 +27,7 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
     const [saving, setSaving] = useState(false);
     const [generatingAI, setGeneratingAI] = useState(false);
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+    const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
     const [qaSignal, setQaSignal] = useState(0);
 
     const [formData, setFormData] = useState({
@@ -96,7 +98,8 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                     lang: 'en',
                     tone: 'professional',
                     contentType: 'project',
-                    aiBrief
+                    aiBrief,
+                    seoPromptTemplate
                 })
             });
 
@@ -274,6 +277,11 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                         </div>
 
                         <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+                        <NonBlogSeoTemplatePanel
+                          slug={formData.slug || ''}
+                          onPromptChange={setSeoPromptTemplate}
+                          onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                        />
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Detailed Content</label>

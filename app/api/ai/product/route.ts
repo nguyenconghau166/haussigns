@@ -57,11 +57,13 @@ FOCUS: Professional Catalog Listing
 - Tone: Professional & Persuasive.
 `,
     seo: (ctx) => `
-FOCUS: SEO Optimized Article
-- Write a comprehensive, long-form description (min 300 words).
-- Use HTML headings (h2, h3) to structure the content naturally.
-- Focus on including relevant keywords naturally: ${ctx.keywords}.
-- Detailed explanation of benefits, use cases, and installation/maintenance.
+FOCUS: SEO & AI Overview Optimized Article (GEO/AIO ready)
+- Write a comprehensive, long-form description (min 400 words).
+- Use HTML headings (h2, h3) to structure content — each H2 must start with a direct answer.
+- Include relevant keywords naturally: ${ctx.keywords}.
+- Detailed explanation of benefits, use cases, and installation/maintenance for Metro Manila.
+- Include a FAQ section with 3-4 questions as H3 headings ending with "?", each with a concise answer paragraph.
+- Each section should be self-contained for AI passage extraction.
 - Tone: Informative & Authoritative.
 `,
     social: (ctx) => `

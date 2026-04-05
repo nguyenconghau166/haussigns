@@ -9,6 +9,7 @@ import RichEditor from '@/components/RichEditor';
 import ImagePicker from '@/components/admin/ImagePicker';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
+import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
 export default function EditMaterial({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -32,6 +33,7 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
+  const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
   const [qaSignal, setQaSignal] = useState(0);
 
   const slugify = (value: string) =>
@@ -128,7 +130,8 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
           lang: 'en',
           tone: 'educational',
           contentType: 'material',
-          aiBrief
+          aiBrief,
+          seoPromptTemplate
         })
       });
       const data = await res.json();
@@ -252,6 +255,13 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
 
               <div className="mt-4">
                 <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
+              </div>
+              <div className="mt-4">
+                <NonBlogSeoTemplatePanel
+                  slug={slug}
+                  onPromptChange={setSeoPromptTemplate}
+                  onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                />
               </div>
             </CardContent>
           </Card>

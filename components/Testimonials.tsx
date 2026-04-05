@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Star, Quote } from 'lucide-react';
+import { safeJsonLdStringify } from '@/lib/security';
 
 interface Testimonial {
     name: string;
@@ -10,11 +11,39 @@ interface Testimonial {
     rating: number;
 }
 
+function buildReviewSchema(testimonials: Testimonial[]) {
+    if (!testimonials.length) return null;
+    const avgRating = testimonials.reduce((s, t) => s + t.rating, 0) / testimonials.length;
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        name: 'SignsHaus',
+        aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: avgRating.toFixed(1),
+            bestRating: '5',
+            worstRating: '1',
+            ratingCount: String(testimonials.length),
+        },
+        review: testimonials.map((t) => ({
+            '@type': 'Review',
+            author: { '@type': 'Person', name: t.name },
+            reviewRating: { '@type': 'Rating', ratingValue: String(t.rating), bestRating: '5' },
+            reviewBody: t.content,
+        })),
+    };
+}
+
 export default function Testimonials({ testimonials = [] }: { testimonials?: Testimonial[] }) {
     if (!testimonials || testimonials.length === 0) return null;
 
+    const reviewSchema = buildReviewSchema(testimonials);
+
     return (
         <section className="py-20 md:py-28 bg-slate-50 dark:bg-slate-900 relative overflow-hidden">
+            {reviewSchema && (
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(reviewSchema) }} />
+            )}
             {/* Background accents */}
             <div className="absolute top-0 left-1/4 w-64 h-64 bg-amber-100/50 rounded-full blur-3xl" />
             <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl" />
