@@ -9,7 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
-import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
@@ -276,11 +276,10 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                             </div>
                         </div>
 
-                        <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
                         <NonBlogSeoTemplatePanel
                           slug={formData.slug || ''}
                           onPromptChange={setSeoPromptTemplate}
-                          onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                          onBriefChange={(brief, seoPrompt) => { setAiBrief(brief); setSeoPromptTemplate(seoPrompt); }}
                         />
 
                         <div className="space-y-2">

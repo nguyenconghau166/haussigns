@@ -7,7 +7,7 @@ import { Save, ArrowLeft, Loader2, Wand2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
-import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
@@ -250,13 +250,10 @@ export default function EditIndustry({ params }: { params: Promise<{ id: string 
               </button>
 
               <div className="mt-4">
-                <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
-              </div>
-              <div className="mt-4">
                 <NonBlogSeoTemplatePanel
                   slug={slug}
                   onPromptChange={setSeoPromptTemplate}
-                  onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                  onBriefChange={(brief, seoPrompt) => { setAiBrief(brief); setSeoPromptTemplate(seoPrompt); }}
                 />
               </div>
             </CardContent>

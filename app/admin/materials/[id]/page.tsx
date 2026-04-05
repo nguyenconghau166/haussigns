@@ -7,7 +7,7 @@ import { Save, ArrowLeft, Loader2, Image as ImageIcon, Wand2, Plus, Minus } from
 import Link from 'next/link';
 import RichEditor from '@/components/RichEditor';
 import ImagePicker from '@/components/admin/ImagePicker';
-import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
@@ -254,13 +254,10 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
               </button>
 
               <div className="mt-4">
-                <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
-              </div>
-              <div className="mt-4">
                 <NonBlogSeoTemplatePanel
                   slug={slug}
                   onPromptChange={setSeoPromptTemplate}
-                  onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                  onBriefChange={(brief, seoPrompt) => { setAiBrief(brief); setSeoPromptTemplate(seoPrompt); }}
                 />
               </div>
             </CardContent>

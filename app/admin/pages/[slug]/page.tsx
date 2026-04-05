@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
-import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
@@ -261,16 +261,8 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
               <NonBlogSeoTemplatePanel
                 slug={page.slug}
                 onPromptChange={setSeoPromptTemplate}
-                onApplyToBrief={({ mustInclude, entityFocus }) => {
-                  setAiBrief((prev) => ({
-                    ...prev,
-                    mustInclude,
-                    entityFocus: entityFocus || prev.entityFocus
-                  }));
-                }}
+                onBriefChange={(brief, seoPrompt) => { setAiBrief(brief); setSeoPromptTemplate(seoPrompt); }}
               />
-
-              <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
 
               <hr className="border-slate-100 my-2" />
 

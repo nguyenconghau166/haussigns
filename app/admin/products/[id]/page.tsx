@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
-import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
+import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel';
 
@@ -224,11 +224,10 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                             />
                         </div>
 
-                        <AIBriefPanel value={aiBrief} onChange={setAiBrief} />
                         <NonBlogSeoTemplatePanel
                           slug={formData.slug || ''}
                           onPromptChange={() => {}}
-                          onApplyToBrief={(payload) => setAiBrief((prev) => ({ ...prev, ...payload }))}
+                          onBriefChange={(brief) => setAiBrief(brief)}
                         />
                     </div>
                 </div>
