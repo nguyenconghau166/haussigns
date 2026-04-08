@@ -7,7 +7,9 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { formatDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import { safeJsonLdStringify, sanitizeHtml } from '@/lib/security';
+import { sanitizeHtml } from '@/lib/security';
+import { buildCombinedSchema, safeJsonLdStringify } from '@/lib/schema-builder';
+import { extractFaqFromContent } from '@/lib/faq-schema';
 
 export const revalidate = 60;
 
@@ -175,74 +177,44 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://signs.haus';
   const canonicalUrl = `${siteUrl}/blog/${postData.slug}`;
 
-  const faqItems = extractFaqItems(contentHtml);
+  const faqItems = extractFaqFromContent(contentHtml);
 
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
-      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${siteUrl}/blog` },
-      { '@type': 'ListItem', position: 3, name: postData.title, item: canonicalUrl },
-    ],
-  };
-
-  const faqJsonLd = faqItems.length > 0 ? {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqItems.map((item) => ({
-      '@type': 'Question',
-      name: item.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: item.answer,
+  // Build combined @graph schema (Article + BreadcrumbList + FAQPage + HowTo + LocalBusiness)
+  const combinedSchema = buildCombinedSchema(
+    {
+      title: postData.title,
+      slug: postData.slug,
+      excerpt: postData.excerpt || undefined,
+      meta_description: postData.meta_description || undefined,
+      featured_image: postData.featured_image,
+      content: contentHtml,
+      tags: postData.tags || undefined,
+      created_at: postData.created_at,
+      updated_at: postData.updated_at || undefined,
+      categoryName,
+    },
+    faqItems,
+    {
+      siteUrl,
+      companyName: 'SignsHaus',
+      companyDescription: 'SignsHaus — Premium Signage Maker in Metro Manila, Philippines',
+      logo: `${siteUrl}/logo-web.png`,
+      phone: '+63 917 123 4567',
+      address: {
+        city: 'Makati',
+        region: 'Metro Manila',
+        country: 'PH',
       },
-    })),
-  } : null;
-
-  const articleJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    '@id': `${canonicalUrl}#article`,
-    headline: postData.title,
-    datePublished: postData.created_at,
-    dateModified: postData.updated_at || postData.created_at,
-    author: {
-      '@type': 'Person',
-      '@id': `${siteUrl}/#author`,
-      name: 'SignsHaus Team',
-      url: `${siteUrl}/about`,
-      jobTitle: 'Signage & Branding Specialists',
-      worksFor: { '@type': 'Organization', '@id': `${siteUrl}/#organization` },
-      knowsAbout: ['Signage', 'LED Signs', 'Acrylic Signs', 'Business Branding', 'Sign Installation'],
-    },
-    publisher: {
-      '@type': 'Organization',
-      '@id': `${siteUrl}/#organization`,
-      name: 'SignsHaus',
-      url: siteUrl,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteUrl}/logo-web.png`,
+      geo: {
+        latitude: 14.5547,
+        longitude: 121.0244,
       },
-    },
-    image: {
-      '@type': 'ImageObject',
-      url: postData.featured_image || `${siteUrl}/logo-web.png`,
-    },
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': canonicalUrl,
-    },
-    description: postData.excerpt || postData.meta_description || '',
-    keywords: (postData.tags || []).join(', '),
-    articleSection: categoryName,
-    wordCount: contentHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').length,
-    speakable: {
-      '@type': 'SpeakableSpecification',
-      cssSelector: ['.prose-blog h1', '.prose-blog [data-speakable]', '.prose-blog > p:first-of-type'],
-    },
-  };
+      socialLinks: [
+        'https://www.facebook.com/signshaus',
+      ],
+      priceRange: '₱₱-₱₱₱',
+    }
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -402,11 +374,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         )}
       </main>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }} />
-      {faqJsonLd && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }} />
-      )}
+      {/* Combined @graph JSON-LD: Article + BreadcrumbList + FAQPage + HowTo + LocalBusiness */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(combinedSchema) }} />
       <Footer />
     </div>
   );

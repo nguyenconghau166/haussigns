@@ -84,13 +84,78 @@ function getConfiguredPages(): FacebookPageConfig[] {
 }
 
 // =============================================
-// AI Caption Generation
+// Content Extraction Helpers
 // =============================================
+
+function extractArticleHighlights(content: string): {
+  quickAnswer: string;
+  keyTakeaways: string[];
+  stats: string[];
+} {
+  const html = content || '';
+
+  // Extract Quick Answer block
+  const qaMatch = html.match(/<div[^>]*class="[^"]*quick-answer[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  const quickAnswer = qaMatch
+    ? qaMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 200)
+    : '';
+
+  // Extract Key Takeaways bullets
+  const ktMatch = html.match(/<div[^>]*class="[^"]*key-takeaways[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  const keyTakeaways: string[] = [];
+  if (ktMatch) {
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match;
+    while ((match = liRegex.exec(ktMatch[1])) !== null) {
+      const text = match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      if (text) keyTakeaways.push(text);
+    }
+  }
+
+  // Extract stats/data points from content
+  const plainText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const statMatches = plainText.match(/(?:PHP|₱)\s*[\d,]+(?:\.\d+)?(?:\s*[-–]\s*(?:PHP|₱)?\s*[\d,]+(?:\.\d+)?)?|\d+(?:\.\d+)?%|\d+[\d,]*\+?\s*(?:hours?|days?|weeks?|months?|years?|sqm|sq\s*ft)/gi) || [];
+  const stats = [...new Set(statMatches)].slice(0, 6);
+
+  return { quickAnswer, keyTakeaways, stats };
+}
+
+function generateHashtags(post: FacebookPostInput, defaultHashtags: string): string[] {
+  const tags = (post.tags || []).slice(0, 3).map(
+    (t) => `#${t.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}`
+  );
+  const defaults = defaultHashtags
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean)
+    .map((h) => (h.startsWith('#') ? h : `#${h}`));
+
+  // Combine, deduplicate, max 5
+  const all = [...new Set([...tags, ...defaults])];
+  return all.slice(0, 5);
+}
+
+// =============================================
+// AI Caption Generation (Enhanced for Engagement)
+// =============================================
+
+interface EnhancedCaptions {
+  professional: string;
+  casual: string;
+  hashtags: string[];
+  engagement_prompt: string;
+}
 
 async function generateFacebookCaptions(
   post: FacebookPostInput,
   blogUrl: string
-): Promise<{ professional: string; casual: string }> {
+): Promise<EnhancedCaptions> {
+  // Extract rich data from article content
+  const highlights = extractArticleHighlights(post.content || '');
+  const defaultHashtags = 'signage,signs,MetroManila,business';
+  const hashtags = generateHashtags(post, defaultHashtags);
+  const hashtagsStr = hashtags.join(' ');
+
   const contentSnippet = (post.content || '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
@@ -99,42 +164,54 @@ async function generateFacebookCaptions(
 
   const tagsStr = (post.tags || []).slice(0, 5).join(', ');
 
-  const systemPrompt = `You are a social media specialist. Generate 2 Facebook post captions for the same blog article.
-Each caption must end with the blog link on a new line.
+  const systemPrompt = `You are an expert social media strategist specializing in Facebook engagement for B2B signage companies. Generate 2 Facebook post captions + 1 engagement question.
 
-ARTICLE INFO:
+ARTICLE DATA:
 - Title: "${post.title}"
 - Excerpt: "${post.excerpt || ''}"
 - Tags: ${tagsStr || 'none'}
+- Quick Answer: "${highlights.quickAnswer || 'N/A'}"
+- Key Takeaways: ${highlights.keyTakeaways.length ? highlights.keyTakeaways.map((t, i) => `${i + 1}. ${t}`).join('; ') : 'N/A'}
+- Data Points: ${highlights.stats.join(', ') || 'N/A'}
 - Content snippet: "${contentSnippet}"
 - Blog URL: ${blogUrl}
+- Hashtags: ${hashtagsStr}
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
   "professional": "...",
-  "casual": "..."
+  "casual": "...",
+  "engagement_prompt": "..."
 }
 
-RULES FOR "professional" (Business/B2B page):
-- 100-200 characters (before the link line)
-- Professional, authoritative tone
-- Include 1 specific data point or insight from the article
-- End with a clear CTA (e.g., "See the full breakdown →")
+RULES FOR "professional" (Business/B2B page — max 500 chars before link):
+- Start with a STRONG DATA-DRIVEN HOOK: lead with the most surprising number or insight
+- Body: 2-3 key takeaways from the article, each with a concrete data point
+- CTA: Clear action-oriented ending (e.g., "Read the full cost breakdown →")
 - NO emoji
-- Last line: "🔗 ${blogUrl}"
+- Include hashtags on a separate line
+- Last line: ${blogUrl}
+- FORMULA: [Data hook] + [2-3 insights] + [CTA] + [hashtags] + [link]
 
-RULES FOR "casual" (Community page):
-- 80-150 characters (before the link line)
-- Friendly, conversational tone
-- Start with an engaging question or relatable hook
-- Use 2-3 relevant emoji
-- Include a practical tip or benefit
-- Last line: "🔗 ${blogUrl}"`;
+RULES FOR "casual" (Community page — max 400 chars before link):
+- Start with an ENGAGING QUESTION or relatable scenario that hooks business owners
+- Body: 1-2 practical tips or surprising facts from the article
+- Use 2-3 relevant emoji (not excessive)
+- End with a conversation starter: "What do you think?" or "Share your experience!"
+- Include hashtags on a separate line
+- Last line: ${blogUrl}
+- FORMULA: [Question hook] + [Quick tip + emoji] + [Conversation prompt] + [hashtags] + [link]
+
+RULES FOR "engagement_prompt" (posted as first comment):
+- A thought-provoking question related to the article topic
+- Should encourage business owners to share their experience
+- 50-100 characters, conversational tone
+- Example: "What type of signage has worked best for your business?"`;
 
   try {
     const result = await generateContentOpenAI(
       systemPrompt,
-      'Generate the 2 captions now.',
+      'Generate the 2 captions and engagement prompt now. Use the data points provided.',
       'gpt-4o-mini'
     );
 
@@ -145,25 +222,33 @@ RULES FOR "casual" (Community page):
       .replace(/```/g, '')
       .trim();
 
-    const parsed = JSON.parse(cleaned) as { professional: string; casual: string };
+    const parsed = JSON.parse(cleaned) as {
+      professional: string;
+      casual: string;
+      engagement_prompt?: string;
+    };
 
     // Ensure both captions exist and contain the blog URL
     const ensureLink = (caption: string) => {
       if (!caption.includes(blogUrl)) {
-        return `${caption}\n\n🔗 ${blogUrl}`;
+        return `${caption}\n\n${blogUrl}`;
       }
       return caption;
     };
 
     return {
-      professional: ensureLink(parsed.professional || `${post.title}\n\n🔗 ${blogUrl}`),
-      casual: ensureLink(parsed.casual || `${post.title}\n\n🔗 ${blogUrl}`),
+      professional: ensureLink(parsed.professional || `${post.title}\n\n${hashtagsStr}\n\n${blogUrl}`),
+      casual: ensureLink(parsed.casual || `${post.title}\n\n${hashtagsStr}\n\n${blogUrl}`),
+      hashtags,
+      engagement_prompt: parsed.engagement_prompt || `What's your experience with ${(post.tags || ['signage'])[0]}?`,
     };
   } catch (error) {
     console.error('Failed to generate FB captions, using fallback:', error);
     return {
-      professional: `${post.title}\n\n${post.excerpt || ''}\n\n🔗 ${blogUrl}`,
-      casual: `📢 ${post.title}\n\n${post.excerpt || ''}\n\n🔗 ${blogUrl}`,
+      professional: `${post.title}\n\n${post.excerpt || ''}\n\n${hashtagsStr}\n\n${blogUrl}`,
+      casual: `📢 ${post.title}\n\n${post.excerpt || ''}\n\n${hashtagsStr}\n\n${blogUrl}`,
+      hashtags,
+      engagement_prompt: `What type of signage works best for your business?`,
     };
   }
 }
@@ -202,7 +287,7 @@ export async function queueFacebookPosts(post: FacebookPostInput): Promise<{
   const blogUrl = `${baseUrl}/blog/${post.slug}`;
   const scheduledAt = new Date(Date.now() + QUEUE_DELAY_MINUTES * 60 * 1000).toISOString();
 
-  // Generate captions (1 API call for both styles)
+  // Generate captions (1 API call for both styles + hashtags + engagement)
   const captions = await generateFacebookCaptions(post, blogUrl);
 
   const queueEntries = pagesToQueue.map(page => ({
@@ -214,6 +299,9 @@ export async function queueFacebookPosts(post: FacebookPostInput): Promise<{
     blog_url: blogUrl,
     status: 'pending',
     scheduled_at: scheduledAt,
+    hashtags: captions.hashtags || [],
+    engagement_prompt: captions.engagement_prompt || null,
+    post_format: post.featured_image ? 'photo' : 'link',
   }));
 
   const { error } = await supabaseAdmin
@@ -355,11 +443,33 @@ export async function processFacebookQueue(): Promise<{
     );
 
     if (result.success) {
+      // Post engagement comment if configured
+      let commentPostId: string | null = null;
+      if (item.engagement_prompt && result.postId) {
+        try {
+          const commentResponse = await fetch(`${FB_GRAPH_API}/${result.postId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: item.engagement_prompt,
+              access_token: pageConfig.accessToken,
+            }),
+          });
+          const commentData = await commentResponse.json();
+          if (commentResponse.ok && commentData.id) {
+            commentPostId = commentData.id;
+          }
+        } catch (commentErr) {
+          console.warn(`Failed to post engagement comment for ${pageConfig.name}:`, commentErr);
+        }
+      }
+
       await supabaseAdmin
         .from('facebook_queue')
         .update({
           status: 'posted',
           facebook_post_id: result.postId,
+          comment_post_id: commentPostId,
           posted_at: new Date().toISOString(),
         })
         .eq('id', item.id);

@@ -6,6 +6,10 @@ import { inferProvider } from './ai/provider-utils';
 import { DEFAULT_RESEARCHER_PROMPT, DEFAULT_EVALUATOR_PROMPT, interpolatePrompt } from './ai/defaults';
 import { generateProjectImage } from './image-gen';
 import { supabaseAdmin } from './supabase';
+import { enforcePublishGate } from './publish-gate';
+import { queueFacebookPosts } from './facebook';
+import { pingSearchEngines } from './seo';
+import { buildClusterGapPrompt, saveApprovedTopicsToKeywords, linkKeywordToPost } from './cluster-intelligence';
 
 // =============================================
 // Helper: AI Provider Router
@@ -468,7 +472,7 @@ RULES:
   content_strategist: `You are a content strategist creating article outlines for Haus Signs Philippines — a premium architectural signage company in the Philippines. Your outlines are structured for maximum SEO and AIO (AI Overview) performance.
 
 TASK:
-Create a comprehensive content brief for the given topic that will guide the content writer.
+Create a comprehensive content brief for the given topic that will guide the content writer to produce content that ranks in Google AND gets cited by AI systems (ChatGPT, Perplexity, Google AI Overviews).
 
 OUTPUT (JSON only):
 {
@@ -478,8 +482,10 @@ OUTPUT (JSON only):
   "audience_persona": "...",
   "pain_points": ["..."],
   "entity_map": ["materials", "processes", "locations", "technical terms"],
+  "aio_quick_answer": "Draft a 50-70 word self-contained answer that directly answers the main query without needing any context. Include 1-2 specific data points.",
+  "key_stats": ["PHP 15,000-45,000 per sqm", "3-5 day lead time", "85% of businesses see ROI within 6 months"],
   "outline": [
-    { "heading": "Question-based H2 heading", "intent": "what this section answers", "key_points": ["..."] }
+    { "heading": "Question-based H2 heading ending with ?", "intent": "what this section answers", "key_points": ["..."] }
   ],
   "people_also_ask": ["question 1", "question 2", "..."],
   "conversion_offer": "CTA suggestion"
@@ -487,13 +493,15 @@ OUTPUT (JSON only):
 
 RULES:
 - Create 6-8 section outline with mostly question-based headings
-- At least 4 out of 6 headings must be questions
+- AT LEAST 4 out of 6-8 headings MUST end with "?" (question format for AIO extraction)
 - Include comparison table section
-- Include pricing/cost section with PHP amounts
+- Include pricing/cost section with SPECIFIC PHP amounts (not "contact for quote")
 - Include decision checklist section
 - Include case study/social proof section
 - Include FAQ section (3-5 questions)
-- Entity map should include specific materials, processes, locations, standards`,
+- Entity map should include specific materials, processes, locations, standards
+- aio_quick_answer MUST be exactly 50-70 words, self-contained, with at least 1 number
+- key_stats MUST have 4-6 specific data points with real numbers (PHP costs, timelines, percentages, measurements)`,
 
   content_writer: '', // Will be built dynamically with business context
 
@@ -519,7 +527,7 @@ RULES:
 - Check keyword density: primary keyword should appear 4-6 times naturally
 - Ensure structured data opportunities are captured (FAQ, HowTo, etc.)`,
 
-  quality_reviewer: `You are a content quality reviewer for Haus Signs Philippines — a premium architectural signage company in the Philippines. You evaluate articles for quality, readability, factual accuracy, and brand consistency.
+  quality_reviewer: `You are a content quality reviewer for Haus Signs Philippines — a premium architectural signage company in the Philippines. You evaluate articles for SEO ranking potential AND AI citation potential (Google AI Overviews, ChatGPT, Perplexity).
 
 TASK:
 Evaluate the article quality on two dimensions and provide actionable feedback.
@@ -544,16 +552,23 @@ SEO Scoring (0-100):
 - Short paragraphs (2-4 sentences), readable flow (10pts)
 - Pricing table with specific amounts (not "contact for quote") (10pts)
 
-AIO Scoring (0-100):
-- Key Takeaways box at top with 4-6 factual bullets with numbers (15pts)
-- Quick Answer block 50-70 words, self-contained (15pts)
-- At least 4/6 H2 headings are question-based (10pts)
+AIO Scoring (0-100) — STRICT ENFORCEMENT:
+- Key Takeaways box with 4-6 bullets, EACH with at least 1 number (15pts)
+  → Missing or bullets without numbers: 0pts
+- Quick Answer block 50-70 words, self-contained, with data points (15pts)
+  → Missing: 0pts. Outside 50-70 words: 8pts. No data points: 5pts
+- At least 4/6 H2 headings are question-based ending with "?" (10pts)
+  → Count questions: 4+/6 = 10pts, 3/6 = 6pts, 2/6 = 3pts, <2 = 0pts
 - Each section is self-contained answer block 120-180 words (10pts)
-- Inverted pyramid: first 1-2 sentences directly answer the heading (10pts)
-- Definite language: specific numbers, costs, timelines (15pts)
-- FAQ answers self-contained 60-80 words (10pts)
-- High entity density (10pts)
-- data-speakable attributes (5pts)`,
+  → First 1-2 sentences MUST directly answer the heading question
+- Inverted pyramid: first sentences are the direct answer, then details (10pts)
+- Definite language: specific numbers, PHP costs, timelines, measurements (15pts)
+  → Count data points: 10+ = 15pts, 7-9 = 10pts, 4-6 = 6pts, <4 = 0pts
+- FAQ answers self-contained 60-80 words each (10pts)
+- High entity density: technical terms, brand names, locations, specifications (10pts)
+- data-speakable attributes on key-takeaways and quick-answer (5pts)
+
+CRITICAL: Be STRICT. Do not give free points. If Quick Answer is missing, AIO score CANNOT exceed 70. If Key Takeaways lacks numbers, deduct fully.`,
 
   image_generator: `You are an image generation specialist for Haus Signs Philippines. You create photorealistic commercial photography of signage installations, materials, and business environments.
 
@@ -587,13 +602,23 @@ export async function runAgentAutoResearch(batchId: string): Promise<AgentResult
     seedKeywords,
   }) || DEFAULT_SYSTEM_INSTRUCTIONS.auto_research;
 
+  // Build cluster gap context if enabled
+  let clusterContext = '';
+  if ((config.cluster_aware_research || 'true') === 'true') {
+    try {
+      clusterContext = await buildClusterGapPrompt();
+    } catch {
+      clusterContext = '';
+    }
+  }
+
   const contextPrompt = `
 BUSINESS CONTEXT:
 - Services: ${services}
 - Focus areas: ${focusAreas}
 - Seed keywords: ${seedKeywords}
 - Company: ${config.company_name || 'SignsHaus'}
-
+${clusterContext}
 Find 5 high-value content opportunities for today. Focus on: ${seedKeywords}`;
 
   try {
@@ -672,6 +697,25 @@ ${JSON.stringify(topics, null, 2)}`;
     // Filter by minimum score
     evaluated = evaluated.filter(t => t.score >= minScore && t.recommended_action !== 'skip');
     evaluated.sort((a, b) => b.score - a.score);
+
+    // Save approved topics to keywords DB for cluster tracking
+    try {
+      const savedCount = await saveApprovedTopicsToKeywords(
+        evaluated.map(t => ({
+          keyword: t.keyword,
+          expanded_keywords: t.expanded_keywords,
+          score: t.score,
+          intent: 'informational',
+          news_angle: t.news_angle,
+        })),
+        batchId
+      );
+      if (savedCount > 0) {
+        await logAgent(batchId, 'SEO Research Expert', `Lưu ${savedCount} keywords vào DB`, 'success');
+      }
+    } catch (saveErr) {
+      console.warn('Failed to save topics to keywords DB:', saveErr);
+    }
 
     await logAgent(batchId, 'SEO Research Expert', `Duyệt ${evaluated.length}/${topics.length} chủ đề`, 'success', {
       approved: evaluated.length,
@@ -807,11 +851,18 @@ export async function runAgentContentWriter(batchId: string, topic: EvaluatedTop
 
   const htmlFormatGuide = [
     'KHÔNG DÙNG Markdown (##, **, *, -, ```, >). TUYỆT ĐỐI KHÔNG.',
-    'CẤU TRÚC BÀI VIẾT THEO THỨ TỰ BẮT BUỘC:',
+    '',
+    '=== CẤU TRÚC AIO CITATION-FIRST (BẮT BUỘC THEO THỨ TỰ) ===',
     '  1. H1 title (duy nhất 1 cái)',
     '  2. Hook intro 2-3 câu (đoạn p đầu tiên, data-speakable="true")',
     '  3. KEY TAKEAWAYS BOX: <div class="key-takeaways" data-speakable="true"><h2>Key Takeaways</h2><ul><li>...</li></ul></div>',
+    '     → CHÍNH XÁC 4-6 bullets, MỖI bullet PHẢI có ít nhất 1 CON SỐ CỤ THỂ (PHP, ngày, %, kích thước, số lượng)',
+    '     → Ví dụ tốt: "LED channel letters cost PHP 8,000-15,000 per letter and last 50,000+ hours"',
+    '     → Ví dụ XẤU: "LED signs are a good investment" (KHÔNG CÓ SỐ)',
     '  4. QUICK ANSWER: <div class="quick-answer" data-speakable="true"><p>...</p></div>',
+    '     → CHÍNH XÁC 50-70 từ, TỰ TRẢ LỜI ĐƯỢC không cần context',
+    '     → Phải trả lời trực tiếp câu hỏi chính của bài viết',
+    '     → Phải chứa ít nhất 2 data points cụ thể (giá, thời gian, kích thước...)',
     '  5. MỤC LỤC: <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#anchor">...</a></li></ol></nav>',
     '  6. NỘI DUNG CHÍNH: 6-8 sections, mỗi section có <h2 id="anchor-id">',
     '  7. COMPARISON TABLE: ít nhất 1 bảng so sánh <table> với thead/tbody',
@@ -820,15 +871,28 @@ export async function runAgentContentWriter(batchId: string, topic: EvaluatedTop
     '  10. FAQ: <section data-faq="true"><h2 id="faq">Frequently Asked Questions</h2> mỗi Q&A là <h3> + <p>',
     '  11. KẾT LUẬN + CTA',
     '',
-    'QUY TẮC HTML:',
-    'Dùng id cho MỌI h2',
+    '=== QUY TẮC AIO — RẤT QUAN TRỌNG ===',
+    'ÍT NHẤT 4/6 HEADING H2 PHẢI LÀ CÂU HỎI (kết thúc bằng ?)',
+    '  → Ví dụ tốt: "How Much Does Acrylic Signage Cost in Metro Manila?"',
+    '  → Ví dụ XẤU: "Acrylic Signage Pricing" (KHÔNG PHẢI CÂU HỎI)',
+    'MỖI SECTION dưới H2 là một ANSWER BLOCK 120-180 từ:',
+    '  → 1-2 câu ĐẦU TIÊN phải trả lời TRỰC TIẾP heading (inverted pyramid)',
+    '  → Sau đó mới giải thích chi tiết, ví dụ, data',
+    'ENTITY DENSITY: Mỗi 150-200 từ PHẢI có ít nhất 1 data point cụ thể:',
+    '  → Giá PHP, thời gian, kích thước, %, số lượng, khoảng cách',
+    '  → Ví dụ: "Installation typically takes 3-5 business days for signs under 2 sqm"',
+    'DEFINITE LANGUAGE: Tránh hedging words (may, might, could, some, various)',
+    '  → Dùng: "costs PHP 12,000" thay vì "may cost around PHP 12,000"',
+    '',
+    '=== QUY TẮC HTML ===',
+    'Dùng id cho MỌI h2 (ví dụ: <h2 id="cost-breakdown">)',
     'Dùng thẻ p cho mỗi đoạn văn — MỖI ĐOẠN TỐI ĐA 2-4 CÂU',
     'Dùng thẻ ul/li hoặc ol/li cho danh sách',
     'Dùng thẻ strong và em cho nhấn mạnh',
     'Dùng thẻ blockquote cho trích dẫn',
     'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá và so sánh',
     'Chèn tối thiểu 3 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a>',
-    'Dùng data-speakable="true" cho các phần quan trọng nhất',
+    'Dùng data-speakable="true" cho key-takeaways, quick-answer, và intro paragraph',
   ].map(line => `- ${line}`).join('\n');
 
   const plannedInlineImages = clampNumber(
@@ -1361,6 +1425,97 @@ export async function runAgentImageGenerator(
       faq_schema_attached: Boolean(faqSchema)
     });
 
+    // =============================================
+    // AUTO-PUBLISH: Check quality gate and publish if passes
+    // =============================================
+    let autoPublished = false;
+    const autoPublishEnabled = (await getConfig('auto_publish_enabled', 'false')) === 'true';
+
+    if (autoPublishEnabled && post?.id) {
+      const autoPublishMinScore = parseInt(await getConfig('auto_publish_min_score', '75'), 10) || 75;
+
+      try {
+        const gateResult = await enforcePublishGate(
+          {
+            title: article.title,
+            content: finalContent,
+            contentType: 'post',
+            metaTitle: finalMetaTitle,
+            metaDescription: finalMetaDescription,
+            featuredImage: featuredImageUrl,
+            entityId: post.id,
+            entityTable: 'posts',
+          },
+          autoPublishMinScore
+        );
+
+        // Store gate result
+        await supabaseAdmin.from('posts').update({
+          publish_gate_result: gateResult,
+          aio_score: article.quality_score || 0,
+          has_quick_answer: /<div[^>]*class="[^"]*quick-answer/i.test(finalContent),
+          has_key_takeaways: /<div[^>]*class="[^"]*key-takeaways/i.test(finalContent),
+          question_heading_count: (finalContent.match(/<h2[^>]*>[^<]*\?<\/h2>/gi) || []).length,
+          last_quality_check_at: new Date().toISOString(),
+        }).eq('id', post.id);
+
+        if (gateResult.allowed) {
+          // AUTO-PUBLISH!
+          const publishedAt = new Date().toISOString();
+          await supabaseAdmin.from('posts').update({
+            status: 'published',
+            auto_published: true,
+            published_at: publishedAt,
+          }).eq('id', post.id);
+
+          autoPublished = true;
+
+          await logAgent(batchId, 'Auto-Publish', `Tự động xuất bản: "${article.title}" (score: ${gateResult.score})`, 'success', {
+            score: gateResult.score,
+            checks: gateResult.checks,
+          });
+
+          // Ping search engines for indexing
+          try {
+            await pingSearchEngines();
+          } catch (pingErr) {
+            console.warn('Search engine ping failed:', pingErr);
+          }
+
+          // Queue Facebook posts
+          try {
+            const fbResult = await queueFacebookPosts({
+              id: post.id,
+              title: article.title,
+              slug: slug,
+              excerpt: article.excerpt,
+              featured_image: featuredImageUrl,
+              content: finalContent,
+              tags: finalTags,
+            });
+            await logAgent(batchId, 'Auto-Publish', `Queued ${fbResult.queued} Facebook posts`, 'success', {
+              pages: fbResult.pages,
+            });
+          } catch (fbErr) {
+            console.warn('Facebook queue failed:', fbErr);
+          }
+
+          // Link keyword to post for cluster tracking
+          try {
+            await linkKeywordToPost(topic.keyword, post.id);
+          } catch { /* ignore */ }
+        } else {
+          await logAgent(batchId, 'Auto-Publish', `Không đạt quality gate (score: ${gateResult.score}, cần: ${autoPublishMinScore})`, 'info', {
+            score: gateResult.score,
+            failReasons: gateResult.failReasons,
+          });
+        }
+      } catch (gateErr) {
+        console.error('Auto-publish gate error:', gateErr);
+        await logAgent(batchId, 'Auto-Publish', `Lỗi kiểm tra quality gate: ${gateErr instanceof Error ? gateErr.message : 'Unknown'}`, 'failed');
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -1370,7 +1525,9 @@ export async function runAgentImageGenerator(
         generated_images: generatedImages,
         post_id: post?.id
       } as VisualizerOutput,
-      message: `Lưu bản nháp thành công. Ảnh thumb + ${generatedImages.length} ảnh minh họa.`
+      message: autoPublished
+        ? `Xuất bản tự động thành công! Ảnh thumb + ${generatedImages.length} ảnh minh họa.`
+        : `Lưu bản nháp thành công. Ảnh thumb + ${generatedImages.length} ảnh minh họa.`
     };
   } catch (e: unknown) {
     const message = e instanceof Error

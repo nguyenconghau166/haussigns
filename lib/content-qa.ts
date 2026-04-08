@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './supabase';
 
-export type QAContentType = 'material' | 'industry' | 'project' | 'page' | 'product';
+export type QAContentType = 'material' | 'industry' | 'project' | 'page' | 'product' | 'post';
 
 export interface QAPayload {
   title: string;
@@ -21,6 +21,7 @@ export interface QAResult {
     seo: number;
     clarity: number;
     trust: number;
+    aio: number;
   };
   suggestions: string[];
   metrics: {
@@ -55,7 +56,8 @@ export function scoreContent(payload: QAPayload): QAResult {
     industry: 700,
     project: 450,
     page: 550,
-    product: 350
+    product: 350,
+    post: 800
   };
 
   const depth = clamp((wordCount / targetWords[payload.contentType]) * 100);
@@ -89,12 +91,32 @@ export function scoreContent(payload: QAPayload): QAResult {
     (/(pros|cons|considerations|limitations)/i.test(payload.content) ? 30 : 0);
   const trust = clamp(trustSignals);
 
+  // AIO dimension
+  const hasQuickAnswer = /<div[^>]*class="[^"]*quick-answer[^"]*"/i.test(payload.content);
+  const hasKeyTakeaways = /<div[^>]*class="[^"]*key-takeaways[^"]*"/i.test(payload.content);
+  const hasSpeakable = /data-speakable/i.test(payload.content);
+  const questionH2s = (payload.content.match(/<h2[^>]*>[^<]*\?<\/h2>/gi) || []).length;
+  const questionH2Ratio = h2Count > 0 ? questionH2s / h2Count : 0;
+
+  // Count data points (numbers with units: PHP, %, days, sqm, hours, etc.)
+  const dataPointMatches = plain.match(/\d[\d,]*\.?\d*\s*(%|PHP|php|₱|days?|hours?|sqm|meters?|feet|inches|minutes?|weeks?|months?|years?|pesos?)/gi) || [];
+  const dataPointCount = dataPointMatches.length;
+
+  const aioRaw =
+    (hasQuickAnswer ? 20 : 0) +
+    (hasKeyTakeaways ? 20 : 0) +
+    (hasSpeakable ? 10 : 0) +
+    (questionH2Ratio >= 0.6 ? 20 : questionH2Ratio >= 0.4 ? 12 : questionH2Ratio > 0 ? 5 : 0) +
+    (dataPointCount >= 10 ? 30 : dataPointCount >= 6 ? 20 : dataPointCount >= 3 ? 10 : 0);
+  const aio = clamp(aioRaw);
+
   const overall = clamp(
-    structure * 0.24 +
-    depth * 0.24 +
-    seo * 0.2 +
-    clarity * 0.16 +
-    trust * 0.16
+    structure * 0.20 +
+    depth * 0.20 +
+    seo * 0.18 +
+    clarity * 0.14 +
+    trust * 0.14 +
+    aio * 0.14
   );
 
   const suggestions: string[] = [];
@@ -106,9 +128,15 @@ export function scoreContent(payload: QAPayload): QAResult {
   if (avgSentenceWords > 24) suggestions.push('Shorten long sentences to improve readability and conversion clarity.');
   if (trust < 60) suggestions.push('Add concrete details: constraints, location context, numbers, and practical tradeoffs.');
 
+  if (!hasQuickAnswer) suggestions.push('Add a Quick Answer block (<div class="quick-answer">) with a 50-70 word self-contained answer.');
+  if (!hasKeyTakeaways) suggestions.push('Add a Key Takeaways box (<div class="key-takeaways">) with 4-6 bullets containing specific numbers.');
+  if (questionH2Ratio < 0.5) suggestions.push('Convert more H2 headings to question format (ending with ?) for better AIO citation potential.');
+  if (dataPointCount < 6) suggestions.push('Increase entity density: add more specific data points (PHP costs, timelines, measurements) throughout the article.');
+  if (!hasSpeakable) suggestions.push('Add data-speakable="true" attributes to key-takeaways and quick-answer divs.');
+
   return {
     overall,
-    breakdown: { structure, depth, seo, clarity, trust },
+    breakdown: { structure, depth, seo, clarity, trust, aio },
     suggestions,
     metrics: {
       wordCount,
@@ -132,6 +160,7 @@ export async function saveQAHistory(payload: QAPayload, result: QAResult, source
       score_seo: result.breakdown.seo,
       score_clarity: result.breakdown.clarity,
       score_trust: result.breakdown.trust,
+      score_aio: result.breakdown.aio,
       suggestions: result.suggestions,
       source
     });
