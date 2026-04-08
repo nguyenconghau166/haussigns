@@ -1505,7 +1505,7 @@ export async function runAgentImageGenerator(
             await linkKeywordToPost(topic.keyword, post.id);
           } catch { /* ignore */ }
         } else {
-          await logAgent(batchId, 'Auto-Publish', `Không đạt quality gate (score: ${gateResult.score}, cần: ${autoPublishMinScore})`, 'info', {
+          await logAgent(batchId, 'Auto-Publish', `Không đạt quality gate (score: ${gateResult.score}, cần: ${autoPublishMinScore})`, 'skipped', {
             score: gateResult.score,
             failReasons: gateResult.failReasons,
           });
