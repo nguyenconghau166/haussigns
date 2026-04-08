@@ -59,14 +59,15 @@ async function updateDailyStats(field: 'articles_published' | 'articles_drafted'
   // Upsert the daily stats row
   const { data: existing } = await supabaseAdmin
     .from('daily_publish_stats')
-    .select('id, ' + field)
+    .select('id, articles_published, articles_drafted')
     .eq('publish_date', today)
     .maybeSingle();
 
   if (existing) {
+    const currentValue = (existing as Record<string, number | null>)[field] ?? 0;
     await supabaseAdmin
       .from('daily_publish_stats')
-      .update({ [field]: (existing[field] || 0) + increment, updated_at: new Date().toISOString() })
+      .update({ [field]: currentValue + increment, updated_at: new Date().toISOString() })
       .eq('id', existing.id);
   } else {
     await supabaseAdmin
