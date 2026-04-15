@@ -16,6 +16,7 @@ import {
   buildSeoAltText, getCategoryPostCounts, withTimeout
 } from './utils';
 import { buildTopicSelectionPrompt, buildContentBriefPrompt, buildWriteArticlePrompt, buildQualityCheckPrompt } from './prompts';
+import { pickRandomAuthor } from './authors';
 
 type Emit = (e: PipelineEvent) => void;
 
@@ -130,6 +131,9 @@ export async function writeArticle(batchId: string, topic: SelectedTopic, brief:
   const { data: recentPosts } = await supabaseAdmin
     .from('posts').select('title').order('created_at', { ascending: false }).limit(20);
 
+  // Pick author for this article (biased by category)
+  const articleAuthor = pickRandomAuthor(topic.suggested_category);
+
   const { system, user } = buildWriteArticlePrompt({
     topic: { keyword: topic.keyword, search_intent: topic.search_intent, news_angle: topic.news_angle },
     brief,
@@ -139,7 +143,9 @@ export async function writeArticle(batchId: string, topic: SelectedTopic, brief:
     phone: config.business_phone || '+63 917 123 4567',
     address: config.business_address || 'Valenzuela, Metro Manila',
     focusAreas: config.seo_focus_areas || 'Metro Manila, Philippines',
-    recentPostTitles: (recentPosts || []).map(p => p.title)
+    recentPostTitles: (recentPosts || []).map(p => p.title),
+    authorName: articleAuthor.name,
+    authorBio: `${articleAuthor.bio} — ${companyName}, Valenzuela, Metro Manila.`
   });
 
   try {
@@ -319,8 +325,10 @@ export async function generateImagesAndPublish(
   const finalMetaDescription = quality.optimized_meta_description || article.meta_description;
   const finalTags = quality.optimized_tags?.length ? quality.optimized_tags : article.suggested_tags;
 
-  // --- Save to DB ---
-  const authorBio = config.author_bio || `Marco is a signage specialist and project manager at ${companyName} in Valenzuela, Metro Manila. With hands-on experience in acrylic fabrication, stainless steel lettering, and LED installation, he shares practical insights from the workshop floor.`;
+  // --- Pick random author (biased by category) ---
+  const author = pickRandomAuthor(article.suggested_category || topic.suggested_category);
+  const authorName = config.author_name || author.name;
+  const authorBio = config.author_bio || `${author.bio} — ${companyName}, Valenzuela, Metro Manila.`;
 
   const { data: post, error } = await supabaseAdmin.from('posts').upsert({
     title: article.title,
@@ -337,7 +345,7 @@ export async function generateImagesAndPublish(
     lang: (await getConfig('content_language', 'en')) as 'en' | 'tl',
     category_id: categoryId,
     search_intent: article.search_intent || topic.search_intent,
-    author_name: config.author_name || 'Marco Reyes',
+    author_name: authorName,
     author_bio: authorBio,
     created_at: new Date().toISOString()
   }, { onConflict: 'slug' }).select().single();

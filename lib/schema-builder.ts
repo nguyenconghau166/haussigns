@@ -142,10 +142,10 @@ export function buildCombinedSchema(
     author: {
       '@type': 'Person',
       '@id': `${siteUrl}/#author`,
-      name: post.authorName || 'Marco Reyes',
+      name: post.authorName || `${companyName} Team`,
       url: `${siteUrl}/about`,
-      jobTitle: 'Signage Specialist & Project Manager',
-      description: post.authorBio || `Marco is a signage specialist and project manager at ${companyName} in Valenzuela, Metro Manila, with hands-on experience in acrylic fabrication, stainless steel lettering, and LED installation.`,
+      jobTitle: 'Signage Specialist',
+      description: post.authorBio || `Signage specialist at ${companyName} in Valenzuela, Metro Manila, with hands-on experience in fabrication and installation.`,
       worksFor: { '@id': `${siteUrl}/#organization` },
       knowsAbout: [
         'Commercial Signage',

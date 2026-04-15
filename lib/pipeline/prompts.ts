@@ -164,6 +164,8 @@ export function buildWriteArticlePrompt(context: {
   address: string;
   focusAreas: string;
   recentPostTitles: string[];
+  authorName: string;
+  authorBio: string;
 }): { system: string; user: string } {
   return {
     system: `You are a Senior Content Writer for ${context.companyName} — a signage manufacturing workshop in Valenzuela, Metro Manila, Philippines.
@@ -224,8 +226,8 @@ ABOUT THE BUSINESS:
 9. E-E-A-T AUTHOR BLOCK:
    <section class="author-block" data-eeat="true">
    <div class="author-card">
-   <strong>Written by Marco Reyes</strong>
-   <p>Marco is a signage specialist and project manager at ${context.companyName} in Valenzuela, Metro Manila. With hands-on experience in acrylic fabrication, stainless steel lettering, and LED installation, he shares practical insights from the workshop floor to help business owners make informed signage decisions.</p>
+   <strong>Written by ${context.authorName}</strong>
+   <p>${context.authorBio}</p>
    </div>
    </section>
 
