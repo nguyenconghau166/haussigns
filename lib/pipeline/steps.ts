@@ -12,7 +12,7 @@ import type { PipelineEvent, SelectedTopic, ContentBrief, WrittenArticle, Qualit
 import {
   getAllConfig, getConfig, generateContentResolved, parseJsonFromModel,
   logAgent, estimateWordCount, normalizeArticleHtml, selectCategoryId,
-  injectInternalLinksIntoHtml, buildFaqSchemaFromHtml, buildPhotorealisticPrompt,
+  injectInternalLinksIntoHtml, buildPhotorealisticPrompt,
   buildSeoAltText, getCategoryPostCounts, withTimeout
 } from './utils';
 import { buildTopicSelectionPrompt, buildContentBriefPrompt, buildWriteArticlePrompt, buildQualityCheckPrompt } from './prompts';
@@ -291,11 +291,14 @@ export async function generateImagesAndPublish(
     .replace(/<img(?![^>]*class=)(?![^>]*article-image)/g, '<img class="article-image"')
     .replace(/<img(?![^>]*loading=)/g, '<img loading="lazy" decoding="async"');
 
-  // --- FAQ schema ---
-  const faqSchema = buildFaqSchemaFromHtml(finalContent);
-  if (faqSchema && !/application\/ld\+json/i.test(finalContent)) {
-    finalContent += `<script type="application/ld+json">${faqSchema}</script>`;
-  }
+  // --- Clean up any JSON-LD / schema markup from content ---
+  // The blog page (app/blog/[slug]/page.tsx) generates schema via schema-builder.ts
+  // and sanitizeHtml strips <script> tags, so any schema in content becomes visible raw JSON.
+  // Remove: raw JSON-LD objects, <script> FAQ blocks, standalone schema text
+  finalContent = finalContent
+    .replace(/<script\s+type="application\/ld\+json">[^]*?<\/script>/gi, '')
+    .replace(/\s*\{"@context"\s*:\s*"https?:\/\/schema\.org"[\s\S]*?\}\s*$/g, '')
+    .replace(/\{"@context"\s*:\s*"https?:\/\/schema\.org"[^}]*"@type"\s*:\s*"FAQPage"[\s\S]*?\}\s*/g, '');
 
   // --- Internal links ---
   const { data: linkRules } = await supabaseAdmin

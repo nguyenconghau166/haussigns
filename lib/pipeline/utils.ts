@@ -155,6 +155,8 @@ export function normalizeArticleHtml(html: string): string {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/\n{3,}/g, '\n\n')
+    // Remove raw JSON-LD that AI may dump at the end of content
+    .replace(/\s*\{"@context"\s*:\s*"https?:\/\/schema\.org"[\s\S]*?\}\s*$/g, '')
     .trim();
 }
 
