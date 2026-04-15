@@ -304,7 +304,7 @@ export async function executePipelinePhase2(
     currentStage = 'Image Generator';
     emit({ agent: 'Image Generator', step: 'start', status: 'running', message: `Tạo ảnh cho: "${writerData.title}"...` });
     const imageResult = await withTimeout(
-      runAgentImageGenerator(batchId, nextTopic, writerData, seoData),
+      runAgentImageGenerator(batchId, nextTopic, writerData, seoData, strategist.data as any),
       timeouts.imageGeneratorTimeoutMs,
       `ImageGenerator(${writerData.title})`
     );
@@ -498,7 +498,7 @@ export async function executePipeline(options: ExecutePipelineOptions = {}): Pro
         currentStage = `Image Generator ${i + 1}/${topicsToProcess.length}`;
         emit({ agent: 'Image Generator', step: 'start', status: 'running', message: `Tạo ảnh minh họa cho: "${writerData.title}"...` });
         const imageResult = await withTimeout(
-          runAgentImageGenerator(batchId, topic, writerData, seoData),
+          runAgentImageGenerator(batchId, topic, writerData, seoData, strategist.data as any),
           timeouts.imageGeneratorTimeoutMs,
           `ImageGenerator(${writerData.title})`
         );

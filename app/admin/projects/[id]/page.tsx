@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/toast';
 import Image from 'next/image';
 import ImagePicker from '@/components/admin/ImagePicker';
 import RichTextEditor from '@/components/admin/RichTextEditor';
@@ -22,6 +23,7 @@ interface ProjectEditorProps {
 export default function ProjectEditor({ params }: ProjectEditorProps) {
     const { id } = use(params);
     const router = useRouter();
+    const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
     const isNew = id === 'new';
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
@@ -29,6 +31,14 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
     const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
     const [qaSignal, setQaSignal] = useState(0);
+
+    const [dirty, setDirty] = useState(false);
+
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [dirty]);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -47,6 +57,11 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
         type: 'Signage', // For AI context
         challenges: '' // For AI context
     });
+
+    const updateForm = (updates: Partial<typeof formData>) => {
+        setFormData(prev => ({ ...prev, ...updates }));
+        setDirty(true);
+    };
 
     useEffect(() => {
         if (!isNew) {
@@ -83,7 +98,7 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
 
     const handleAIWrite = async () => {
         if (!formData.title || !formData.client) {
-            alert('Please enter at least Title and Client name.');
+            toastWarning('Please enter at least Title and Client name.');
             return;
         }
 
@@ -114,11 +129,11 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
                 }));
                 setQaSignal((prev) => prev + 1);
             } else {
-                alert('Failed to generate content: ' + (data.error || 'Unknown error'));
+                toastError('Failed to generate content: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             console.error("AI Error", error);
-            alert('Error generating content');
+            toastError('Error generating content');
         } finally {
             setGeneratingAI(false);
         }
@@ -126,6 +141,14 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.title.trim()) {
+            toastWarning('Project title is required');
+            return;
+        }
+        if (!formData.client.trim()) {
+            toastWarning('Client name is required');
+            return;
+        }
         setSaving(true);
 
         try {
@@ -133,11 +156,24 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
             const method = isNew ? 'POST' : 'PUT';
 
             // Auto-generate slug if empty
+            const slug = formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             const payload = {
                 ...formData,
                 featured_image: formData.cover_image, // Sync for backward compatibility
-                slug: formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                slug
             };
+
+            // Check for duplicate slug on new projects
+            if (isNew) {
+                const checkRes = await fetch('/api/admin/projects');
+                const checkData = await checkRes.json();
+                const existing = (checkData.projects || []).find((p: any) => p.slug === slug);
+                if (existing) {
+                    toastError(`Slug "${slug}" đã tồn tại. Vui lòng đổi tiêu đề.`);
+                    setSaving(false);
+                    return;
+                }
+            }
 
             const res = await fetch(url, {
                 method,
@@ -146,10 +182,12 @@ export default function ProjectEditor({ params }: ProjectEditorProps) {
             });
 
             if (res.ok) {
+                setDirty(false);
+                toastSuccess(isNew ? 'Project created!' : 'Project saved!');
                 router.push('/admin/projects');
             } else {
                 const error = await res.json();
-                alert('Error saving project: ' + error.error);
+                toastError('Error saving project: ' + error.error);
             }
         } catch (error) {
             console.error('Error saving:', error);

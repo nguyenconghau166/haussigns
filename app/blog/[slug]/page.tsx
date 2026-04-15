@@ -25,12 +25,19 @@ type PostRecord = {
   created_at: string;
   updated_at: string | null;
   tags: string[] | null;
+  author_name: string | null;
+  author_bio: string | null;
   categories?: { name?: string; slug?: string } | Array<{ name?: string; slug?: string }> | null;
 };
 
 function normalizeCategoryName(post: PostRecord): string {
   if (Array.isArray(post.categories)) return post.categories[0]?.name || 'General';
   return post.categories?.name || 'General';
+}
+
+function normalizeCategorySlug(post: PostRecord): string | undefined {
+  if (Array.isArray(post.categories)) return post.categories[0]?.slug;
+  return post.categories?.slug;
 }
 
 function estimateReadingTime(content: string): number {
@@ -99,6 +106,8 @@ async function getPostBySlug(slug: string): Promise<PostRecord | null> {
       created_at,
       updated_at,
       tags,
+      author_name,
+      author_bio,
       categories (
         name,
         slug
@@ -180,6 +189,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const faqItems = extractFaqFromContent(contentHtml);
 
   // Build combined @graph schema (Article + BreadcrumbList + FAQPage + HowTo + LocalBusiness)
+  const categorySlug = normalizeCategorySlug(postData);
+
   const combinedSchema = buildCombinedSchema(
     {
       title: postData.title,
@@ -192,6 +203,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       created_at: postData.created_at,
       updated_at: postData.updated_at || undefined,
       categoryName,
+      categorySlug,
+      authorName: postData.author_name || undefined,
+      authorBio: postData.author_bio || undefined,
     },
     faqItems,
     {

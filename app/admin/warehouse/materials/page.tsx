@@ -7,6 +7,7 @@ import {
   Trash2, Search
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
 interface Material {
@@ -23,6 +24,7 @@ interface Material {
 }
 
 export default function MaterialsManagement() {
+  const { error: toastError, warning: toastWarning } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +63,7 @@ export default function MaterialsManagement() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.unit) {
-      alert('Tên và đơn vị tính là bắt buộc');
+      toastWarning('Tên và đơn vị tính là bắt buộc');
       return;
     }
 
@@ -90,7 +92,7 @@ export default function MaterialsManagement() {
       resetForm();
     } catch (error) {
       console.error(error);
-      alert('Lưu thất bại');
+      toastError('Lưu thất bại');
     }
   };
 

@@ -1,24 +1,24 @@
-'use client';
-
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ServiceGrid from '@/components/ServiceGrid';
-import { motion } from 'framer-motion';
 import { getServices } from '@/lib/dataService';
-import { useEffect, useState } from 'react';
+import { Metadata } from 'next';
 
-interface ServiceItem { id: string; name: string; title: string; slug: string; description: string; icon_name: string; gradient: string; bg: string; [key: string]: unknown; }
+export const revalidate = 300;
 
-export default function SignTypesPage() {
-  const [services, setServices] = useState<ServiceItem[]>([]);
+export const metadata: Metadata = {
+  title: 'Sign Types | Haus Signs - Custom Signage Fabrication in Metro Manila',
+  description:
+    'Explore our full range of signage types: Acrylic Build-Up, Stainless Steel, LED Neon, Panaflex Lightbox, Pylon Signs and more. Fabricated in-house in Metro Manila.',
+  openGraph: {
+    title: 'Sign Types | Haus Signs',
+    description:
+      'From classic Panaflex to modern LED Neons. We fabricate everything in-house in Metro Manila.',
+  },
+};
 
-  useEffect(() => {
-    async function loadData() {
-      const data = await getServices();
-      setServices(data as any[]);
-    }
-    loadData();
-  }, []);
+export default async function SignTypesPage() {
+  const services = await getServices() as any[];
 
   return (
     <main className="min-h-screen flex flex-col bg-white">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Save, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
 
@@ -21,6 +22,13 @@ interface PostForm {
   meta_title: string;
   meta_description: string;
   status: 'draft' | 'published' | 'archived';
+  category_id: string | null;
+}
+
+interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 const EMPTY_FORM: PostForm = {
@@ -31,39 +39,51 @@ const EMPTY_FORM: PostForm = {
   featured_image: '',
   meta_title: '',
   meta_description: '',
-  status: 'draft'
+  status: 'draft',
+  category_id: null
 };
 
 export default function PostEditorPage({ params }: PostEditorProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
 
   const [form, setForm] = useState<PostForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [categories, setCategories] = useState<BlogCategory[]>([]);
 
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const res = await fetch(`/api/admin/posts/${id}`);
-        const data = await res.json();
-        if (!res.ok || !data.post) {
-          throw new Error(data.error || 'Khong tim thay bai viet');
+        // Fetch post and categories in parallel
+        const [postRes, catRes] = await Promise.all([
+          fetch(`/api/admin/posts/${id}`),
+          fetch('/api/admin/categories?type=blog')
+        ]);
+        const postData = await postRes.json();
+        const catData = await catRes.json();
+
+        if (!postRes.ok || !postData.post) {
+          throw new Error(postData.error || 'Khong tim thay bai viet');
         }
 
         setForm({
-          title: data.post.title || '',
-          slug: data.post.slug || '',
-          content: data.post.content || '',
-          excerpt: data.post.excerpt || '',
-          featured_image: data.post.featured_image || '',
-          meta_title: data.post.meta_title || data.post.title || '',
-          meta_description: data.post.meta_description || data.post.excerpt || '',
-          status: data.post.status || 'draft'
+          title: postData.post.title || '',
+          slug: postData.post.slug || '',
+          content: postData.post.content || '',
+          excerpt: postData.post.excerpt || '',
+          featured_image: postData.post.featured_image || '',
+          meta_title: postData.post.meta_title || postData.post.title || '',
+          meta_description: postData.post.meta_description || postData.post.excerpt || '',
+          status: postData.post.status || 'draft',
+          category_id: postData.post.category_id || null
         });
+        setCategories(catData.categories || []);
       } catch (error) {
         console.error('Failed to load post:', error);
-        alert('Khong the tai bai viet. Vui long thu lai.');
+        toastError('Không thể tải bài viết. Vui lòng thử lại.');
         router.push('/admin/posts');
       } finally {
         setLoading(false);
@@ -73,15 +93,22 @@ export default function PostEditorPage({ params }: PostEditorProps) {
     fetchPost();
   }, [id, router]);
 
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
   const updateField = <K extends keyof PostForm>(key: K, value: PostForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
   };
 
   const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const savePost = async (nextStatus?: PostForm['status']) => {
     if (!form.title || !form.content) {
-      alert('Can co tieu de va noi dung.');
+      toastWarning('Cần có tiêu đề và nội dung.');
       return;
     }
 
@@ -105,14 +132,15 @@ export default function PostEditorPage({ params }: PostEditorProps) {
       }
 
       setForm((prev) => ({ ...prev, status: data.post?.status || payload.status, slug: data.post?.slug || payload.slug }));
-      alert(nextStatus === 'published' ? 'Da dang bai thanh cong.' : 'Da luu ban nhap.');
+      setDirty(false);
+      toastSuccess(nextStatus === 'published' ? 'Đã đăng bài thành công.' : 'Đã lưu bản nháp.');
 
       if (nextStatus === 'published') {
         router.push('/admin/posts');
       }
     } catch (error) {
       console.error('Failed to save post:', error);
-      alert('Luu bai that bai. Vui long thu lai.');
+      toastError('Lưu bài thất bại. Vui lòng thử lại.');
     } finally {
       setSaving(false);
     }
@@ -205,6 +233,20 @@ export default function PostEditorPage({ params }: PostEditorProps) {
               aspectRatio={16 / 9}
               maxWidth={1200}
             />
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+              <select
+                value={form.category_id || ''}
+                onChange={(e) => updateField('category_id', e.target.value || null)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="">Select category...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Excerpt</label>

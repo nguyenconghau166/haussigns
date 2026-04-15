@@ -19,6 +19,9 @@ export interface SchemaPostData {
   created_at: string;
   updated_at?: string;
   categoryName?: string;
+  categorySlug?: string;
+  authorName?: string;
+  authorBio?: string;
 }
 
 export interface SchemaSiteConfig {
@@ -139,16 +142,19 @@ export function buildCombinedSchema(
     author: {
       '@type': 'Person',
       '@id': `${siteUrl}/#author`,
-      name: `${companyName} Team`,
+      name: post.authorName || `${companyName} Team`,
       url: `${siteUrl}/about`,
       jobTitle: 'Signage & Branding Specialists',
+      description: post.authorBio || `Professional signage experts at ${companyName} with 10+ years experience in Metro Manila.`,
       worksFor: { '@id': `${siteUrl}/#organization` },
       knowsAbout: [
-        'Signage',
+        'Commercial Signage',
         'LED Signs',
-        'Acrylic Signs',
-        'Business Branding',
+        'Acrylic Fabrication',
+        'Stainless Steel Letters',
         'Sign Installation',
+        'Business Branding',
+        'Outdoor Advertising',
       ],
     },
     publisher: { '@id': `${siteUrl}/#organization` },
@@ -185,9 +191,15 @@ export function buildCombinedSchema(
         name: 'Blog',
         item: `${siteUrl}/blog`,
       },
+      ...(post.categoryName && post.categoryName !== 'General' ? [{
+        '@type': 'ListItem' as const,
+        position: 3,
+        name: post.categoryName,
+        item: `${siteUrl}/blog?category=${encodeURIComponent(post.categoryName)}`,
+      }] : []),
       {
         '@type': 'ListItem',
-        position: 3,
+        position: post.categoryName && post.categoryName !== 'General' ? 4 : 3,
         name: post.title,
         item: canonicalUrl,
       },

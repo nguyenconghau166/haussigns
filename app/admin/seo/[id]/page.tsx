@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getSeoPageDetails, analyzeUrlAction } from '@/app/actions/seo';
 import { ArrowLeft, RefreshCw, CheckCircle, AlertTriangle, Info, ExternalLink } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function SeoPageDetail() {
+    const { error: toastError } = useToast();
     const params = useParams();
     const id = params?.id as string;
 
@@ -38,7 +40,7 @@ export default function SeoPageDetail() {
             if (res.success) {
                 loadData();
             } else {
-                alert(res.error || "Analysis failed");
+                toastError(res.error || "Analysis failed");
             }
         } catch (error) {
             console.error(error);

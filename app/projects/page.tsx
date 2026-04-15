@@ -38,7 +38,7 @@ async function getProjects() {
         slug: project.slug,
         // Get the first category name, or default to 'General'
         category: project.project_categories?.[0]?.categories?.name || 'General',
-        image: project.featured_image || '/images/placeholder.jpg',
+        image: project.featured_image || 'https://images.unsplash.com/photo-1542382156909-9ae37b3f56fd?q=80&w=800&auto=format&fit=crop',
         location: project.location || 'Metro Manila',
         client: project.client,
         year: project.year,

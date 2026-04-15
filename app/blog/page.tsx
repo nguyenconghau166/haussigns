@@ -1,7 +1,19 @@
-import BlogCard from '@/components/BlogCard';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
+import { Metadata } from 'next';
+import BlogListClient from './BlogListClient';
+
+export const metadata: Metadata = {
+  title: 'Blog & Insights | Haus Signs - Signage Tips, Guides & Industry News',
+  description:
+    'Expert tips, industry trends, and technical guides for business owners in Metro Manila. Learn about signage materials, design trends, permits and maintenance.',
+  openGraph: {
+    title: 'SignsHaus Insights | Blog',
+    description:
+      'Expert tips, industry trends, and technical guides for business owners in Metro Manila.',
+  },
+};
 
 // Fallback data if DB is empty
 const MOCK_POSTS = [
@@ -55,7 +67,6 @@ async function getPosts() {
     }
 
     return data.map(post => {
-      // Handle category mapping safely
       const categoryName = Array.isArray(post.categories)
         ? post.categories[0]?.name
         : (post.categories as any)?.name || 'General';
@@ -75,10 +86,35 @@ async function getPosts() {
   }
 }
 
-export const revalidate = 60; // Revalidate every 60 seconds
+async function getBlogCategories(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('type', 'blog')
+      .order('name', { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      // Fallback to extracting from posts
+      return [];
+    }
+
+    return data.map(c => c.name);
+  } catch {
+    return [];
+  }
+}
+
+export const revalidate = 60;
 
 export default async function BlogPage() {
-  const posts = await getPosts();
+  const [posts, dbCategories] = await Promise.all([getPosts(), getBlogCategories()]);
+
+  // Use DB categories if available, otherwise extract from posts
+  const categoryNames = dbCategories.length > 0
+    ? dbCategories
+    : Array.from(new Set(posts.map(p => p.category).filter(Boolean)));
+  const categories = ['All', ...categoryNames];
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -97,33 +133,7 @@ export default async function BlogPage() {
           </div>
         </section>
 
-        {/* Blog Grid */}
-        <section className="container py-16 px-4 md:px-6">
-          <div className="mb-10 flex flex-col items-center justify-between gap-4 md:flex-row">
-            <h2 className="text-2xl font-bold text-slate-900">Latest Articles</h2>
-
-            {/* Simple Category Filter Placeholder */}
-            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-              {['All', 'Materials', 'Design', 'Permits', 'Maintenance'].map((cat) => (
-                <button
-                  key={cat}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${cat === 'All'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                    }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <BlogCard key={post.slug} post={post as any} />
-            ))}
-          </div>
-        </section>
+        <BlogListClient posts={posts} categories={categories} />
       </main>
 
       <Footer />

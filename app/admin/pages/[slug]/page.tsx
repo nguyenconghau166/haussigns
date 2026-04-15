@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Save, Eye, Loader2, ArrowLeft, Wand2, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 import RichEditor from '@/components/RichEditor';
 import ImageUploader from '@/components/ImageUploader';
@@ -16,6 +17,7 @@ import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel'
 export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState<any>(null);
@@ -37,6 +39,13 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
   const [aiBrief, setAiBrief] = useState(defaultAIBrief);
   const [seoPromptTemplate, setSeoPromptTemplate] = useState('');
   const [qaSignal, setQaSignal] = useState(0);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   useEffect(() => {
     fetch(`/api/admin/pages/${slug}`)
@@ -87,7 +96,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
       }
     } catch (err) {
       console.error(err);
-      alert('AI Generation failed');
+      toastError('AI Generation failed');
     } finally {
       setAiLoading(false);
     }
@@ -108,13 +117,17 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
       }
     } catch (err) {
       console.error(err);
-      alert('Image Generation failed');
+      toastError('Image Generation failed');
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleSave = async () => {
+    if (!title.trim()) {
+      toastError('Tiêu đề trang là bắt buộc');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/pages/${slug}`, {
@@ -131,13 +144,14 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Lỗi khi lưu!');
+        toastError(data.error || 'Lỗi khi lưu!');
         return;
       }
-      alert('Đã lưu thành công!');
+      setDirty(false);
+      toastSuccess('Đã lưu thành công!');
       router.refresh();
     } catch (error) {
-      alert('Lỗi khi lưu!');
+      toastError('Lỗi khi lưu!');
     } finally {
       setSaving(false);
     }
@@ -186,7 +200,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 <label className="block text-sm font-medium mb-1">Tiêu đề (H1)</label>
                 <input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
                   className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-amber-500/20 outline-none"
                 />
               </div>
@@ -194,7 +208,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 <label className="block text-sm font-medium mb-1">Nội dung chính</label>
                 <RichEditor
                   value={content}
-                  onChange={setContent}
+                  onChange={(v) => { setContent(v); setDirty(true); }}
                   placeholder="Nhập nội dung trang tại đây..."
                   className="w-full"
                 />

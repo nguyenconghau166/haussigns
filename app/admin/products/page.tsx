@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Edit, Trash, Eye, Loader2, Package, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import Image from 'next/image';
 
 interface Product {
@@ -16,6 +17,7 @@ interface Product {
 }
 
 export default function ProductsAdmin() {
+    const { error: toastError } = useToast();
     const [items, setItems] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +45,7 @@ export default function ProductsAdmin() {
             setItems(prev => prev.filter(i => i.id !== id));
         } catch (error) {
             console.error(error);
-            alert("Failed to delete");
+            toastError("Failed to delete");
         }
     }
 

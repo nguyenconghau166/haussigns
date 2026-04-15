@@ -138,18 +138,18 @@ export default function PipelineHistoryPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Lịch sử Pipeline</h1>
-                    <p className="text-slate-500 mt-1">Xem lại các lần chạy AI Pipeline và kết quả</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Lịch sử Pipeline</h1>
+                    <p className="text-slate-500 mt-1 text-sm">Xem lại các lần chạy AI Pipeline và kết quả</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
                     {['all', 'completed', 'failed', 'partial'].map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
                             className={cn(
-                                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
                                 filter === f
                                     ? 'bg-amber-100 text-amber-700 border border-amber-200'
                                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -214,7 +214,7 @@ export default function PipelineHistoryPage() {
                                     </div>
 
                                     {/* Stats */}
-                                    <div className="flex items-center gap-6 text-center">
+                                    <div className="hidden sm:flex items-center gap-6 text-center">
                                         <div>
                                             <p className="text-lg font-bold text-slate-900">{run.topics_found}</p>
                                             <p className="text-[10px] text-slate-400">Nghiên cứu</p>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, Search, Edit, Trash2, MapPin, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
 import Image from 'next/image';
 
 interface Project {
@@ -22,6 +23,7 @@ interface Project {
 }
 
 export default function AdminProjectsPage() {
+    const { error: toastError } = useToast();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -53,7 +55,7 @@ export default function AdminProjectsPage() {
             if (res.ok) {
                 setProjects(projects.filter(p => p.id !== id));
             } else {
-                alert('Failed to delete project');
+                toastError('Failed to delete project');
             }
         } catch (error) {
             console.error('Error deleting project:', error);
@@ -67,13 +69,13 @@ export default function AdminProjectsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Quản lý Dự án</h1>
-                    <p className="text-slate-500 mt-1">Danh sách các dự án đã thực hiện</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Quản lý Dự án</h1>
+                    <p className="text-slate-500 mt-1 text-sm">Danh sách các dự án đã thực hiện</p>
                 </div>
-                <Link href="/admin/projects/new">
-                    <Button className="bg-slate-900 hover:bg-slate-800 text-white">
+                <Link href="/admin/projects/new" className="w-full sm:w-auto">
+                    <Button className="bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         Thêm Dự án mới
                     </Button>
@@ -86,7 +88,7 @@ export default function AdminProjectsPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                         placeholder="Tìm kiếm dự án, khách hàng..."
-                        className="pl-10 max-w-md border-slate-200"
+                        className="pl-10 w-full sm:max-w-md border-slate-200"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />

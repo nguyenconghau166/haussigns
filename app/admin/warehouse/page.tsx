@@ -8,6 +8,7 @@ import {
   AlertTriangle, Boxes
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
 interface ImportReceipt {
@@ -32,6 +33,7 @@ interface Material {
 }
 
 export default function WarehouseDashboard() {
+  const { error: toastError } = useToast();
   const [receipts, setReceipts] = useState<ImportReceipt[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export default function WarehouseDashboard() {
       setMaterials(materialsData.materials || []);
     } catch (error) {
       console.error(error);
-      alert('Xóa thất bại');
+      toastError('Xóa thất bại');
     }
   };
 

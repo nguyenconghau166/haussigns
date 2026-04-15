@@ -1,5 +1,6 @@
 import AdminSidebar from '@/components/admin/Sidebar';
 import { AuthProvider } from '@/components/admin/AuthProvider';
+import { ToastProvider } from '@/components/ui/toast';
 import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -16,12 +17,14 @@ export default function AdminLayout({
 }) {
   return (
     <AuthProvider>
-      <div className={`flex min-h-screen bg-slate-50 font-sans ${inter.className}`}>
-        <AdminSidebar />
-        <main className="flex-1 ml-64 p-8 overflow-y-auto transition-all duration-300">
-          {children}
-        </main>
-      </div>
+      <ToastProvider>
+        <div className={`flex min-h-screen bg-slate-50 font-sans ${inter.className}`}>
+          <AdminSidebar />
+          <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto transition-all duration-300">
+            {children}
+          </main>
+        </div>
+      </ToastProvider>
     </AuthProvider>
   );
 }

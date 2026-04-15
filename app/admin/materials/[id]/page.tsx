@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Save, ArrowLeft, Loader2, Image as ImageIcon, Wand2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/toast';
 import RichEditor from '@/components/RichEditor';
 import ImagePicker from '@/components/admin/ImagePicker';
 import { defaultAIBrief } from '@/components/admin/AIBriefPanel';
@@ -14,9 +15,18 @@ import NonBlogSeoTemplatePanel from '@/components/admin/NonBlogSeoTemplatePanel'
 export default function EditMaterial({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { success: toastSuccess, error: toastError } = useToast();
   const isNew = id === 'create' || id === 'new';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -70,6 +80,10 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
   }, [id, isNew]);
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      toastError('Tên vật liệu là bắt buộc');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -85,6 +99,18 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
         cons
       };
 
+      // Check for duplicate slug on new materials
+      if (isNew) {
+        const checkRes = await fetch('/api/admin/materials');
+        const checkData = await checkRes.json();
+        const existing = (checkData.materials || []).find((m: any) => m.slug === payload.slug);
+        if (existing) {
+          toastError(`Slug "${payload.slug}" đã tồn tại. Vui lòng đổi tên.`);
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await fetch(isNew ? '/api/admin/materials' : `/api/admin/materials/${id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -92,17 +118,18 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Lỗi khi lưu!');
+        toastError(data.error || 'Lỗi khi lưu!');
         return;
       }
-      alert(isNew ? 'Tạo mới thành công!' : 'Lưu thành công!');
+      setDirty(false);
+      toastSuccess(isNew ? 'Tạo mới thành công!' : 'Lưu thành công!');
       if (isNew) {
         router.push('/admin/materials');
       } else {
         router.refresh();
       }
     } catch (error) {
-      alert('Lỗi khi lưu!');
+      toastError('Lỗi khi lưu!');
     } finally {
       setSaving(false);
     }
@@ -146,7 +173,7 @@ export default function EditMaterial({ params }: { params: Promise<{ id: string 
         setQaSignal((prev) => prev + 1);
       }
     } catch (e) {
-      alert('AI Error');
+      toastError('AI Error');
     } finally {
       setAiLoading(false);
     }

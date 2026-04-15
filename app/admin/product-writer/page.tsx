@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PenTool, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 import AIBriefPanel, { defaultAIBrief } from '@/components/admin/AIBriefPanel';
 import ContentQualityCard from '@/components/admin/ContentQualityCard';
 
@@ -62,6 +63,7 @@ interface ProductResult {
 }
 
 export default function ProductWriterPage() {
+    const { error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ProductResult | null>(null);
     const [copied, setCopied] = useState(false);
@@ -99,11 +101,11 @@ export default function ProductWriterPage() {
                 setResult(data.data);
                 setQaSignal((prev) => prev + 1);
             } else {
-                alert(data.error || 'Failed to generate');
+                toastError(data.error || 'Failed to generate');
             }
         } catch (error) {
             console.error(error);
-            alert('Error generating content');
+            toastError('Error generating content');
         } finally {
             setLoading(false);
         }

@@ -109,14 +109,14 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Tổng quan hệ thống AI viết bài tự động</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-slate-500 mt-1 text-sm sm:text-base">Tổng quan hệ thống AI viết bài tự động</p>
         </div>
         <Link
           href="/admin/ai-center"
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-200"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/25 transition-all duration-200 text-sm sm:text-base w-full sm:w-auto"
         >
           <Play className="h-4 w-4" />
           Chạy AI Pipeline
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               { step: 1, name: 'Nghiên cứu', desc: 'Từ khóa & tin tức', icon: Search, color: 'purple' },
               { step: 2, name: 'Đánh giá', desc: 'Lọc & chấm điểm', icon: TrendingUp, color: 'blue' },
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
             ].map((agent, idx) => (
               <div key={agent.step} className="relative">
                 <div className={cn(
-                  'flex flex-col items-center text-center p-4 rounded-xl border-2 border-dashed',
+                  'flex flex-col items-center text-center p-3 sm:p-4 rounded-xl border-2 border-dashed',
                   `border-${agent.color}-200 bg-${agent.color}-50/50`
                 )} style={{
                   borderColor: agent.color === 'purple' ? '#e9d5ff' : agent.color === 'blue' ? '#bfdbfe' : agent.color === 'amber' ? '#fde68a' : '#a7f3d0',
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
                   <span className="text-[11px] text-slate-500 mt-0.5">{agent.desc}</span>
                 </div>
                 {idx < 3 && (
-                  <div className="absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
+                  <div className="hidden sm:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
                     <ArrowRight className="h-4 w-4 text-slate-300" />
                   </div>
                 )}

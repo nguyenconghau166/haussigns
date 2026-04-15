@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
 interface Material {
@@ -28,6 +29,7 @@ interface ReceiptItem {
 
 export default function CreateImportReceipt() {
   const router = useRouter();
+  const { error: toastError, warning: toastWarning } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,7 +99,7 @@ export default function CreateImportReceipt() {
 
   const handleSave = async () => {
     if (validItems.length === 0) {
-      alert('Vui lòng thêm ít nhất 1 vật tư hợp lệ (có chọn vật tư, số lượng và đơn giá > 0)');
+      toastWarning('Vui lòng thêm ít nhất 1 vật tư hợp lệ (có chọn vật tư, số lượng và đơn giá > 0)');
       return;
     }
 
@@ -116,14 +118,14 @@ export default function CreateImportReceipt() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Lưu thất bại');
+        toastError(data.error || 'Lưu thất bại');
         return;
       }
 
       router.push('/admin/warehouse');
     } catch (error) {
       console.error(error);
-      alert('Lỗi khi lưu phiếu nhập');
+      toastError('Lỗi khi lưu phiếu nhập');
     } finally {
       setSaving(false);
     }

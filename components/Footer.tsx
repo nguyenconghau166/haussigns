@@ -148,7 +148,7 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="container pt-8 mt-12 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="container pt-8 pb-8 mt-12 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-slate-500 text-sm">
           © {new Date().getFullYear()} Haus Signs. All rights reserved.
         </p>

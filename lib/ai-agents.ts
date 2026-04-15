@@ -115,6 +115,8 @@ export interface WriterOutput {
   suggested_tags: string[];
   quality_score?: number;
   quality_notes?: string[];
+  search_intent?: string;
+  suggested_category?: string;
 }
 
 export interface SeoOptimizerOutput {
@@ -140,6 +142,10 @@ interface ContentBrief {
   }>;
   people_also_ask: string[];
   conversion_offer: string;
+  suggested_category?: string;
+  search_intent?: string;
+  faq_questions?: string[];
+  comparison_table_topic?: string;
 }
 
 interface ContentQualityReport {
@@ -185,6 +191,102 @@ async function getAllConfig(): Promise<Record<string, string>> {
   const config: Record<string, string> = {};
   data?.forEach((row: { key: string; value: string }) => { config[row.key] = row.value; });
   return config;
+}
+
+// =============================================
+// Category Selection for Pipeline
+// =============================================
+const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
+  'signage-materials': ['acrylic', 'stainless', 'aluminum', 'vinyl', 'tarpaulin', 'led module', 'material', 'foam board', 'pvc', 'polycarbonate'],
+  'installation-guides': ['install', 'mount', 'how to', 'step by step', 'setup', 'wiring', 'anchor', 'drill'],
+  'maintenance-care': ['clean', 'maintain', 'repair', 'weatherproof', 'rust', 'uv protection', 'restore'],
+  'design-inspiration': ['design', 'trend', 'creative', 'style', 'color', 'typography', 'brand identity', 'aesthetic'],
+  'pricing-cost-guides': ['price', 'cost', 'budget', 'roi', 'compare', 'cheap', 'expensive', 'quote', 'php'],
+  'permits-regulations': ['permit', 'regulation', 'dpwh', 'lgu', 'building code', 'fire safety', 'ordinance', 'legal'],
+  'industry-spotlight': ['retail', 'restaurant', 'cafe', 'hospital', 'real estate', 'corporate', 'sector', 'industry'],
+  'project-showcases': ['project', 'case study', 'showcase', 'before after', 'client', 'portfolio', 'testimonial'],
+  'business-tips': ['marketing', 'storefront', 'foot traffic', 'branding', 'customer', 'sales', 'business'],
+  'technology-innovation': ['led', 'digital signage', 'solar', 'smart', 'technology', 'innovation', 'neon', 'programmable'],
+};
+
+async function selectCategoryForTopic(
+  topic: EvaluatedTopic,
+  brief?: ContentBrief,
+  article?: WriterOutput
+): Promise<string | null> {
+  try {
+    // Fetch all blog categories
+    const { data: categories } = await supabaseAdmin
+      .from('categories')
+      .select('id, slug')
+      .eq('type', 'blog');
+
+    if (!categories || categories.length === 0) return null;
+
+    const categoryMap = new Map(categories.map(c => [c.slug, c.id]));
+
+    // 1. If the brief or article suggests a category, use it
+    const suggested = brief?.suggested_category || article?.suggested_category;
+    if (suggested && categoryMap.has(suggested)) {
+      return categoryMap.get(suggested) || null;
+    }
+
+    // 2. Keyword matching from topic + brief
+    const searchText = [
+      topic.keyword,
+      topic.news_angle,
+      ...(topic.expanded_keywords || []),
+      brief?.primary_keyword || '',
+      ...(brief?.secondary_keywords || []),
+    ].join(' ').toLowerCase();
+
+    let bestMatch: string | null = null;
+    let bestScore = 0;
+
+    for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORD_MAP)) {
+      if (!categoryMap.has(slug)) continue;
+      const score = keywords.reduce((acc, kw) => acc + (searchText.includes(kw) ? 1 : 0), 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = slug;
+      }
+    }
+
+    if (bestMatch && bestScore >= 2) {
+      return categoryMap.get(bestMatch) || null;
+    }
+
+    // 3. Balanced rotation fallback: pick category with fewest posts in last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: postCounts } = await supabaseAdmin
+      .from('posts')
+      .select('category_id')
+      .gte('created_at', thirtyDaysAgo)
+      .not('category_id', 'is', null);
+
+    const countMap = new Map<string, number>();
+    categories.forEach(c => countMap.set(c.id, 0));
+    (postCounts || []).forEach(p => {
+      if (p.category_id && countMap.has(p.category_id)) {
+        countMap.set(p.category_id, (countMap.get(p.category_id) || 0) + 1);
+      }
+    });
+
+    // Find category with lowest count
+    let minCount = Infinity;
+    let minCategoryId: string | null = null;
+    for (const [catId, count] of countMap.entries()) {
+      if (count < minCount) {
+        minCount = count;
+        minCategoryId = catId;
+      }
+    }
+
+    return minCategoryId;
+  } catch (error) {
+    console.error('Error selecting category for topic:', error);
+    return null;
+  }
 }
 
 function parseJsonFromModel<T>(raw: string | null, fallback: T): T {
@@ -850,49 +952,66 @@ export async function runAgentContentWriter(batchId: string, topic: EvaluatedTop
     }));
 
   const htmlFormatGuide = [
-    'KHÔNG DÙNG Markdown (##, **, *, -, ```, >). TUYỆT ĐỐI KHÔNG.',
+    'DO NOT use Markdown (##, **, *, -, ```, >). ABSOLUTELY NO MARKDOWN.',
     '',
-    '=== CẤU TRÚC AIO CITATION-FIRST (BẮT BUỘC THEO THỨ TỰ) ===',
-    '  1. H1 title (duy nhất 1 cái)',
-    '  2. Hook intro 2-3 câu (đoạn p đầu tiên, data-speakable="true")',
+    '=== AIO CITATION-FIRST STRUCTURE (MANDATORY ORDER — SEO 2026) ===',
+    '  1. H1 title (exactly one)',
+    '  2. Hook intro 2-3 sentences (first <p> tag, data-speakable="true")',
     '  3. KEY TAKEAWAYS BOX: <div class="key-takeaways" data-speakable="true"><h2>Key Takeaways</h2><ul><li>...</li></ul></div>',
-    '     → CHÍNH XÁC 4-6 bullets, MỖI bullet PHẢI có ít nhất 1 CON SỐ CỤ THỂ (PHP, ngày, %, kích thước, số lượng)',
-    '     → Ví dụ tốt: "LED channel letters cost PHP 8,000-15,000 per letter and last 50,000+ hours"',
-    '     → Ví dụ XẤU: "LED signs are a good investment" (KHÔNG CÓ SỐ)',
-    '  4. QUICK ANSWER: <div class="quick-answer" data-speakable="true"><p>...</p></div>',
-    '     → CHÍNH XÁC 50-70 từ, TỰ TRẢ LỜI ĐƯỢC không cần context',
-    '     → Phải trả lời trực tiếp câu hỏi chính của bài viết',
-    '     → Phải chứa ít nhất 2 data points cụ thể (giá, thời gian, kích thước...)',
-    '  5. MỤC LỤC: <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#anchor">...</a></li></ol></nav>',
-    '  6. NỘI DUNG CHÍNH: 6-8 sections, mỗi section có <h2 id="anchor-id">',
-    '  7. COMPARISON TABLE: ít nhất 1 bảng so sánh <table> với thead/tbody',
+    '     → EXACTLY 4-6 bullets, EACH bullet MUST contain at least 1 SPECIFIC NUMBER (PHP, days, %, dimensions, quantities)',
+    '     → Good example: "LED channel letters cost PHP 8,000-15,000 per letter and last 50,000+ hours"',
+    '     → BAD example: "LED signs are a good investment" (NO NUMBERS)',
+    '  4. QUICK ANSWER (Answer-First Block): <div class="quick-answer" data-speakable="true"><p>...</p></div>',
+    '     → EXACTLY 50-70 words, SELF-CONTAINED answer that works without context',
+    '     → Must directly answer the main question of the article',
+    '     → Must contain at least 2 specific data points (price, time, size...)',
+    '  5. TABLE OF CONTENTS: <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#anchor">...</a></li></ol></nav>',
+    '  6. MAIN CONTENT: 6-8 sections, each with <h2 id="anchor-id">',
+    '  7. COMPARISON TABLE: at least 1 comparison <table> with thead/tbody',
+    '     → Columns MUST include: Option/Material, Price Range (PHP), Durability, Best For, Rating (★)',
+    `     → Topic for comparison: "${brief.comparison_table_topic || 'Compare top options for this signage type'}"`,
     '  8. DECISION CHECKLIST: <div class="decision-checklist"><h2 id="...">How to Choose...</h2><ol><li>...</li></ol></div>',
     '  9. CASE STUDY: <section class="case-study"><h2 id="...">Our Experience / Case Study</h2>...</section>',
-    '  10. FAQ: <section data-faq="true"><h2 id="faq">Frequently Asked Questions</h2> mỗi Q&A là <h3> + <p>',
-    '  11. KẾT LUẬN + CTA',
+    '  10. FAQ: <section data-faq="true"><h2 id="faq">Frequently Asked Questions</h2>',
+    '      → 3-5 questions, each as <h3>Question?</h3> followed by <p>Answer</p>',
+    brief.faq_questions?.length ? `      → USE THESE QUESTIONS: ${brief.faq_questions.map(q => `"${q}"`).join(', ')}` : '',
+    '  11. CONCLUSION + CTA',
+    '  12. E-E-A-T AUTHOR BLOCK: <section class="author-block" data-eeat="true">',
+    `      <div class="author-card"><strong>${companyName} Team</strong>`,
+    '      <p>Professional signage experts with 10+ years experience in commercial signage across Metro Manila.</p>',
+    '      <p>Specializing in LED signs, acrylic fabrication, stainless steel letters, and full-service sign installation.</p></div></section>',
     '',
-    '=== QUY TẮC AIO — RẤT QUAN TRỌNG ===',
-    'ÍT NHẤT 4/6 HEADING H2 PHẢI LÀ CÂU HỎI (kết thúc bằng ?)',
-    '  → Ví dụ tốt: "How Much Does Acrylic Signage Cost in Metro Manila?"',
-    '  → Ví dụ XẤU: "Acrylic Signage Pricing" (KHÔNG PHẢI CÂU HỎI)',
-    'MỖI SECTION dưới H2 là một ANSWER BLOCK 120-180 từ:',
-    '  → 1-2 câu ĐẦU TIÊN phải trả lời TRỰC TIẾP heading (inverted pyramid)',
-    '  → Sau đó mới giải thích chi tiết, ví dụ, data',
-    'ENTITY DENSITY: Mỗi 150-200 từ PHẢI có ít nhất 1 data point cụ thể:',
-    '  → Giá PHP, thời gian, kích thước, %, số lượng, khoảng cách',
-    '  → Ví dụ: "Installation typically takes 3-5 business days for signs under 2 sqm"',
-    'DEFINITE LANGUAGE: Tránh hedging words (may, might, could, some, various)',
-    '  → Dùng: "costs PHP 12,000" thay vì "may cost around PHP 12,000"',
+    '=== AIO RULES — CRITICAL ===',
+    'AT LEAST 4/6 H2 HEADINGS MUST BE QUESTIONS (ending with ?)',
+    '  → Good: "How Much Does Acrylic Signage Cost in Metro Manila?"',
+    '  → BAD: "Acrylic Signage Pricing" (NOT A QUESTION)',
+    'EACH SECTION under H2 is an ANSWER BLOCK of 120-180 words:',
+    '  → First 1-2 sentences MUST DIRECTLY ANSWER the heading (inverted pyramid)',
+    '  → Then expand with details, examples, data',
+    'ENTITY DENSITY: Every 150-200 words MUST have at least 1 specific data point:',
+    '  → PHP prices, timeframes, dimensions, percentages, quantities, distances',
+    '  → Example: "Installation typically takes 3-5 business days for signs under 2 sqm"',
+    'DEFINITE LANGUAGE: Avoid hedging words (may, might, could, some, various)',
+    '  → Use: "costs PHP 12,000" NOT "may cost around PHP 12,000"',
+    'SEMANTIC SEO: Do NOT stuff keywords. Use natural language, synonyms, related entities.',
+    '  → Focus on topical authority, not keyword density',
     '',
-    '=== QUY TẮC HTML ===',
-    'Dùng id cho MỌI h2 (ví dụ: <h2 id="cost-breakdown">)',
-    'Dùng thẻ p cho mỗi đoạn văn — MỖI ĐOẠN TỐI ĐA 2-4 CÂU',
-    'Dùng thẻ ul/li hoặc ol/li cho danh sách',
-    'Dùng thẻ strong và em cho nhấn mạnh',
-    'Dùng thẻ blockquote cho trích dẫn',
-    'Dùng thẻ table/thead/tbody/tr/th/td cho bảng giá và so sánh',
-    'Chèn tối thiểu 3 internal links bằng thẻ <a href="/blog/...">anchor tự nhiên</a>',
-    'Dùng data-speakable="true" cho key-takeaways, quick-answer, và intro paragraph',
+    '=== SEARCH INTENT ADAPTATION ===',
+    `SEARCH INTENT FOR THIS ARTICLE: "${brief.search_intent || brief.user_intent || 'informational'}"`,
+    '  → If informational: focus on education, definitions, how-to steps, expert explanations',
+    '  → If commercial: focus on comparisons, pros/cons, "best for" recommendations, pricing ranges',
+    '  → If transactional: focus on pricing tables, CTAs, contact info, "get a quote" sections',
+    '  → If comparison: focus on side-by-side tables, winner picks, scoring criteria',
+    '',
+    '=== HTML RULES ===',
+    'Use id on EVERY h2 (e.g., <h2 id="cost-breakdown">)',
+    'Use <p> for every paragraph — MAX 2-4 SENTENCES per paragraph',
+    'Use <ul>/<li> or <ol>/<li> for lists',
+    'Use <strong> and <em> for emphasis',
+    'Use <blockquote> for quotes',
+    'Use <table>/<thead>/<tbody>/<tr>/<th>/<td> for pricing and comparison tables',
+    'Insert at least 3 internal links using <a href="/blog/...">natural anchor text</a>',
+    'Use data-speakable="true" for key-takeaways, quick-answer, and intro paragraph',
   ].map(line => `- ${line}`).join('\n');
 
   const plannedInlineImages = clampNumber(
@@ -901,64 +1020,67 @@ export async function runAgentContentWriter(batchId: string, topic: EvaluatedTop
   );
   const plannedInlineImageRange = `${Math.max(1, plannedInlineImages - 1)}-${plannedInlineImages + 1}`;
 
-  const systemPrompt = customInstruction || `Bạn là Senior Content Writer cho ${companyName}.
+  const systemPrompt = customInstruction || `You are a Senior Content Writer for ${companyName}, a signage company in the Philippines.
 
-VỀ DOANH NGHIỆP:
-- Tên: ${companyName}
-- Mô tả: ${description}
-- Dịch vụ: ${services}
-- Điện thoại: ${phone}
-- Địa chỉ: ${address}
-- Khu vực phục vụ: ${focusAreas}
-${competitors ? `- Đối thủ: ${competitors}` : ''}
+ABOUT THE BUSINESS:
+- Name: ${companyName}
+- Description: ${description}
+- Services: ${services}
+- Phone: ${phone}
+- Address: ${address}
+- Service areas: ${focusAreas}
+${competitors ? `- Competitors: ${competitors}` : ''}
 
-NHIỆM VỤ:
-Viết bài SEO chuyên nghiệp về "${topic.keyword}" với góc nhìn: "${topic.news_angle}"
+MISSION:
+Write a professional SEO article about "${topic.keyword}" with the angle: "${topic.news_angle}"
 
-CONTENT BRIEF (PHẢI TUÂN THỦ):
+CONTENT BRIEF (MUST FOLLOW):
 ${JSON.stringify(brief, null, 2)}
 
-INTERNAL LINKS CÓ THỂ DÙNG:
-${internalLinkCandidates.length ? JSON.stringify(internalLinkCandidates, null, 2) : 'Không có dữ liệu'}
+INTERNAL LINKS TO USE:
+${internalLinkCandidates.length ? JSON.stringify(internalLinkCandidates, null, 2) : 'No data available'}
 
-YÊU CẦU BÀI VIẾT:
-1. Tối thiểu ${minWordsNumber} từ
-2. Ngôn ngữ: ${langMap[language] || langMap['en']}
-3. Giọng văn: ${tone}
-4. CẤU TRÚC AIO-Optimized (Citation-First Architecture)
-5. E-E-A-T SIGNALS quan trọng
+ARTICLE REQUIREMENTS:
+1. Minimum ${minWordsNumber} words
+2. Language: ${langMap[language] || langMap['en']}
+3. Tone: ${tone}
+4. STRUCTURE: AIO-Optimized (Citation-First Architecture) — SEO 2026 Format
+5. E-E-A-T SIGNALS are critical — demonstrate Experience, Expertise, Authority, Trust
 6. CTA: "${cta}"
-7. Từ khóa chính "${brief.primary_keyword || topic.keyword}" xuất hiện 4-6 lần tự nhiên
+7. Primary keyword "${brief.primary_keyword || topic.keyword}" appears 4-6 times naturally
+8. Use SEMANTIC SEO — related entities, synonyms, topic depth — NOT keyword stuffing
 
-8. ẢNH MINH HỌA — RẤT QUAN TRỌNG:
-   - Chèn ${plannedInlineImageRange} placeholder ảnh
-   - Cú pháp: <!-- IMAGE: detailed English description for AI image generation, include camera angle, lighting, specific scene details, Canon EOS R5, 35mm lens | Short caption for readers -->
-   - Ví dụ: <!-- IMAGE: wide-angle photo of a modern LED channel letter sign installed on a glass storefront facade in BGC Taguig, shot during golden hour with warm natural lighting, Canon EOS R5, 35mm lens, shallow depth of field, photorealistic commercial photography | LED channel letter signage installation in BGC -->
-   - PHẢI mô tả chi tiết: góc chụp, ánh sáng, vật liệu, địa điểm cụ thể, loại camera
-   - Phần trước | là prompt tiếng Anh chi tiết cho AI tạo ảnh giống thật nhất
-   - Phần sau | là chú thích ngắn gọn hiển thị cho người đọc
+9. INLINE IMAGES — VERY IMPORTANT:
+   - Insert ${plannedInlineImageRange} image placeholders
+   - Syntax: <!-- IMAGE: detailed English description for AI image generation, include camera angle, lighting, specific scene details, Canon EOS R5, 35mm lens | Short caption for readers -->
+   - Example: <!-- IMAGE: wide-angle photo of a modern LED channel letter sign installed on a glass storefront facade in BGC Taguig, shot during golden hour with warm natural lighting, Canon EOS R5, 35mm lens, shallow depth of field, photorealistic commercial photography | LED channel letter signage installation in BGC -->
+   - MUST describe in detail: camera angle, lighting, materials, specific location, camera type
+   - Part before | is a detailed English prompt for photorealistic AI image generation
+   - Part after | is a short caption for readers
 
-BÀI VIẾT GẦN ĐÂY (TRÁNH TRÙNG):
-${recentPosts?.map(p => `- ${p.title}`).join('\n') || 'Chưa có bài nào'}
+RECENT ARTICLES (AVOID OVERLAP):
+${recentPosts?.map(p => `- ${p.title}`).join('\n') || 'No articles yet'}
 
-ĐỊNH DẠNG NỘI DUNG:
-Viết nội dung dạng HTML sạch, giống một bài báo xuất bản chuyên nghiệp.
+CONTENT FORMAT:
+Write content as clean HTML, like a professionally published article.
 ${htmlFormatGuide}
 
 OUTPUT FORMAT (JSON only, no markdown wrapping):
 {
-  "title": "Tiêu đề bài viết",
-  "content": "Nội dung bài viết đầy đủ bằng HTML sạch (KHÔNG markdown)",
+  "title": "Article title",
+  "content": "Full article content in clean HTML (NO markdown)",
   "meta_title": "SEO title (max 60 chars)",
   "meta_description": "SEO description (max 155 chars)",
-  "excerpt": "Tóm tắt bài viết (max 200 chars)",
-  "suggested_tags": ["tag1", "tag2", "tag3"]
+  "excerpt": "Article summary (max 200 chars)",
+  "suggested_tags": ["tag1", "tag2", "tag3"],
+  "search_intent": "informational|commercial|transactional|comparison",
+  "suggested_category": "category-slug from: signage-materials, installation-guides, maintenance-care, design-inspiration, pricing-cost-guides, permits-regulations, industry-spotlight, project-showcases, business-tips, technology-innovation"
 }`;
 
   try {
     const draftResult = await generateContentResolved(
       systemPrompt,
-      `Viết bài chuyên sâu cho từ khóa: "${topic.keyword}" - Lý do được chọn: ${topic.reason}`,
+      `Write an in-depth article for the keyword: "${topic.keyword}" - Reason selected: ${topic.reason}`,
       model,
       'gemini'
     );
@@ -1124,7 +1246,8 @@ export async function runAgentImageGenerator(
   batchId: string,
   topic: EvaluatedTopic,
   article: WriterOutput,
-  seoData?: SeoOptimizerOutput
+  seoData?: SeoOptimizerOutput,
+  brief?: ContentBrief
 ): Promise<AgentResult> {
   await logAgent(batchId, 'Image Generator', `Tạo ảnh cho: "${article.title}"`, 'running');
 
@@ -1398,6 +1521,11 @@ export async function runAgentImageGenerator(
       internalLinksInserted = linked.inserted;
     }
 
+    // Select category for this post
+    const categoryId = await selectCategoryForTopic(topic, brief, article);
+    const companyName = config.company_name || 'SignsHaus';
+    const authorBio = config.author_bio || `Professional signage experts at ${companyName} with 10+ years experience in Metro Manila.`;
+
     const { data: post, error } = await supabaseAdmin.from('posts').upsert({
       title: article.title,
       slug: slug,
@@ -1411,6 +1539,10 @@ export async function runAgentImageGenerator(
       seo_score: article.quality_score || 86,
       tags: finalTags,
       lang: (await getConfig('content_language', 'en')) as 'en' | 'tl',
+      category_id: categoryId,
+      search_intent: article.search_intent || brief?.search_intent || brief?.user_intent || null,
+      author_name: `${companyName} Team`,
+      author_bio: authorBio,
       created_at: new Date().toISOString()
     }, { onConflict: 'slug' }).select().single();
 

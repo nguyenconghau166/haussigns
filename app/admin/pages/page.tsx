@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { FileText, Edit, Eye, Loader2, Plus, AlertTriangle, CheckCircle, Copy } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/toast';
 
 interface Page {
   id: string;
@@ -38,6 +39,7 @@ ON CONFLICT (slug) DO NOTHING;
 `;
 
 export default function PagesAdmin() {
+  const { success: toastSuccess } = useToast();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [migrationStatus, setMigrationStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
@@ -81,7 +83,7 @@ export default function PagesAdmin() {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(SCHEMA_SQL);
-    alert('SQL copied to clipboard!');
+    toastSuccess('SQL copied to clipboard!');
   };
 
   if (loading) {

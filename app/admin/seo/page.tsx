@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getSeoPages, analyzeUrlAction, bulkAnalyzeFromSitemapAction, rescanOutdatedPagesAction } from '@/app/actions/seo';
 import { Search, Plus, ExternalLink, RefreshCw, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function SeoDashboard() {
+    const { success: toastSuccess, error: toastError } = useToast();
     const [pages, setPages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [analyzing, setAnalyzing] = useState(false);
@@ -45,13 +47,13 @@ export default function SeoDashboard() {
             const res = await fetch('/api/admin/migrate-v15');
             const data = await res.json();
             if (!data.success) {
-                alert(data.error || 'Migration failed');
+                toastError(data.error || 'Migration failed');
                 return;
             }
             await loadPages();
         } catch (error) {
             console.error(error);
-            alert('Migration failed');
+            toastError('Migration failed');
         } finally {
             setMigrating(false);
         }
@@ -66,11 +68,11 @@ export default function SeoDashboard() {
                 setNewUrl('');
                 loadPages();
             } else {
-                alert(res.error || "Analysis failed");
+                toastError(res.error || "Analysis failed");
             }
         } catch (error) {
             console.error(error);
-            alert("An error occurred");
+            toastError("An error occurred");
         } finally {
             setAnalyzing(false);
         }
@@ -81,19 +83,19 @@ export default function SeoDashboard() {
         try {
             const res = await bulkAnalyzeFromSitemapAction(bulkLimit);
             if (!res.success) {
-                alert(res.error || 'Bulk scan failed');
+                toastError(res.error || 'Bulk scan failed');
                 return;
             }
 
             await loadPages();
             const failedCount = res.failed ?? 0;
             const failurePart = failedCount > 0 ? `, ${failedCount} failed` : '';
-            alert(
-                `Sitemap scan complete. Scanned ${res.scanned} URLs, skipped ${res.existing} existing pages, analyzed ${res.analyzed}${failurePart}.`
+            toastSuccess(
+                `Scan complete: ${res.scanned} URLs, ${res.existing} skipped, ${res.analyzed} analyzed${failurePart}.`
             );
         } catch (error) {
             console.error(error);
-            alert('Bulk scan failed');
+            toastError('Bulk scan failed');
         } finally {
             setBulkAnalyzing(false);
         }
@@ -104,19 +106,19 @@ export default function SeoDashboard() {
         try {
             const res = await rescanOutdatedPagesAction(outdatedDays, bulkLimit);
             if (!res.success) {
-                alert(res.error || 'Re-scan failed');
+                toastError(res.error || 'Re-scan failed');
                 return;
             }
 
             await loadPages();
             const failedCount = res.failed ?? 0;
             const failurePart = failedCount > 0 ? `, ${failedCount} failed` : '';
-            alert(
-                `Outdated re-scan complete. Tracked ${res.tracked}, stale ${res.stale}, re-analyzed ${res.reanalyzed}${failurePart}.`
+            toastSuccess(
+                `Re-scan complete: ${res.tracked} tracked, ${res.stale} stale, ${res.reanalyzed} re-analyzed${failurePart}.`
             );
         } catch (error) {
             console.error(error);
-            alert('Re-scan failed');
+            toastError('Re-scan failed');
         } finally {
             setRescanLoading(false);
         }
@@ -129,25 +131,25 @@ export default function SeoDashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center gap-4 flex-wrap">
-                <h1 className="text-3xl font-bold text-gray-900">SEO & AIO Dashboard</h1>
-                <div className="flex gap-2 flex-wrap justify-end">
+            <div className="space-y-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">SEO & AIO Dashboard</h1>
+                <div className="flex gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                         <input
                             type="number"
                             min={1}
                             max={100}
-                            className="px-3 py-2 border rounded-md w-24 text-sm"
+                            className="px-3 py-2 border rounded-md w-20 text-sm"
                             value={bulkLimit}
                             onChange={(e) => setBulkLimit(Number(e.target.value || 25))}
                         />
                         <button
                             onClick={handleBulkScan}
                             disabled={bulkAnalyzing || loading || bulkLimit < 1}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                            className="bg-indigo-600 text-white px-3 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 text-sm whitespace-nowrap"
                         >
                             {bulkAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                            Scan Sitemap
+                            Scan
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
@@ -155,34 +157,36 @@ export default function SeoDashboard() {
                             type="number"
                             min={1}
                             max={365}
-                            className="px-3 py-2 border rounded-md w-24 text-sm"
+                            className="px-3 py-2 border rounded-md w-20 text-sm"
                             value={outdatedDays}
                             onChange={(e) => setOutdatedDays(Number(e.target.value || 7))}
                         />
                         <button
                             onClick={handleRescanOutdated}
                             disabled={rescanLoading || loading || outdatedDays < 1}
-                            className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+                            className="bg-emerald-600 text-white px-3 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 text-sm whitespace-nowrap"
                         >
                             {rescanLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                            Re-scan {outdatedDays}d+
+                            Re-scan
                         </button>
                     </div>
-                    <input
-                        type="text"
-                        placeholder="/about or https://..."
-                        className="px-3 py-2 border rounded-md w-64 text-sm"
-                        value={newUrl}
-                        onChange={(e) => setNewUrl(e.target.value)}
-                    />
-                    <button
-                        onClick={handleAnalyze}
-                        disabled={analyzing || !newUrl}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {analyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        Analyze New Page
-                    </button>
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <input
+                            type="text"
+                            placeholder="/about or https://..."
+                            className="px-3 py-2 border rounded-md w-full sm:w-64 text-sm"
+                            value={newUrl}
+                            onChange={(e) => setNewUrl(e.target.value)}
+                        />
+                        <button
+                            onClick={handleAnalyze}
+                            disabled={analyzing || !newUrl}
+                            className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm whitespace-nowrap"
+                        >
+                            {analyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                            Analyze
+                        </button>
+                    </div>
                 </div>
             </div>
 

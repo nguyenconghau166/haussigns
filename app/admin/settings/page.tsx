@@ -8,6 +8,7 @@ import {
   FileText, Image as ImageIcon, Settings, AlertCircle, BarChart3, LayoutGrid, Phone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 type TabId = 'business' | 'agents' | 'schedule' | 'seo' | 'api' | 'tracking' | 'website';
 
@@ -144,6 +145,7 @@ const ImageField = ({ label, value, onChange, placeholder, hint, aspectRatio = 1
 );
 
 export default function SettingsPage() {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [activeTab, setActiveTab] = useState<TabId>('business');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -178,7 +180,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      alert('Lỗi lưu cài đặt!');
+      toastError('Lỗi lưu cài đặt!');
     } finally {
       setSaving(false);
     }
@@ -1102,23 +1104,23 @@ export default function SettingsPage() {
                               const data = await res.json();
                               if (data.success) {
                                 setTestResult('success');
-                                alert(`Kết nối thành công!\nModel đang sử dụng: ${data.model || 'Unknown'}\n\nLưu ý: Hệ thống đã tự động tìm model phù hợp nhất với Key của bạn.`);
+                                toastSuccess(`Kết nối thành công! Model: ${data.model || 'Unknown'}`);
                               } else {
                                 console.error('Gemini Test Failed:', data);
                                 setTestResult('error');
-                                alert(`Lỗi: ${data.error}`);
+                                toastError(`Lỗi: ${data.error}`);
                               }
                             } else {
                               const errData = await res.json();
                               console.error('Gemini Test HTTP Error:', res.status, errData);
                               setTestResult('error');
-                              alert(`Lỗi kết nối: ${errData.error || res.statusText}`); // Show specific error
+                              toastError(`Lỗi kết nối: ${errData.error || res.statusText}`);
                             }
                           } catch (e: unknown) {
                             const err = e instanceof Error ? e : new Error(String(e));
                             console.error('Gemini Test Exception:', err);
                             setTestResult('error');
-                            alert(`Lỗi hệ thống: ${err.message}`);
+                            toastError(`Lỗi hệ thống: ${err.message}`);
                           } finally {
                             setTesting(false);
                           }

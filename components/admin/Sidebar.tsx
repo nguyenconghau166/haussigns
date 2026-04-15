@@ -19,10 +19,12 @@ import {
   Package,
   Link as LinkIcon,
   LogOut,
-  UserCog
+  UserCog,
+  Menu,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 
 const NAV_ITEMS = [
@@ -50,6 +52,7 @@ const ADMIN_ONLY_ITEMS = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { profile, signOut, loading } = useAuth();
 
   const canManageUsers = profile?.role === 'owner' || profile?.role === 'admin';
@@ -62,13 +65,23 @@ export default function AdminSidebar() {
     viewer: 'Viewer',
   };
 
-  return (
-    <div
-      className={cn(
-        'fixed inset-y-0 left-0 z-40 border-r bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl transition-all duration-300 flex flex-col',
-        collapsed ? 'w-20' : 'w-64'
-      )}
-    >
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-slate-800/50 px-4">
         {!collapsed && (
@@ -87,6 +100,13 @@ export default function AdminSidebar() {
             <Zap className="h-4 w-4 text-slate-900" />
           </div>
         )}
+        {/* Close button for mobile */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -118,10 +138,10 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Collapse Button */}
+      {/* Collapse Button — desktop only */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-1/2 -right-3 w-6 h-6 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center hover:bg-slate-600 transition-colors shadow-lg"
+        className="hidden lg:flex absolute top-1/2 -right-3 w-6 h-6 rounded-full bg-slate-700 border border-slate-600 items-center justify-center hover:bg-slate-600 transition-colors shadow-lg"
       >
         {collapsed ? (
           <ChevronRight className="h-3 w-3 text-slate-300" />
@@ -202,6 +222,56 @@ export default function AdminSidebar() {
           </div>
         )}
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-slate-950 border-b border-slate-800/50 flex items-center justify-between px-4">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+            <Zap className="h-3.5 w-3.5 text-slate-900" />
+          </div>
+          <span className="text-sm font-bold text-white">SignsHaus</span>
+        </div>
+        <div className="w-9" /> {/* Spacer for centering */}
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — mobile: slide-in drawer, desktop: fixed */}
+      <div
+        className={cn(
+          // Desktop
+          'hidden lg:flex fixed inset-y-0 left-0 z-40 border-r bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl transition-all duration-300 flex-col',
+          collapsed ? 'w-20' : 'w-64'
+        )}
+      >
+        {sidebarContent}
+      </div>
+
+      {/* Mobile sidebar drawer */}
+      <div
+        className={cn(
+          'lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl transition-transform duration-300 ease-in-out flex flex-col',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {sidebarContent}
+      </div>
+    </>
   );
 }

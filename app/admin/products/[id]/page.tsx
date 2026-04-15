@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Sparkles, Loader2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import ImagePicker from '@/components/admin/ImagePicker';
@@ -22,12 +23,21 @@ interface ProductEditorProps {
 export default function ProductEditor({ params }: ProductEditorProps) {
     const { id } = use(params);
     const router = useRouter();
+    const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
     const isNew = id === 'new';
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [aiBrief, setAiBrief] = useState(defaultAIBrief);
     const [qaSignal, setQaSignal] = useState(0);
+
+    const [dirty, setDirty] = useState(false);
+
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [dirty]);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -45,6 +55,12 @@ export default function ProductEditor({ params }: ProductEditorProps) {
 
     // Temp state for features input (comma separated)
     const [featuresInput, setFeaturesInput] = useState('');
+
+    // Track dirty state on form changes
+    const updateForm = (updates: Partial<typeof formData>) => {
+        setFormData(prev => ({ ...prev, ...updates }));
+        setDirty(true);
+    };
 
     useEffect(() => {
         if (!isNew) {
@@ -76,7 +92,7 @@ export default function ProductEditor({ params }: ProductEditorProps) {
     };
 
     const handleAIWrite = async () => {
-        if (!formData.name) return alert("Please enter a product name first");
+        if (!formData.name) { toastWarning("Please enter a product name first"); return; }
         setGenerating(true);
         try {
             const res = await fetch('/api/ai/product', {
@@ -107,11 +123,11 @@ export default function ProductEditor({ params }: ProductEditorProps) {
                     setFeaturesInput(result.features_list.join('\n'));
                 }
             } else {
-                alert('Generation failed');
+                toastError('Generation failed');
             }
         } catch (error) {
             console.error(error);
-            alert('Error generating');
+            toastError('Error generating');
         } finally {
             setGenerating(false);
         }
@@ -119,15 +135,32 @@ export default function ProductEditor({ params }: ProductEditorProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            toastWarning('Product name is required');
+            return;
+        }
         setSaving(true);
 
+        const slug = formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const payload = {
             ...formData,
-            slug: formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+            slug,
             features: featuresInput.split('\n').filter(f => f.trim() !== '')
         };
 
         try {
+            // Check for duplicate slug on new products
+            if (isNew) {
+                const checkRes = await fetch('/api/admin/products');
+                const checkData = await checkRes.json();
+                const existing = (checkData.products || []).find((p: any) => p.slug === slug);
+                if (existing) {
+                    toastError(`Slug "${slug}" đã tồn tại. Vui lòng đổi tên sản phẩm.`);
+                    setSaving(false);
+                    return;
+                }
+            }
+
             const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`;
             const method = isNew ? 'POST' : 'PUT';
 
@@ -138,10 +171,12 @@ export default function ProductEditor({ params }: ProductEditorProps) {
             });
 
             if (res.ok) {
+                setDirty(false);
+                toastSuccess(isNew ? 'Product created!' : 'Product saved!');
                 router.push('/admin/products');
             } else {
                 const err = await res.json();
-                alert(err.error || 'Failed to save');
+                toastError(err.error || 'Failed to save');
             }
         } catch (error) {
             console.error(error);

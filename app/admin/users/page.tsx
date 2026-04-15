@@ -131,8 +131,8 @@ export default function UsersPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Quản lý Người dùng</h1>
-        <p className="text-slate-500 mt-1">Quản lý tài khoản và phân quyền truy cập hệ thống</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Quản lý Người dùng</h1>
+        <p className="text-slate-500 mt-1 text-sm">Quản lý tài khoản và phân quyền truy cập hệ thống</p>
       </div>
 
       {/* Stats */}
@@ -194,23 +194,25 @@ export default function UsersPage() {
 
       {/* User List */}
       <Card className="border-0 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <UserCog className="h-5 w-5 text-slate-500" />
-              Danh sách người dùng
-            </CardTitle>
-            <CardDescription>Thay đổi vai trò và trạng thái tài khoản</CardDescription>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none w-64 text-slate-900"
-            />
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UserCog className="h-5 w-5 text-slate-500" />
+                Danh sách người dùng
+              </CardTitle>
+              <CardDescription>Thay đổi vai trò và trạng thái tài khoản</CardDescription>
+            </div>
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none w-full sm:w-64 text-slate-900"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -225,7 +227,7 @@ export default function UsersPage() {
                 <div
                   key={user.id}
                   className={cn(
-                    'flex items-center gap-4 p-4 rounded-xl border transition-all',
+                    'flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 p-4 rounded-xl border transition-all',
                     user.is_active
                       ? 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
                       : 'bg-slate-50 border-slate-200 opacity-60',

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Phone, Search, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
+import { useToast } from '@/components/ui/toast';
 
 export default function LeadsAdmin() {
     const [leads, setLeads] = useState<any[]>([]);
@@ -10,6 +11,7 @@ export default function LeadsAdmin() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statuses, setStatuses] = useState<string[]>(['New', 'Contacted', 'Quoted', 'Closed']);
     const [updating, setUpdating] = useState<string | null>(null);
+    const { success: toastSuccess, error: toastError } = useToast();
 
     useEffect(() => {
         Promise.all([
@@ -34,12 +36,13 @@ export default function LeadsAdmin() {
             });
             if (res.ok) {
                 setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead));
+                toastSuccess(`Đã cập nhật trạng thái → ${newStatus}`);
             } else {
-                alert('Failed to update status');
+                toastError('Cập nhật trạng thái thất bại');
             }
         } catch (e) {
             console.error(e);
-            alert('Error updating status');
+            toastError('Lỗi kết nối khi cập nhật');
         } finally {
             setUpdating(null);
         }
@@ -53,17 +56,17 @@ export default function LeadsAdmin() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Quản lý Khách hàng (Leads)</h1>
-                    <p className="text-slate-500 mt-1">Danh sách yêu cầu báo giá và liên hệ từ website</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Quản lý Khách hàng</h1>
+                    <p className="text-slate-500 mt-1 text-sm">Danh sách yêu cầu báo giá và liên hệ từ website</p>
                 </div>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <input
                         type="text"
                         placeholder="Tìm kiếm..."
-                        className="pl-10 pr-4 py-2 border rounded-xl text-sm w-64"
+                        className="pl-10 pr-4 py-2 border rounded-xl text-sm w-full sm:w-64"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -72,7 +75,7 @@ export default function LeadsAdmin() {
 
             {/* Excel-like Table View */}
             <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                <div className="overflow-x-auto max-h-[calc(100vh-220px)]">
+                <div className="overflow-x-auto max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-220px)] -webkit-overflow-scrolling-touch">
                     <table className="w-full text-sm text-left border-collapse">
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                             <tr>
