@@ -320,7 +320,7 @@ export async function generateImagesAndPublish(
   const finalTags = quality.optimized_tags?.length ? quality.optimized_tags : article.suggested_tags;
 
   // --- Save to DB ---
-  const authorBio = config.author_bio || `Signage manufacturing workshop in Valenzuela, Metro Manila. We fabricate acrylic signs, stainless steel letters, LED channel letters, and provide full-service sign installation.`;
+  const authorBio = config.author_bio || `Marco is a signage specialist and project manager at ${companyName} in Valenzuela, Metro Manila. With hands-on experience in acrylic fabrication, stainless steel lettering, and LED installation, he shares practical insights from the workshop floor.`;
 
   const { data: post, error } = await supabaseAdmin.from('posts').upsert({
     title: article.title,
@@ -337,7 +337,7 @@ export async function generateImagesAndPublish(
     lang: (await getConfig('content_language', 'en')) as 'en' | 'tl',
     category_id: categoryId,
     search_intent: article.search_intent || topic.search_intent,
-    author_name: `${companyName} Team`,
+    author_name: config.author_name || 'Marco Reyes',
     author_bio: authorBio,
     created_at: new Date().toISOString()
   }, { onConflict: 'slug' }).select().single();

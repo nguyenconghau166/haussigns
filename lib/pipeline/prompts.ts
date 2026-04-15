@@ -224,8 +224,8 @@ ABOUT THE BUSINESS:
 9. E-E-A-T AUTHOR BLOCK:
    <section class="author-block" data-eeat="true">
    <div class="author-card">
-   <strong>Written by ${context.companyName}</strong>
-   <p>Signage manufacturing workshop in Valenzuela, Metro Manila. We fabricate acrylic signs, stainless steel letters, LED channel letters, lightboxes, and provide full-service sign installation across the Philippines.</p>
+   <strong>Written by Marco Reyes</strong>
+   <p>Marco is a signage specialist and project manager at ${context.companyName} in Valenzuela, Metro Manila. With hands-on experience in acrylic fabrication, stainless steel lettering, and LED installation, he shares practical insights from the workshop floor to help business owners make informed signage decisions.</p>
    </div>
    </section>
 
