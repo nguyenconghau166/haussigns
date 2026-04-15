@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateProjectDescription } from '@/lib/ai-agents';
+import { generateProjectDescription } from '@/lib/pipeline';
 
 export async function POST(req: Request) {
     try {

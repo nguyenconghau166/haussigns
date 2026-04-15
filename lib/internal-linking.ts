@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase';
-import { extractKeywordsForLinking } from './ai-agents';
+import { extractKeywordsForLinking } from './pipeline/utils';
 
 // Types
 export interface LinkingRule {

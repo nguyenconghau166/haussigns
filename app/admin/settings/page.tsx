@@ -74,7 +74,7 @@ const SelectField = ({ label, value, onChange, options, hint }: {
 );
 
 import ImageUploader from '@/components/ImageUploader';
-import { DEFAULT_RESEARCHER_PROMPT, DEFAULT_EVALUATOR_PROMPT, DEFAULT_WRITER_BRIEF_PROMPT } from '@/lib/ai/defaults';
+import { DEFAULT_RESEARCHER_PROMPT, DEFAULT_EVALUATOR_PROMPT, DEFAULT_WRITER_BRIEF_PROMPT } from '@/lib/pipeline/prompts';
 
 const SystemPromptField = ({ label, defaultPrompt, value, onChange, onReset }: {
   label: string; defaultPrompt: string; value: string; onChange: (val: string) => void; onReset: () => void;

@@ -1,26 +1,26 @@
 import { NextResponse } from 'next/server';
-import { executePipeline } from '@/lib/pipeline-runner';
+import { runPipeline } from '@/lib/pipeline';
 
-export const maxDuration = 300; // Vercel Hobby limit: 1-300s for serverless functions
+export const maxDuration = 300;
 
 export async function POST() {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (agent: string, step: string, status: string, message: string, data?: unknown) => {
-        const event = JSON.stringify({ agent, step, status, message, data, timestamp: new Date().toISOString() });
+      const send = (step: string, status: string, message: string, data?: unknown) => {
+        const event = JSON.stringify({ step, status, message, data, timestamp: new Date().toISOString() });
         controller.enqueue(encoder.encode(`data: ${event}\n\n`));
       };
 
       try {
-        await executePipeline({
+        await runPipeline({
           triggerType: 'manual',
-          onEvent: (event) => send(event.agent, event.step, event.status, event.message, event.data)
+          onEvent: (event) => send(event.step, event.status, event.message, event.data)
         });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        send('System', 'complete', 'failed', `Pipeline lỗi: ${errorMsg}`);
+        send('system', 'failed', `Pipeline error: ${errorMsg}`);
       }
 
       controller.close();
