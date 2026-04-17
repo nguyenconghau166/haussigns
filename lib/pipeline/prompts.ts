@@ -115,6 +115,21 @@ OUTLINE RULES:
 - Include FAQ section with 3-5 real customer questions
 - Include internal link candidates from recent articles
 
+IMAGE PLANNING RULES (CRITICAL):
+- Plan exactly 3-4 unique images that will be distributed throughout the article body
+- Each image must depict a DIFFERENT type of scene — never repeat the same scene type
+- Scene types to choose from:
+  * WORKSHOP: CNC router cutting acrylic, welding stainless steel letters, bending aluminum channels, LED module soldering, painting/finishing booth
+  * INSTALLATION: Workers on scaffolding mounting channel letters, drilling into concrete facade, wiring LED signs, crane lifting large pylon sign
+  * CLOSE-UP: Cross-section of acrylic edge-lit panel, brushed stainless steel surface detail, LED module wiring, vinyl wrap application on substrate
+  * STOREFRONT: Completed signage on real Filipino business (cafe, clinic, bank, mall tenant), lit at night or in golden hour daylight
+  * BEFORE-AFTER: Side-by-side of old faded sign vs new installation at same location
+- For each image specify:
+  * placement: "after section 2", "after section 4", "after section 6", or "inside comparison section"
+  * scene: Detailed description of what is physically happening — specific materials, specific tools, specific location in Metro Manila
+  * camera: Camera position and settings (e.g., "eye-level, 35mm f/1.8, shallow DOF on the worker's hands" or "wide-angle 16mm, full storefront visible, golden hour side light")
+  * caption: Short reader-friendly caption (max 15 words)
+
 OUTPUT (JSON only):
 {
   "primary_keyword": "...",
@@ -127,6 +142,14 @@ OUTPUT (JSON only):
       "h2": "Question-based heading ending with ?",
       "answer_first": "2-4 sentences that directly answer this heading. Include specific data (PHP prices, timeframes, dimensions). Self-contained for AI citation.",
       "key_points": ["point to cover", "..."]
+    }
+  ],
+  "image_plan": [
+    {
+      "placement": "after section 2",
+      "scene": "A Filipino technician in a Valenzuela workshop hand-polishing brushed stainless steel channel letters on a steel workbench, acrylic dust and metal shavings visible, fluorescent overhead lights, safety goggles pushed up on forehead",
+      "camera": "45-degree overhead angle, 50mm f/2.0, shallow DOF on hands and letterforms, workshop background slightly blurred",
+      "caption": "Hand-finishing stainless steel channel letters at our Valenzuela workshop"
     }
   ],
   "faq_questions": ["Real question 1?", "Real question 2?", "Real question 3?"],
@@ -152,6 +175,7 @@ export function buildWriteArticlePrompt(context: {
     primary_keyword: string;
     search_intent: string;
     outline: Array<{ h2: string; answer_first: string; key_points: string[] }>;
+    image_plan?: Array<{ placement: string; scene: string; camera: string; caption: string }>;
     faq_questions: string[];
     comparison_table_topic: string;
     cta: string;
@@ -190,12 +214,22 @@ ABOUT THE BUSINESS:
 3. TABLE OF CONTENTS:
    <nav class="toc"><h2>Table of Contents</h2><ol><li><a href="#section-id">H2 title</a></li>...</ol></nav>
 
-4. BODY — SEMANTIC CLUSTERS (6-8 sections):
+4. BODY — SEMANTIC CLUSTERS (6-8 sections) WITH DISTRIBUTED IMAGES:
    For EACH section:
    <h2 id="section-slug">{Heading — prefer question format ending with ?}</h2>
    <p><strong>{1-2 sentences that DIRECTLY answer the heading question. Include specific data.}</strong></p>
    <p>{Deeper detail, examples, real-world data...}</p>
    ... more paragraphs as needed (2-4 sentences each)
+
+   IMAGE DISTRIBUTION RULE (CRITICAL — do NOT group images together):
+   The Content Brief has pre-planned specific image scenes. Place them EXACTLY as specified.
+   Use this format for each image placeholder:
+   <!-- IMAGE: {scene description from image_plan}, {camera instructions from image_plan} | {caption from image_plan} -->
+
+   PRE-PLANNED IMAGE SCENES FROM BRIEF:
+${(context.brief.image_plan || []).map((img, i) => `   IMAGE ${i + 1} — ${img.placement}: ${img.scene}. Camera: ${img.camera}. Caption: "${img.caption}"`).join('\n') || '   (No image plan provided — place 3 images after sections 2, 4, and 6. Describe real workshop/installation scenes with specific camera angles and Filipino locations.)'}
+
+   If the brief provides fewer than 3 images, add your own following the same style — each depicting a DIFFERENT scene type (workshop, installation, close-up, storefront). Never group images together.
 
 5. COMPARISON TABLE:
    <div class="comparison-table">
@@ -206,24 +240,19 @@ ABOUT THE BUSINESS:
    </table>
    </div>
 
-6. IMAGE PLACEHOLDERS (2-4 images):
-   <!-- IMAGE: {detailed photorealistic prompt describing a REAL workshop/installation scene in the Philippines. Include: camera angle, lighting, specific materials, Metro Manila location. Canon EOS R5, 35mm lens.} | {Short caption for readers} -->
-   Describe REAL workshop scenarios: CNC cutting acrylic, welding stainless steel letters, installing channel letters on a storefront.
-   Do NOT describe stock photos or generic scenes.
-
-7. FAQ SECTION:
+6. FAQ SECTION:
    <section data-faq="true">
    <h2 id="faq">Frequently Asked Questions</h2>
    ${context.brief.faq_questions.map(q => `<h3>${q}</h3>\n   <p>{2-3 sentence answer with specific data}</p>`).join('\n   ')}
    </section>
 
-8. CTA:
+7. CTA:
    <section class="cta-block">
    <h2 id="get-quote">Get a Free Quote</h2>
    <p>${context.brief.cta} Contact us at ${context.phone} or visit our workshop in ${context.address}.</p>
    </section>
 
-9. E-E-A-T AUTHOR BLOCK:
+8. E-E-A-T AUTHOR BLOCK:
    <section class="author-block" data-eeat="true">
    <div class="author-card">
    <strong>Written by ${context.authorName}</strong>
@@ -345,7 +374,7 @@ Meta Description: ${article.meta_description}
 Word Count: ${article.content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length}
 
 CONTENT:
-${article.content.substring(0, 8000)}
+${article.content.substring(0, 15000)}
 
 Return JSON only.`
   };

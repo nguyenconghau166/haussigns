@@ -173,12 +173,12 @@ export function buildSeoAltText(keyword: string, description: string): string {
 
 export function buildPhotorealisticPrompt(baseContext: string, shotIntent: string): string {
   return [
-    'Photorealistic commercial photography',
+    'Editorial documentary photograph, Canon EOS R5, 35mm f/1.8',
     baseContext,
     shotIntent,
-    'real camera, natural light behavior, realistic materials and textures',
-    'no illustration, no CGI, no 3D render, no anime, no painting style',
-    'no text overlay, no watermark, no logo distortion, no blur'
+    'natural ambient light, realistic depth of field, authentic Filipino urban setting',
+    'visible real-world imperfections: dust, scratches, uneven edges, cable clamps',
+    'photojournalism style, NO illustration, NO CGI, NO watermark'
   ].join(', ');
 }
 

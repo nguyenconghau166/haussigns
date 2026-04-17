@@ -35,6 +35,12 @@ export interface ContentBrief {
     answer_first: string;
     key_points: string[];
   }>;
+  image_plan: Array<{
+    placement: string;
+    scene: string;
+    camera: string;
+    caption: string;
+  }>;
   faq_questions: string[];
   comparison_table_topic: string;
   cta: string;

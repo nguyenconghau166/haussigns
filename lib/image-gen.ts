@@ -19,7 +19,7 @@ interface GenerateProjectImageOptions {
   enableRealismRetry?: boolean;
 }
 
-const REALISM_THRESHOLD_DEFAULT = 76;
+const REALISM_THRESHOLD_DEFAULT = 82;
 
 function isValidGoogleKey(key: string | undefined | null): key is string {
   if (!key) return false;
@@ -68,13 +68,13 @@ function pickImageUrl(...candidates: Array<unknown>): string | null {
 
 function getContentTypeHint(contentType: ImageContentType): string {
   const hints: Record<ImageContentType, string> = {
-    page: 'hero-style on-location brand signage photo for a business website page',
-    post: 'editorial-style real signage project photo supporting article content',
-    product: 'close-up product photography of real signage materials, edges, finishing, and mounting details',
-    project: 'wide shot of completed signage installation at a real customer location',
-    material: 'macro and mid-shot of real signage material texture, thickness, and lighting response',
-    industry: 'real business context photo showing signage use in that industry environment',
-    generic: 'trustworthy real-world business signage photo'
+    page: 'hero editorial photo of a real signage storefront in Metro Manila, wide-angle with dramatic natural light, street-level perspective',
+    post: 'documentary-style photo from inside a real signage fabrication workshop or on-site installation in the Philippines, showing workers and real tools',
+    product: 'close-up product shot of real signage materials on a workshop table — visible grain, edge finish, mounting brackets, ruler for scale',
+    project: 'wide establishing shot of completed signage installation at a real Filipino business, showing building facade and street context',
+    material: 'macro detail shot of signage material cross-section — acrylic edge, stainless steel brushed surface, or LED module wiring, with workshop background',
+    industry: 'environmental portrait of a real Filipino business with their installed signage visible, customers or staff present, natural daytime lighting',
+    generic: 'candid documentary photo of a signage workshop in Valenzuela City, Philippines, with fabrication equipment and materials visible'
   };
   return hints[contentType] || hints.generic;
 }
@@ -82,14 +82,14 @@ function getContentTypeHint(contentType: ImageContentType): string {
 function enhancePhotorealPrompt(prompt: string): string {
   const base = (prompt || '').trim();
   return [
-    'Photorealistic commercial signage photography',
-    base || 'real signage installation on a storefront',
-    'shot on a real camera with natural perspective and realistic depth of field',
-    'natural daylight or practical ambient lighting, true-to-life colors and textures',
-    'show believable materials, fasteners, wall reflections, and minor real-world imperfections',
-    'documentary style, trustworthy business photo, not stylized',
-    'no illustration, no CGI, no 3D render, no plastic look, no fantasy style',
-    'no text overlay, no watermark, no logo distortion, no blurry details'
+    'Editorial documentary photograph of a real commercial signage business in Metro Manila, Philippines',
+    base || 'real signage installation on a storefront in Makati City',
+    'shot on Canon EOS R5 with 35mm f/1.8 lens, natural perspective, shallow depth of field',
+    'available natural light with ambient fill, realistic color temperature',
+    'visible real-world details: screw heads, silicone edges, wall texture, slight dust, cable conduits',
+    'authentic Filipino urban environment: concrete buildings, narrow streets, tropical vegetation, jeepneys in background',
+    'photojournalism style, candid business documentation',
+    'NO illustration, NO CGI, NO 3D render, NO watermark'
   ].join(', ');
 }
 
@@ -387,13 +387,13 @@ async function generateWithGeminiNative(prompt: string): Promise<ImageGenResult>
 
     console.log(`Calling Gemini Native Image Generation (key: ${apiKey.substring(0, 8)}...)...`);
 
-    // Use Gemini generateContent API with image generation model
-    const model = 'gemini-1.5-pro';
+    // Use Gemini 2.0 Flash (image generation capable) or Imagen 3
+    const model = 'gemini-2.0-flash-exp';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
       contents: [{
-        parts: [{ text: `Create one photorealistic on-location business photo. Keep perspective and materials realistic. Avoid any illustration or CGI style. Scene: ${prompt}` }]
+        parts: [{ text: `Generate one photorealistic editorial photograph. This must look like a real photo taken by a professional photographer on location at a signage business in the Philippines. Show realistic imperfections: dust, fingerprints on acrylic, uneven silicone lines, visible mounting hardware. Scene: ${prompt}` }]
       }],
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"]
