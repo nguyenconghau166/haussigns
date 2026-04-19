@@ -272,25 +272,106 @@ export async function generateImagesAndPublish(
 
   // --- Generate inline images from placeholders ---
   let inlineImagesCount = 0;
+  const inlineFailures: string[] = [];
   const imageRegex = /<!-- IMAGE:\s*(.*?)\s*\|\s*(.*?)\s*-->/g;
   const matches = [...finalContent.matchAll(imageRegex)];
+
+  const generateInlineImage = async (prompt: string): Promise<string | null> => {
+    // Disable realism retry + library lookup for inline images to avoid Gemini rate limits
+    // (featured image already uses the full quality pipeline)
+    return generateProjectImage(prompt, {
+      contentType: 'post',
+      keyword: topic.keyword,
+      preferLibrary: false,
+      enableRealismRetry: false,
+    });
+  };
+
+  const buildFigure = (imageUrl: string, caption: string): string => {
+    const altText = buildSeoAltText(topic.keyword, caption);
+    return `<figure class="article-image"><img src="${imageUrl}" alt="${altText}" loading="lazy" decoding="async" class="article-image" /><figcaption>${caption}</figcaption></figure>`;
+  };
 
   for (const match of matches.slice(0, 4)) {
     const [fullMatch, prompt, caption] = match;
     try {
       emit({ step: 'image-publish', status: 'running', message: `Generating image: ${caption.substring(0, 50)}...` });
       const enhancedPrompt = buildPhotorealisticPrompt(prompt, '');
-      const imageUrl = await generateProjectImage(enhancedPrompt, { contentType: 'post', keyword: topic.keyword });
+      const imageUrl = await generateInlineImage(enhancedPrompt);
       if (imageUrl) {
-        const altText = buildSeoAltText(topic.keyword, caption);
-        const imgHtml = `<figure class="article-image"><img src="${imageUrl}" alt="${altText}" loading="lazy" decoding="async" class="article-image" /><figcaption>${caption}</figcaption></figure>`;
-        finalContent = finalContent.replace(fullMatch, imgHtml);
+        finalContent = finalContent.replace(fullMatch, buildFigure(imageUrl, caption));
         inlineImagesCount++;
+      } else {
+        inlineFailures.push(`null result for "${caption.substring(0, 40)}"`);
       }
-    } catch { /* skip failed images */ }
+    } catch (e) {
+      inlineFailures.push(e instanceof Error ? e.message : String(e));
+    }
   }
   // Remove any remaining unprocessed IMAGE placeholders
   finalContent = finalContent.replace(/<!-- IMAGE:.*?-->/g, '');
+
+  // --- Fallback: inject images at H2 boundaries if writer skipped placeholders ---
+  // Guarantees posts have 2-3 inline images even when Gemini omits <!-- IMAGE --> markers.
+  const TARGET_INLINE = 3;
+  if (inlineImagesCount < TARGET_INLINE) {
+    const h2Positions: number[] = [];
+    const h2Regex = /<\/h2>/gi;
+    let h2Match: RegExpExecArray | null;
+    while ((h2Match = h2Regex.exec(finalContent)) !== null) {
+      // Find end of the paragraph block after this </h2>
+      const afterH2 = h2Match.index + h2Match[0].length;
+      // Inject after the first </p> following this H2
+      const pEnd = finalContent.indexOf('</p>', afterH2);
+      if (pEnd !== -1) h2Positions.push(pEnd + 4);
+    }
+
+    // Skip first H2 (intro section) and last 2 (FAQ/CTA) for injection
+    const usable = h2Positions.slice(1, Math.max(1, h2Positions.length - 2));
+    if (usable.length > 0) {
+      const needed = TARGET_INLINE - inlineImagesCount;
+      const sceneVariations = [
+        'Filipino signage technicians fabricating channel letters in a Valenzuela workshop, CNC router and welded stainless steel visible, natural workshop lighting',
+        'installation team on scaffolding mounting illuminated signage on a commercial storefront in Metro Manila, mid-afternoon light, street context visible',
+        'close-up of acrylic and LED module assembly on a workbench, hands working with precision tools, shallow depth of field',
+      ];
+      const captionHints = ['workshop fabrication', 'on-site installation', 'material close-up'];
+
+      const pending = Array.from({ length: needed }).map((_, i) => ({
+        scene: sceneVariations[i % sceneVariations.length],
+        caption: `${topic.keyword} — ${captionHints[i % captionHints.length]}`,
+      }));
+
+      for (const { scene, caption } of pending) {
+        try {
+          emit({ step: 'image-publish', status: 'running', message: `Fallback image: ${caption.substring(0, 50)}...` });
+          const prompt = buildPhotorealisticPrompt(scene, '');
+          const imageUrl = await generateInlineImage(prompt);
+          if (imageUrl) {
+            // Re-locate the injection anchor in current content (positions shift as we insert)
+            // Simpler: append the figures sequentially at the end of the first eligible H2 section.
+            const figureHtml = buildFigure(imageUrl, caption);
+            // Insert after the first </p> that doesn't already have a figure after it
+            const insertRegex = /<\/p>(?!\s*<figure)/;
+            const m = insertRegex.exec(finalContent.slice(1500)); // skip intro answer-block
+            if (m) {
+              const absPos = 1500 + m.index + m[0].length;
+              finalContent = finalContent.slice(0, absPos) + '\n' + figureHtml + '\n' + finalContent.slice(absPos);
+              inlineImagesCount++;
+            }
+          } else {
+            inlineFailures.push(`fallback null for "${caption}"`);
+          }
+        } catch (e) {
+          inlineFailures.push(`fallback: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+  }
+
+  if (inlineFailures.length) {
+    console.warn(`[pipeline] inline image failures (${inlineFailures.length}):`, inlineFailures.slice(0, 5));
+  }
 
   // --- Add responsive image classes ---
   finalContent = finalContent
@@ -393,6 +474,8 @@ export async function generateImagesAndPublish(
 
   await logAgent(batchId, 'Image + Publish', `Saved: "${article.title}" (${autoPublished ? 'published' : 'draft'})`, 'success', {
     post_id: post.id, slug, featured_image: featuredImageUrl, inline_images: inlineImagesCount,
+    inline_image_failures: inlineFailures.length,
+    inline_image_failure_sample: inlineFailures.slice(0, 3),
     internal_links: linked.inserted, auto_published: autoPublished, quality_score: quality.overall
   });
 
