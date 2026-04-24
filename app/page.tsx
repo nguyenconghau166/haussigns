@@ -6,18 +6,20 @@ import {
   getProjects,
   getServices,
   getTestimonials,
+  getTrustedBrands,
 } from '@/lib/dataService';
 
 export const revalidate = 300;
 
 export default async function Home() {
-  const [products, services, projects, testimonials, posts, materials] = await Promise.all([
+  const [products, services, projects, testimonials, posts, materials, trustedBrands] = await Promise.all([
     getProducts(6),
     getServices(6),
-    getProjects(6),
+    getProjects(5),
     getTestimonials(4),
     getPosts(6),
-    getMaterials(6),
+    getMaterials(5),
+    getTrustedBrands(8),
   ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function Home() {
       testimonials={testimonials}
       posts={posts || []}
       materials={materials || []}
+      trustedBrands={trustedBrands || []}
     />
   );
 }

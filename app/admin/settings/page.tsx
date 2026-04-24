@@ -426,6 +426,179 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            {/* TRUSTED BRANDS LABEL */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-indigo-500" /> Trusted Brands (Dải logo khách hàng)
+                </CardTitle>
+                <CardDescription>
+                  Nhãn 2 dòng hiển thị bên trái dải logo. Để quản lý logo, vào{' '}
+                  <a href="/admin/trusted-brands" className="text-amber-600 underline">
+                    /admin/trusted-brands
+                  </a>
+                  .
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Dòng 1"
+                    value={settings.trusted_brands_line1}
+                    onChange={(v) => handleChange('trusted_brands_line1', v)}
+                    placeholder="Trusted By"
+                  />
+                  <InputField
+                    label="Dòng 2"
+                    value={settings.trusted_brands_line2}
+                    onChange={(v) => handleChange('trusted_brands_line2', v)}
+                    placeholder="Visionary Brands"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* OUR PROMISE SECTION */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-indigo-500" /> Our Promise (Trang chủ)
+                </CardTitle>
+                <CardDescription>
+                  Section 4 cam kết + card lớn bên phải. Trong tiêu đề và nút, bọc từ cần in nghiêng vàng bằng
+                  dấu <code className="px-1 bg-slate-100 rounded">*như này*</code>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Nhãn nhỏ (eyebrow)"
+                    value={settings.promise_eyebrow}
+                    onChange={(v) => handleChange('promise_eyebrow', v)}
+                    placeholder="Our Promise"
+                  />
+                  <InputField
+                    label="Tiêu đề card lớn"
+                    value={settings.promise_headline}
+                    onChange={(v) => handleChange('promise_headline', v)}
+                    placeholder="Timeless quality. *Uncompromising* standards."
+                    hint="Bọc từ nhấn bằng *...*  → sẽ in nghiêng vàng."
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Chữ trên nút"
+                    value={settings.promise_cta_label}
+                    onChange={(v) => handleChange('promise_cta_label', v)}
+                    placeholder="Learn More"
+                  />
+                  <InputField
+                    label="Đường dẫn nút"
+                    value={settings.promise_cta_link}
+                    onChange={(v) => handleChange('promise_cta_link', v)}
+                    placeholder="/about"
+                  />
+                </div>
+                <ImageField
+                  label="Ảnh nền card lớn (tuỳ chọn)"
+                  value={settings.promise_image}
+                  onChange={(v) => handleChange('promise_image', v)}
+                  hint="Để trống sẽ dùng chữ H vàng mặc định. Upload ảnh tỉ lệ dọc sẽ đẹp hơn."
+                  aspectRatio={3 / 4}
+                />
+
+                <div className="grid md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                  <InputField
+                    label="Ô 1 - Tiêu đề"
+                    value={settings.promise_1_title}
+                    onChange={(v) => handleChange('promise_1_title', v)}
+                    placeholder="Custom Design"
+                  />
+                  <TextareaField
+                    label="Ô 1 - Mô tả"
+                    value={settings.promise_1_description}
+                    onChange={(v) => handleChange('promise_1_description', v)}
+                    placeholder="Tailored signage that reflects your brand identity."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Ô 2 - Tiêu đề"
+                    value={settings.promise_2_title}
+                    onChange={(v) => handleChange('promise_2_title', v)}
+                    placeholder="Premium Quality"
+                  />
+                  <TextareaField
+                    label="Ô 2 - Mô tả"
+                    value={settings.promise_2_description}
+                    onChange={(v) => handleChange('promise_2_description', v)}
+                    placeholder="High-end materials and expert craftsmanship."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Ô 3 - Tiêu đề"
+                    value={settings.promise_3_title}
+                    onChange={(v) => handleChange('promise_3_title', v)}
+                    placeholder="End-to-End Service"
+                  />
+                  <TextareaField
+                    label="Ô 3 - Mô tả"
+                    value={settings.promise_3_description}
+                    onChange={(v) => handleChange('promise_3_description', v)}
+                    placeholder="From concept to installation, we handle everything."
+                    rows={2}
+                  />
+                  <InputField
+                    label="Ô 4 - Tiêu đề"
+                    value={settings.promise_4_title}
+                    onChange={(v) => handleChange('promise_4_title', v)}
+                    placeholder="Built to Last"
+                  />
+                  <TextareaField
+                    label="Ô 4 - Mô tả"
+                    value={settings.promise_4_description}
+                    onChange={(v) => handleChange('promise_4_description', v)}
+                    placeholder="Durable, weather-resistant signs made to stand the test of time."
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CTA BANNER */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-indigo-500" /> CTA cuối trang chủ
+                </CardTitle>
+                <CardDescription>
+                  Dải màu sand ở cuối homepage. Bọc từ nhấn bằng{' '}
+                  <code className="px-1 bg-slate-100 rounded">*...*</code> để in nghiêng vàng.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <InputField
+                  label="Tiêu đề"
+                  value={settings.cta_headline}
+                  onChange={(v) => handleChange('cta_headline', v)}
+                  placeholder="Let's create something *iconic* together."
+                />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Chữ trên nút"
+                    value={settings.cta_button_label}
+                    onChange={(v) => handleChange('cta_button_label', v)}
+                    placeholder="Start a Project"
+                  />
+                  <InputField
+                    label="Đường dẫn nút"
+                    value={settings.cta_button_link}
+                    onChange={(v) => handleChange('cta_button_link', v)}
+                    placeholder="/contact"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* CONTACT APP-WIDE */}
             <Card className="border-0 shadow-md">
               <CardHeader>

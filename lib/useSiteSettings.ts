@@ -36,6 +36,6 @@ export function useSiteSettings() {
         rawMessengerUser: settings.social_messenger_user,
 
         // Raw settings access
-        get: (key: string, fallback?: string) => settings[key] || fallback
+        get: (key: string, fallback = '') => settings[key] || fallback
     };
 }

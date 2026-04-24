@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Shield, Clock, Eye, Ruler } from 'lucide-react';
+import { Shield, Clock, Eye, Ruler } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { useSiteSettings } from '@/lib/useSiteSettings';
@@ -15,6 +15,8 @@ import ProductShowcase from '@/components/ProductShowcase';
 import MaterialsPreview from '@/components/MaterialsPreview';
 import CTABanner from '@/components/CTABanner';
 import Testimonials from '@/components/Testimonials';
+import TrustedBrands from '@/components/TrustedBrands';
+import OurPromise from '@/components/OurPromise';
 
 const WHY_CHOOSE = [
   {
@@ -56,6 +58,8 @@ interface HomePageClientProps {
   posts: any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   materials: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trustedBrands?: any[];
 }
 
 export default function HomePageClient({
@@ -65,6 +69,7 @@ export default function HomePageClient({
   testimonials,
   posts,
   materials,
+  trustedBrands = [],
 }: HomePageClientProps) {
   const { get: getSetting } = useSiteSettings();
 
@@ -84,26 +89,33 @@ export default function HomePageClient({
   }, [getSetting]);
 
   return (
-    <main className="flex min-h-screen flex-col bg-white dark:bg-slate-950">
+    <main className="flex min-h-screen flex-col bg-slate-950 text-white">
       <Navbar />
       <Hero />
+      <TrustedBrands brands={trustedBrands} />
 
       <ServiceGrid services={services} />
       <ProjectGallery projects={projects} />
+      <OurPromise />
       <MaterialsPreview materials={materials} />
       <ProductShowcase products={products} />
       <Testimonials testimonials={testimonials} />
 
-      <section className="py-16 md:py-24 bg-slate-50 dark:bg-slate-900">
+      <section className="py-20 md:py-28 bg-slate-900">
         <div className="container px-4 md:px-6">
-          <div className="mb-12">
-            <div>
-              <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2">
-                Our Blog
-              </span>
-              <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">Latest Insights</h2>
-              <p className="mt-2 text-slate-500 dark:text-slate-400">Tips, guides, and industry news for business owners.</p>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+            <div className="max-w-2xl">
+              <span className="eyebrow mb-3">Our Blog</span>
+              <h2 className="font-display text-4xl md:text-5xl leading-[1.1] text-white mt-3">
+                Latest <span className="accent-italic">insights.</span>
+              </h2>
+              <p className="mt-4 text-base md:text-lg text-slate-400 max-w-md leading-relaxed">
+                Tips, guides, and industry news for business owners.
+              </p>
             </div>
+            <Link href="/blog" className="btn-ghost-gold self-start md:self-end">
+              View All Articles →
+            </Link>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -111,19 +123,10 @@ export default function HomePageClient({
               <BlogCard key={post.slug} post={post} />
             ))}
           </div>
-
-          <div className="mt-10 text-center">
-            <Link
-              href="/blog"
-              className="group inline-flex items-center font-semibold text-slate-900 dark:text-white hover:text-yellow-600 dark:hover:text-amber-400 transition-colors"
-            >
-              View All Articles <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
         </div>
       </section>
 
-      <section className="py-20 md:py-28 bg-white dark:bg-slate-950 relative overflow-hidden">
+      <section className="py-20 md:py-28 bg-slate-950 relative overflow-hidden">
         <div className="container px-4 md:px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -132,32 +135,32 @@ export default function HomePageClient({
             transition={{ duration: 0.5 }}
             className="text-center mb-14"
           >
-            <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-yellow-600 dark:text-amber-400 mb-3">
-              {whyUsLabel}
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-4xl md:text-5xl">
+            <span className="eyebrow mb-3">{whyUsLabel}</span>
+            <h2 className="font-display text-4xl md:text-5xl leading-[1.1] text-white mt-3">
               {whyUsTitle}
             </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500 dark:text-slate-400">
+            <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-400 leading-relaxed">
               {whyUsSubtitle}
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
             {whyChooseItems.map((item, index) => (
               <motion.div
                 key={item.title}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative p-7 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-800/50 hover:border-yellow-200/60 dark:hover:border-amber-500/30 hover:shadow-lg transition-all duration-300 text-center group"
+                transition={{ duration: 0.45, delay: index * 0.08 }}
+                className="relative p-7 rounded-xl border border-slate-800/80 bg-slate-900 hover:border-amber-500/30 transition-all duration-300 text-center group"
               >
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-50 dark:bg-amber-500/10 text-yellow-600 dark:text-amber-400 mb-5 group-hover:scale-110 transition-transform duration-300">
-                  <item.icon className="h-6 w-6" />
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 mb-5 group-hover:scale-110 transition-transform duration-300">
+                  <item.icon className="h-6 w-6" strokeWidth={1.5} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{item.description}</p>
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-slate-400 leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>

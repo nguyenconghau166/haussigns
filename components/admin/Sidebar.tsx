@@ -33,6 +33,7 @@ const NAV_ITEMS = [
   { label: 'Quản lý Trang', href: '/admin/pages', icon: FileText },
   { label: 'Quản lý Ngành hàng', href: '/admin/industries', icon: Building2 },
   { label: 'Quản lý Vật liệu', href: '/admin/materials', icon: Layers },
+  { label: 'Trusted Brands', href: '/admin/trusted-brands', icon: Building2 },
   { label: 'AI Pipeline', href: '/admin/ai-center', icon: Bot },
   { label: 'Quản lý Sản phẩm (Mới)', href: '/admin/products', icon: Package },
   { label: 'Quản lý Dự án', href: '/admin/projects', icon: Layers },

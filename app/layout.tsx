@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import { unstable_cache } from 'next/cache';
 import { Suspense } from "react";
 import Analytics from "@/components/Analytics";
@@ -15,8 +15,16 @@ const inter = Inter({
   display: "swap",
 });
 
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const PUBLIC_CLIENT_SETTING_KEYS = new Set([
   'hero_title',
@@ -41,9 +49,9 @@ type ConfigRow = { key: string; value: string };
 
 const getConfigRows = unstable_cache(
   async () => {
-    if (!supabaseUrl || !supabaseAnonKey) return [] as ConfigRow[];
+    if (!supabaseUrl || !supabaseServiceKey) return [] as ConfigRow[];
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { data, error } = await supabase.from('ai_config').select('key, value');
 
     if (error) {
@@ -165,7 +173,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)]`}>
+      <body className={`${inter.variable} ${playfair.variable} antialiased font-[family-name:var(--font-inter)]`}>
         <Suspense>
           <SettingsProvider initialSettings={clientSafeSettings}>
             <Analytics {...analyticsConfig} />

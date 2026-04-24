@@ -36,6 +36,27 @@ export const getPosts = async (limit?: number) => fetchData<Record<string, unkno
 export const getMaterials = async (limit?: number) => fetchData<Record<string, unknown>>('materials', limit);
 export const getIndustries = async (limit?: number) => fetchData<Record<string, unknown>>('industries', limit);
 
+export const getTrustedBrands = async (limit?: number) => {
+    const supabase = getSupabase();
+    let query = supabase
+        .from('trusted_brands')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+    if (limit) query = query.limit(limit);
+
+    const { data, error } = await query;
+    if (error) {
+        // Table may not exist yet before migration is applied — degrade gracefully
+        // 42P01 = Postgres "undefined_table"; PGRST205 = PostgREST "table not found in schema cache"
+        const missingTable = error.code === '42P01' || error.code === 'PGRST205';
+        if (!missingTable) console.error('Error fetching trusted_brands:', error);
+        return [];
+    }
+    return data as Record<string, unknown>[];
+};
+
 export const getServiceBySlug = async (slug: string) => {
     const supabase = getSupabase();
     const { data, error } = await supabase.from('services').select('*').eq('slug', slug).single();

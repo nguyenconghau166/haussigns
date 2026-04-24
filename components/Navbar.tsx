@@ -60,16 +60,16 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex md:items-center md:space-x-6">
+          <div className="hidden md:flex md:items-center md:space-x-7">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'text-sm font-medium transition-colors hover:text-slate-900 dark:hover:text-white',
+                  'text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors hover:text-slate-900 dark:hover:text-amber-400',
                   pathname === item.href
-                    ? 'text-slate-900 dark:text-white'
-                    : 'text-slate-700 dark:text-slate-200'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-slate-700 dark:text-slate-300'
                 )}
               >
                 {item.label}
@@ -78,19 +78,24 @@ export default function Navbar() {
 
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="p-2 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-colors"
+              className="p-2 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-amber-400 transition-colors"
               aria-label="Search"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             </button>
             <Link
               href="/contact"
-              className={cn(
-                "inline-flex h-9 items-center justify-center rounded-md bg-slate-900 dark:bg-amber-500 px-4 py-2 text-sm font-medium text-white dark:text-slate-900 shadow transition-colors hover:bg-slate-900/90 dark:hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:pointer-events-none disabled:opacity-50"
-              )}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-amber-500 bg-transparent px-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500 transition-colors hover:bg-amber-500 hover:text-slate-900"
             >
               Get a Quote
             </Link>
+            <button
+              onClick={() => setIsOpen(true)}
+              className="hidden md:inline-flex items-center justify-center h-10 w-10 rounded-full border border-slate-700 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-amber-500 hover:text-amber-400 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -112,10 +117,10 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu Content — slide down */}
+        {/* Menu Content — slide down (also triggered by desktop hamburger badge) */}
         <div
           className={cn(
-            'md:hidden overflow-hidden transition-all duration-300 ease-in-out border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900',
+            'overflow-hidden transition-all duration-300 ease-in-out border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900',
             isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 border-t-0'
           )}
         >

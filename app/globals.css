@@ -93,6 +93,71 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== Editorial luxury typography utilities ===== */
+.font-display {
+  font-family: var(--font-playfair), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: #fbbf24; /* amber-400 */
+}
+
+.eyebrow-dark {
+  color: #b45309; /* amber-700 — for light backgrounds */
+}
+
+.accent-italic {
+  font-style: italic;
+  color: #d4a84b;
+  font-weight: 500;
+}
+
+.gold-divider {
+  display: inline-block;
+  width: 32px;
+  height: 1px;
+  background: #fbbf24;
+  vertical-align: middle;
+  margin-right: 12px;
+}
+
+.section-pad {
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+}
+
+@media (min-width: 768px) {
+  .section-pad {
+    padding-top: 8rem;
+    padding-bottom: 8rem;
+  }
+}
+
+.btn-ghost-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: #fbbf24;
+  padding: 0.75rem 0.25rem;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.btn-ghost-gold:hover {
+  color: #fde68a;
+  border-bottom-color: #fbbf24;
+}
+
 /* ===== Container ===== */
 .container {
   max-width: 1280px;

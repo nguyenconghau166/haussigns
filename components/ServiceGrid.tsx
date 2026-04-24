@@ -61,18 +61,20 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-14 md:mb-16"
+          className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14 md:mb-16"
         >
-          <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-amber-600 mb-3">
-            What We Do
-          </span>
-          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-4xl md:text-5xl">
-            Our Expertise
-          </h2>
-          <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg text-slate-500 dark:text-slate-400">
-            We specialize in all types of indoor and outdoor signage fabrication,
-            from concept to installation.
-          </p>
+          <div className="max-w-2xl">
+            <span className="eyebrow eyebrow-dark dark:!text-amber-400 mb-3">What We Do</span>
+            <h2 className="font-display text-4xl md:text-5xl leading-[1.1] text-slate-900 dark:text-white mt-3">
+              Crafted with <span className="accent-italic">intention.</span>
+            </h2>
+            <p className="mt-4 text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
+              We specialize in all types of indoor and outdoor signage fabrication, from concept to installation.
+            </p>
+          </div>
+          <Link href="/services/types" className="btn-ghost-gold !text-amber-600 dark:!text-amber-400 self-start md:self-end">
+            View All Services →
+          </Link>
         </motion.div>
 
         {/* Grid */}
@@ -90,7 +92,7 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
               <motion.div key={service.slug} variants={cardVariants}>
                 <Link
                   href={`/services/types/${service.slug}`}
-                  className="group relative flex flex-col rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-800/50 p-7 transition-all duration-300 hover:shadow-xl hover:border-amber-200/60 dark:hover:border-amber-500/30 hover:-translate-y-1"
+                  className="group relative flex flex-col rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 p-7 transition-all duration-300 hover:border-amber-500/40 dark:hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
                 >
                   {/* Gradient hover background */}
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-50/0 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -122,14 +124,6 @@ export default function ServiceGrid({ services = [] }: { services?: Service[] })
           })}
         </motion.div>
 
-        <div className="mt-10 text-center">
-          <Link
-            href="/services/types"
-            className="inline-flex items-center rounded-full border border-slate-200 px-6 py-2 font-medium text-slate-900 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-white dark:hover:bg-slate-800"
-          >
-            View All Services
-          </Link>
-        </div>
       </div>
     </section>
   );
